@@ -1,0 +1,87 @@
+/* Custom Styles */
+.personal-mode.active,
+.public-mode.active {
+  display: block;
+}
+
+.chat-bubble {
+  max-width: 70%;
+  padding: 12px;
+  border-radius: 12px;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.chat-bubble.user-a {
+  background-color: #3b82f6;
+  color: white;
+  align-self: flex-start;
+}
+
+.chat-bubble.user-b {
+  background-color: #e5e7eb;
+  color: black;
+  align-self: flex-end;
+}
+
+.chat-bubble .timestamp {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-top: 4px;
+}
+
+.post {
+  background-color: white;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.post .post-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.post .post-header img {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
+
+.post .post-header .username {
+  font-weight: bold;
+}
+
+.post .post-header .timestamp {
+  font-size: 0.75rem;
+  color: gray;
+}
+
+.post .post-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.post .post-actions button {
+  background: none;
+  border: none;
+  color: gray;
+  cursor: pointer;
+}
+
+.post .post-actions button:hover {
+  color: #3b82f6;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
