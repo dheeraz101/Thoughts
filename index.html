@@ -13,101 +13,110 @@
             color: #ffffff;
             margin: 0;
             padding: 0;
-        }
-        .container {
-            max-width: 672px;
-            margin: 0 auto;
-            padding: 16px;
+            line-height: 1.5;
         }
         header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 16px;
+            padding: 12px 0; /* Subtle depth */
             border-bottom: 1px solid #2f3336;
         }
+        h1 {
+            font-size: 1.3rem; /* 20.8px */
+            font-weight: 700; /* Bold but refined */
+        }
         .input-section {
-            padding: 16px 0;
+            padding: 12px 0; /* Consistent spacing */
             border-bottom: 1px solid #2f3336;
         }
         .input-wrapper {
-            position: relative;
-            margin-bottom: 8px;
+            margin-bottom: 8px; /* Balanced spacing */
         }
         #public-input {
             width: 100%;
-            min-height: 80px;
+            min-height: 56px; /* Compact yet usable */
             background-color: #000000;
             border: 1px solid #333;
-            padding: 12px;
-            border-radius: 8px;
+            padding: 10px; /* Precise padding */
+            border-radius: 8px; /* Soft Apple radius */
             outline: none;
             color: #ffffff;
             caret-color: #ffffff;
             resize: none;
-            font-size: 1.125rem;
+            font-size: 1.125rem; /* 18px */
+            font-weight: 400;
             line-height: 1.5;
             overflow: hidden;
             box-sizing: border-box;
-            z-index: 1;
-            position: relative;
+            transition: border-color 0.2s ease; /* Subtle depth */
         }
         #public-input:focus {
-            border-color: #ffffff; /* White border on focus */
+            border-color: #ffffff;
         }
         #public-input::selection {
             background-color: rgba(29, 155, 240, 0.3);
             color: #ffffff;
         }
-        #input-highlight {
-            width: 100%;
-            min-height: 80px;
-            background-color: transparent;
-            padding: 12px;
-            border-radius: 8px;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            font-size: 1.125rem;
-            line-height: 1.5;
-            pointer-events: none;
-            position: absolute;
-            top: 0;
-            left: 0;
-            box-sizing: border-box;
-            z-index: 0;
+        #public-input::placeholder {
+            color: #71767b;
+            font-weight: 400;
         }
-        /* Ensure hashtags inherit color from spans only */
-        #input-highlight span {
-            color: #1d9bf0; /* Twitter blue for hashtags */
-        }
-        #public-input::placeholder { color: #71767b; }
         .input-footer {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-top: 8px;
         }
-        .text-twitter-gray { color: #71767b; }
-        .text-twitter-blue { color: #1d9bf0; }
-        .bg-twitter-button { background-color: #1d9bf0; }
-        .bg-twitter-button:hover { background-color: #1a8cd8; }
-        #post-container .border-b { border-color: #2f3336; }
+        #char-count {
+            font-size: 0.9375rem; /* 15px, subtle */
+            font-weight: 400;
+            color: #71767b;
+        }
+        #post-button {
+            padding: 6px 14px; /* Compact, tactile */
+            font-size: 0.9375rem; /* 15px */
+            font-weight: 600;
+            border-radius: 9999px;
+            background-color: #1d9bf0;
+            color: #ffffff;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        #post-button:hover {
+            background-color: #1a8cd8;
+        }
         .post-container {
-            padding: 16px 0;
+            padding: 12px 0;
         }
         .post {
-            padding: 16px 0;
+            padding: 12px 0;
             border-bottom: 1px solid #2f3336;
         }
-        .post-content { font-size: 15px; }
+        .post-content {
+            font-size: 1.0625rem; /* 17px */
+            font-weight: 400;
+            line-height: 1.5;
+        }
+        .post-content .hashtag {
+            color: #1d9bf0;
+        }
         .post-meta {
             display: flex;
             justify-content: space-between;
-            margin-top: 8px;
-            font-size: 13px;
+            margin-top: 6px;
+            font-size: 0.9375rem; /* 15px */
+            font-weight: 400;
             color: #71767b;
         }
-        .delete-post:hover { color: #f4212e; }
+        .delete-post {
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+        .delete-post:hover {
+            color: #f4212e;
+        }
         .twitter-popup {
             background-color: #14171A;
             border-radius: 14px;
@@ -119,26 +128,106 @@
             text-align: center;
         }
         @media (max-width: 768px) {
-            .container { padding: 8px; }
-            header, .input-section, .post { padding: 12px 0; }
+            .container {
+                max-width: 100%;
+                padding: 0 10px; /* Apple's standard padding */
+            }
+            
+            header {
+                padding: 16px 0; /* Increased vertical rhythm */
+            }
+            
+            h1 {
+                font-size: 17px; /* Apple's standard text size */
+                letter-spacing: -0.022em; /* Apple's text tracking */
+            }
+            
+            .input-section {
+                padding: 12px 0;
+            }
+            
+            #public-input {
+                min-height: 44px; /* Apple's standard touch target */
+                padding: 12px;
+                font-size: 17px; /* Apple's body text size */
+                line-height: 1.47059; /* Apple's line height */
+                border-radius: 14px; /* Apple's modern radius */
+            }
+            
+            .input-footer {
+                margin-top: 8px;
+                padding: 0 4px;
+            }
+            
+            #char-count {
+                font-size: 13px; /* Apple's caption size */
+                letter-spacing: -0.008em;
+            }
+            
+            #post-button {
+                height: 36px; /* Apple's button height */
+                padding: 0 16px;
+                font-size: 15px; /* Apple's button text size */
+                font-weight: 500;
+                letter-spacing: -0.016em;
+            }
+            
+            .post {
+                padding: 16px 0;
+            }
+            
+            .post-content {
+                font-size: 17px; /* Apple's body text size */
+                line-height: 1.47059;
+                letter-spacing: -0.022em;
+            }
+            
+            .post-meta {
+                margin-top: 8px;
+                font-size: 13px; /* Apple's caption size */
+                letter-spacing: -0.008em;
+            }
+            
+            .delete-post {
+                padding: 8px;
+                margin: -8px;
+            }
+            
+            /* Popup improvements */
+            .twitter-popup {
+                border-radius: 14px;
+                padding: 20px;
+            }
+            
+            .twitter-popup p {
+                font-size: 17px;
+                letter-spacing: -0.022em;
+                line-height: 1.47059;
+            }
+            
+            .twitter-popup button {
+                height: 44px; /* Apple's primary button height */
+                margin-top: 12px;
+                font-size: 15px;
+                letter-spacing: -0.016em;
+            }
         }
     </style>
 </head>
-<body>
-    <div class="container">
+<body class="bg-black text-white flex justify-center p-4">
+    <div class="container w-full max-w-3xl">
         <header>
-            <h1 class="text-xl font-bold">X Clone</h1>
+            <h1>X Clone</h1>
             <button id="delete-all" class="text-red-500 hover:text-red-400">Delete All</button>
         </header>
 
         <div class="input-section">
             <div class="input-wrapper">
                 <textarea id="public-input" placeholder="What's happening?"></textarea>
-                <div id="input-highlight"></div>
             </div>
             <div class="input-footer">
-                <span id="char-count" class="text-twitter-gray">0/500</span>
-                <button id="post-button" class="bg-twitter-button text-white px-4 py-2 rounded-full font-bold hover:bg-twitter-button">Post</button>
+                <span id="char-count">0/500</span>
+                <button id="post-button">Post</button>
             </div>
         </div>
 
@@ -159,7 +248,6 @@
             const postButton = document.getElementById("post-button");
             const postContainer = document.getElementById("post-container");
             const inputWrapper = document.getElementById("public-input");
-            const inputHighlight = document.getElementById("input-highlight");
             const charCount = document.getElementById("char-count");
             const deleteAllButton = document.getElementById("delete-all");
             const deleteConfirmation = document.getElementById("delete-confirmation");
@@ -168,18 +256,17 @@
             let deleteIndex = null;
 
             function highlightHashtags(text) {
-                return text.replace(/(\s|^)(#\w+)/g, '$1<span class="text-twitter-blue">$2</span>');
+                return text.replace(/(\s|^)(#\w+)/g, '$1<span class="hashtag">$2</span>')
+                           .replace(/\n/g, "<br>");
             }
 
             function adjustHeight() {
                 inputWrapper.style.height = "auto";
                 inputWrapper.style.height = `${inputWrapper.scrollHeight}px`;
-                inputHighlight.style.height = `${inputWrapper.scrollHeight}px`;
             }
 
             inputWrapper.addEventListener("input", function () {
                 const text = this.value;
-                inputHighlight.innerHTML = highlightHashtags(text.replace(/\n/g, "<br>"));
                 adjustHeight();
                 charCount.textContent = `${text.length}/500`;
                 charCount.classList.toggle("text-red-500", text.length > 500);
@@ -193,7 +280,6 @@
                 if (!text || text.length > 500) return;
                 savePost(text);
                 inputWrapper.value = "";
-                inputHighlight.innerHTML = "";
                 adjustHeight();
                 charCount.textContent = "0/500";
                 charCount.classList.remove("text-red-500");
@@ -213,7 +299,7 @@
                     const postElement = document.createElement("div");
                     postElement.className = "post";
                     postElement.innerHTML = `
-                        <div class="post-content">${highlightHashtags(post.text.replace(/\n/g, "<br>"))}</div>
+                        <div class="post-content">${highlightHashtags(post.text)}</div>
                         <div class="post-meta">
                             <small>${post.timestamp.replace(/, /, " • ")} • ${post.text.length} chars</small>
                             <button class="delete-post" data-index="${index}">
@@ -254,14 +340,6 @@
             });
 
             renderPosts();
-
-            inputWrapper.addEventListener("focus", function () {
-                if (this.value === "") inputHighlight.innerHTML = "";
-            });
-
-            inputWrapper.addEventListener("blur", function () {
-                if (this.value.trim() === "") inputHighlight.innerHTML = "";
-            });
         });
     </script>
 </body>
