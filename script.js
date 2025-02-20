@@ -20,58 +20,58 @@ let currentUser = 'A'; // Default user
 
 function toggleUser() {
   currentUser = currentUser === 'A' ? 'B' : 'A';
-  // Optionally update a UI indicator
   document.getElementById('current-user-indicator').innerText = `Active User: ${currentUser}`;
 }
 
-
-// Render Personal Notes
+// Render Personal Notes (WhatsApp-inspired)
 function renderPersonalNotes() {
   chatContainer.innerHTML = personalNotes
-    .map((note, index) => {
+    .map((note) => {
       const avatarUrl = note.user === 'A' 
         ? 'https://i.pravatar.cc/40?img=1' 
         : 'https://i.pravatar.cc/40?img=2';
       return `
-        <div class="chat-bubble user-${note.user.toLowerCase()}">
-          <div class="flex items-center gap-2">
-            <img src="${avatarUrl}" alt="Avatar" class="w-6 h-6 rounded-full">
+        <div class="flex items-start gap-2">
+          <img src="${avatarUrl}" alt="Avatar" class="w-8 h-8 rounded-full">
+          <div class="chat-bubble ${note.user === 'A' ? 'user-a' : 'user-b'}">
             <div>
-              <span class="user-label font-bold">${note.user === currentUser ? 'You' : 'Other'}</span>: ${note.text}
+              <span class="user-label font-bold">${note.user === currentUser ? 'You' : 'Other'}</span>
             </div>
+            <div class="mt-1">${note.text}</div>
+            <div class="timestamp mt-1">${note.time}</div>
           </div>
-          <div class="timestamp">${note.time}</div>
         </div>
       `;
     })
     .join('');
 }
 
-
-// Render Public Posts
+// Render Public Posts (Twitter-inspired)
 function renderPublicPosts() {
-    postContainer.innerHTML = publicPosts
-      .map((post, index) => {
-        const avatarUrl = post.user === 'A' 
-          ? 'https://i.pravatar.cc/40?img=1' 
-          : 'https://i.pravatar.cc/40?img=2';
-        return `
-          <div class="post">
-            <div class="post-header">
-              <img src="${avatarUrl}" alt="Avatar">
-              <div class="username">Speaker</div>
-              <div class="timestamp">${post.time}</div>
-            </div>
-            <div class="post-content">${post.text}</div>
-            <div class="post-actions">
-              <button><i class="ri-heart-line"></i></button>
-              <button><i class="ri-chat-3-line"></i></button>
-              <button><i class="ri-bookmark-line"></i></button>
+  postContainer.innerHTML = publicPosts
+    .map((post) => {
+      const avatarUrl = post.user === 'A' 
+        ? 'https://i.pravatar.cc/40?img=1' 
+        : 'https://i.pravatar.cc/40?img=2';
+      return `
+        <div class="post">
+          <div class="post-header flex items-center gap-3">
+            <img src="${avatarUrl}" alt="Avatar" class="w-10 h-10 rounded-full">
+            <div>
+              <div class="username font-bold">Speaker</div>
+              <div class="timestamp text-xs text-gray-500">${post.time}</div>
             </div>
           </div>
-        `;
-      })
-      .join('');
+          <div class="post-content mt-2">${post.text}</div>
+          <div class="post-actions mt-2 flex gap-4">
+            <button><i class="ri-heart-line"></i></button>
+            <button><i class="ri-chat-3-line"></i></button>
+            <button><i class="ri-bookmark-line"></i></button>
+          </div>
+        </div>
+      `;
+    })
+    .join('');
 }
 
 // Add Personal Note
@@ -86,7 +86,6 @@ function addPersonalNote() {
     chatContainer.scrollTop = chatContainer.scrollHeight;
   }
 }
-
 
 // Add Public Post
 function addPublicPost() {
@@ -117,12 +116,13 @@ modeToggle.addEventListener('click', () => {
   publicMode.classList.toggle('hidden');
 });
 
+// Dark Mode Toggle
 darkModeToggle.addEventListener('click', () => {
-    document.body.classList.toggle('dark');
-    darkModeToggle.innerHTML = document.body.classList.contains('dark') 
-      ? '<i class="ri-sun-line"></i>' 
-      : '<i class="ri-moon-line"></i>';
-  });
+  document.body.classList.toggle('dark');
+  darkModeToggle.innerHTML = document.body.classList.contains('dark') 
+    ? '<i class="ri-sun-line"></i>' 
+    : '<i class="ri-moon-line"></i>';
+});
 
 // Initial Render
 renderPersonalNotes();
