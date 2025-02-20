@@ -7,37 +7,150 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
-        textarea:focus { outline: none; }
-        textarea::-webkit-scrollbar { display: none; }
-        .dark-popup { background-color: #111; border-radius: 10px; padding: 20px; max-width: 90%; color: white; }
-        #public-input::placeholder { color: gray; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #000000;
+            color: #ffffff;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            max-width: 672px;
+            margin: 0 auto;
+            padding: 16px;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px;
+            border-bottom: 1px solid #2f3336;
+        }
+        .input-section {
+            padding: 16px 0;
+            border-bottom: 1px solid #2f3336;
+        }
+        .input-wrapper {
+            position: relative;
+            margin-bottom: 8px;
+        }
+        #public-input {
+            width: 100%;
+            min-height: 80px;
+            background-color: #000000;
+            border: 1px solid #333;
+            padding: 12px;
+            border-radius: 8px;
+            outline: none;
+            color: #ffffff;
+            caret-color: #ffffff;
+            resize: none;
+            font-size: 1.125rem;
+            line-height: 1.5;
+            overflow: hidden;
+            box-sizing: border-box;
+            z-index: 1;
+            position: relative;
+        }
+        #public-input:focus {
+            border-color: #ffffff; /* White border on focus */
+        }
+        #public-input::selection {
+            background-color: rgba(29, 155, 240, 0.3);
+            color: #ffffff;
+        }
+        #input-highlight {
+            width: 100%;
+            min-height: 80px;
+            background-color: transparent;
+            padding: 12px;
+            border-radius: 8px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 1.125rem;
+            line-height: 1.5;
+            pointer-events: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            box-sizing: border-box;
+            z-index: 0;
+        }
+        /* Ensure hashtags inherit color from spans only */
+        #input-highlight span {
+            color: #1d9bf0; /* Twitter blue for hashtags */
+        }
+        #public-input::placeholder { color: #71767b; }
+        .input-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 8px;
+        }
+        .text-twitter-gray { color: #71767b; }
+        .text-twitter-blue { color: #1d9bf0; }
+        .bg-twitter-button { background-color: #1d9bf0; }
+        .bg-twitter-button:hover { background-color: #1a8cd8; }
+        #post-container .border-b { border-color: #2f3336; }
+        .post-container {
+            padding: 16px 0;
+        }
+        .post {
+            padding: 16px 0;
+            border-bottom: 1px solid #2f3336;
+        }
+        .post-content { font-size: 15px; }
+        .post-meta {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 8px;
+            font-size: 13px;
+            color: #71767b;
+        }
+        .delete-post:hover { color: #f4212e; }
+        .twitter-popup {
+            background-color: #14171A;
+            border-radius: 14px;
+            padding: 16px;
+            max-width: 300px;
+            width: 100%;
+            box-shadow: 0 0 0 1px rgba(136, 153, 166, 0.2), 0 5px 15px rgba(0, 0, 0, 0.5);
+            color: #ffffff;
+            text-align: center;
+        }
+        @media (max-width: 768px) {
+            .container { padding: 8px; }
+            header, .input-section, .post { padding: 12px 0; }
+        }
     </style>
 </head>
-<body class="bg-black text-white flex justify-center p-4">
-    <div class="w-full max-w-xl">
-        <header class="flex justify-between items-center p-4 border-b border-gray-700">
+<body>
+    <div class="container">
+        <header>
             <h1 class="text-xl font-bold">X Clone</h1>
-            <button id="delete-all" class="text-red-500">Delete All</button>
+            <button id="delete-all" class="text-red-500 hover:text-red-400">Delete All</button>
         </header>
-        
-        <div class="p-4 border-b border-gray-700">
-            <textarea id="public-input" class="w-full p-2 bg-black text-white border border-gray-700 rounded-md text-lg overflow-hidden" placeholder="What's on your mind?" maxlength="500"></textarea>
-            <div class="flex justify-between items-center mt-2">
-                <span id="char-count" class="text-gray-500">0/500</span>
-                <button id="post-button" class="bg-blue-500 text-white px-4 py-2 rounded-md">Post</button>
+
+        <div class="input-section">
+            <div class="input-wrapper">
+                <textarea id="public-input" placeholder="What's happening?"></textarea>
+                <div id="input-highlight"></div>
+            </div>
+            <div class="input-footer">
+                <span id="char-count" class="text-twitter-gray">0/500</span>
+                <button id="post-button" class="bg-twitter-button text-white px-4 py-2 rounded-full font-bold hover:bg-twitter-button">Post</button>
             </div>
         </div>
-        
-        <div id="post-container" class="p-4"></div>
+
+        <div id="post-container" class="post-container"></div>
     </div>
 
-    <div id="delete-confirmation" class="fixed inset-0 bg-black bg-opacity-60 hidden flex justify-center items-center p-4">
-        <div class="dark-popup text-center">
-            <p class="mb-4 text-lg font-medium">Delete post?</p>
-            <p class="text-gray-400 text-sm mb-4">This can’t be undone and will be removed permanently.</p>
-            <button id="confirm-delete" class="bg-red-500 text-white px-4 py-2 rounded-md w-full mb-2">Delete</button>
-            <button id="cancel-delete" class="bg-gray-700 text-white px-4 py-2 rounded-md w-full">Cancel</button>
+    <div id="delete-confirmation" class="fixed inset-0 bg-[#000000] bg-opacity-60 hidden flex justify-center items-center p-4">
+        <div class="twitter-popup">
+            <p class="mb-4 text-[15px] font-bold">Delete post?</p>
+            <p class="text-twitter-gray text-[13px] mb-4">This can’t be undone and it will be removed from your timeline.</p>
+            <button id="confirm-delete" class="bg-red-500 text-white px-4 py-1.5 rounded-full font-bold w-full mb-2 hover:bg-red-600">Delete</button>
+            <button id="cancel-delete" class="bg-[#ffffff] text-black px-4 py-1.5 rounded-full font-bold w-full hover:bg-[#e6e6e6]">Cancel</button>
         </div>
     </div>
 
@@ -45,92 +158,110 @@
         document.addEventListener("DOMContentLoaded", function () {
             const postButton = document.getElementById("post-button");
             const postContainer = document.getElementById("post-container");
-            const inputField = document.getElementById("public-input");
+            const inputWrapper = document.getElementById("public-input");
+            const inputHighlight = document.getElementById("input-highlight");
             const charCount = document.getElementById("char-count");
             const deleteAllButton = document.getElementById("delete-all");
             const deleteConfirmation = document.getElementById("delete-confirmation");
             const confirmDelete = document.getElementById("confirm-delete");
             const cancelDelete = document.getElementById("cancel-delete");
             let deleteIndex = null;
-            
-            inputField.addEventListener("input", function () {
-                let text = inputField.value;
-                text = text.replace(/#(\w+)/g, '<span class="text-blue-500">#$1</span>');
-                inputField.innerHTML = text;
-                inputField.style.height = "auto";
-                inputField.style.height = inputField.scrollHeight + "px";
-                const length = inputField.value.length;
-                charCount.textContent = `${length}/500`;
-                charCount.classList.toggle("text-red-500", length > 500);
+
+            function highlightHashtags(text) {
+                return text.replace(/(\s|^)(#\w+)/g, '$1<span class="text-twitter-blue">$2</span>');
+            }
+
+            function adjustHeight() {
+                inputWrapper.style.height = "auto";
+                inputWrapper.style.height = `${inputWrapper.scrollHeight}px`;
+                inputHighlight.style.height = `${inputWrapper.scrollHeight}px`;
+            }
+
+            inputWrapper.addEventListener("input", function () {
+                const text = this.value;
+                inputHighlight.innerHTML = highlightHashtags(text.replace(/\n/g, "<br>"));
+                adjustHeight();
+                charCount.textContent = `${text.length}/500`;
+                charCount.classList.toggle("text-red-500", text.length > 500);
             });
-            
-            function loadPosts() {
+
+            adjustHeight();
+            inputWrapper.addEventListener("paste", adjustHeight);
+
+            postButton.addEventListener("click", function () {
+                const text = inputWrapper.value.trim();
+                if (!text || text.length > 500) return;
+                savePost(text);
+                inputWrapper.value = "";
+                inputHighlight.innerHTML = "";
+                adjustHeight();
+                charCount.textContent = "0/500";
+                charCount.classList.remove("text-red-500");
+            });
+
+            function savePost(text) {
+                let posts = JSON.parse(localStorage.getItem("posts")) || [];
+                posts.push({ text, timestamp: new Date().toLocaleString() });
+                localStorage.setItem("posts", JSON.stringify(posts));
+                renderPosts();
+            }
+
+            function renderPosts() {
                 const posts = JSON.parse(localStorage.getItem("posts")) || [];
                 postContainer.innerHTML = "";
                 posts.forEach((post, index) => {
                     const postElement = document.createElement("div");
-                    postElement.classList.add("p-4", "border-b", "border-gray-700");
+                    postElement.className = "post";
                     postElement.innerHTML = `
-                        <div>
-                            <p class="text-lg">${post.text.replace(/#(\w+)/g, '<span class="text-blue-500">#$1</span>')}</p>
-                            <div class='flex justify-between text-gray-500 text-sm mt-2'>
-                                <small>${post.timestamp.replace(/, /, ' • ')} • ${post.text.length} chars</small>
-                                <button class="text-red-500 delete-post" data-index="${index}">
-                                    <i class="fas fa-trash-alt"></i>
-                                </button>
-                            </div>
+                        <div class="post-content">${highlightHashtags(post.text.replace(/\n/g, "<br>"))}</div>
+                        <div class="post-meta">
+                            <small>${post.timestamp.replace(/, /, " • ")} • ${post.text.length} chars</small>
+                            <button class="delete-post" data-index="${index}">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
                         </div>
                     `;
                     postContainer.prepend(postElement);
                 });
+
+                document.querySelectorAll(".delete-post").forEach(button => {
+                    button.addEventListener("click", function () {
+                        deleteIndex = this.getAttribute("data-index");
+                        deleteConfirmation.classList.remove("hidden");
+                    });
+                });
             }
-            
-            function savePost(text) {
-                let posts = JSON.parse(localStorage.getItem("posts")) || [];
-                const newPost = { text, timestamp: new Date().toLocaleString() };
-                posts.push(newPost);
-                localStorage.setItem("posts", JSON.stringify(posts));
-                loadPosts();
-            }
-            
-            postButton.addEventListener("click", function () {
-                const text = inputField.value.trim();
-                if (text === "" || text.length > 500) return;
-                savePost(text);
-                inputField.value = "";
-                inputField.style.height = "auto";
-                charCount.textContent = "0/500";
-                charCount.classList.remove("text-red-500");
-            });
-            
-            postContainer.addEventListener("click", function (event) {
-                if (event.target.closest(".delete-post")) {
-                    deleteIndex = event.target.closest(".delete-post").getAttribute("data-index");
-                    deleteConfirmation.classList.remove("hidden");
-                }
-            });
-            
+
             confirmDelete.addEventListener("click", function () {
                 if (deleteIndex !== null) {
                     let posts = JSON.parse(localStorage.getItem("posts")) || [];
                     posts.splice(deleteIndex, 1);
                     localStorage.setItem("posts", JSON.stringify(posts));
-                    loadPosts();
-                    deleteIndex = null;
+                    renderPosts();
                     deleteConfirmation.classList.add("hidden");
+                    deleteIndex = null;
                 }
             });
-            
+
             cancelDelete.addEventListener("click", function () {
                 deleteConfirmation.classList.add("hidden");
+                deleteIndex = null;
             });
-            
+
             deleteAllButton.addEventListener("click", function () {
                 localStorage.removeItem("posts");
-                loadPosts();
+                renderPosts();
             });
-            
-            loadPosts();
+
+            renderPosts();
+
+            inputWrapper.addEventListener("focus", function () {
+                if (this.value === "") inputHighlight.innerHTML = "";
+            });
+
+            inputWrapper.addEventListener("blur", function () {
+                if (this.value.trim() === "") inputHighlight.innerHTML = "";
+            });
         });
     </script>
 </body>
