@@ -5,17 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>X Clone</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script defer src="script.js"></script>
 </head>
 <body class="bg-black text-white flex justify-center p-4">
     <div class="w-full max-w-xl">
         <header class="flex justify-between items-center p-4 border-b border-gray-700">
             <h1 class="text-xl font-bold">X Clone</h1>
+            <button id="delete-all" class="text-red-500">Delete All</button>
         </header>
         
         <div class="p-4 border-b border-gray-700">
             <textarea id="public-input" class="w-full p-2 bg-black text-white border border-gray-700 rounded-md" placeholder="What's on your mind?" maxlength="500"></textarea>
-            <button id="post-button" class="mt-2 bg-blue-500 text-white px-4 py-2 rounded-md">Post</button>
+            <div class="flex justify-between items-center mt-2">
+                <span id="char-count" class="text-gray-500">0/500</span>
+                <button id="post-button" class="bg-blue-500 text-white px-4 py-2 rounded-md">Post</button>
+            </div>
         </div>
         
         <div id="post-container" class="p-4"></div>
@@ -26,6 +29,14 @@
             const postButton = document.getElementById("post-button");
             const postContainer = document.getElementById("post-container");
             const inputField = document.getElementById("public-input");
+            const charCount = document.getElementById("char-count");
+            const deleteAllButton = document.getElementById("delete-all");
+            
+            inputField.addEventListener("input", function () {
+                const length = inputField.value.length;
+                charCount.textContent = `${length}/500`;
+                charCount.classList.toggle("text-red-500", length > 500);
+            });
             
             function loadPosts() {
                 const posts = JSON.parse(localStorage.getItem("posts")) || [];
@@ -33,7 +44,11 @@
                 posts.forEach((post, index) => {
                     const postElement = document.createElement("div");
                     postElement.classList.add("p-4", "border-b", "border-gray-700");
-                    postElement.innerHTML = `<p>${post.text}</p><small class='text-gray-500'>${post.timestamp}</small>`;
+                    postElement.innerHTML = `
+                        <p>${highlightHashtags(post.text)}</p>
+                        <small class='text-gray-500'>${post.timestamp}</small>
+                        <button class="text-red-500 delete-post" data-index="${index}">Delete</button>
+                    `;
                     postContainer.prepend(postElement);
                 });
             }
@@ -51,6 +66,23 @@
                 if (text === "" || text.length > 500) return;
                 savePost(text);
                 inputField.value = "";
+                charCount.textContent = "0/500";
+                charCount.classList.remove("text-red-500");
+            });
+            
+            postContainer.addEventListener("click", function (event) {
+                if (event.target.classList.contains("delete-post")) {
+                    const index = event.target.getAttribute("data-index");
+                    let posts = JSON.parse(localStorage.getItem("posts")) || [];
+                    posts.splice(index, 1);
+                    localStorage.setItem("posts", JSON.stringify(posts));
+                    loadPosts();
+                }
+            });
+            
+            deleteAllButton.addEventListener("click", function () {
+                localStorage.removeItem("posts");
+                loadPosts();
             });
             
             function removeOldPosts() {
@@ -59,6 +91,10 @@
                 posts = posts.filter(post => now - new Date(post.timestamp).getTime() < 86400000);
                 localStorage.setItem("posts", JSON.stringify(posts));
                 loadPosts();
+            }
+            
+            function highlightHashtags(text) {
+                return text.replace(/#(\w+)/g, '<span class="text-blue-500">#$1</span>');
             }
             
             setInterval(removeOldPosts, 60000); // Check every minute
