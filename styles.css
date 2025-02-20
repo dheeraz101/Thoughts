@@ -1,34 +1,37 @@
 /* Custom Styles */
+
+/* Ensure active modes display correctly */
 .personal-mode.active,
 .public-mode.active {
   display: block;
 }
 
+/* Personal Mode Chat Bubbles (WhatsApp-inspired) */
 .chat-bubble {
-  max-width: 70%;
-  padding: 12px;
-  border-radius: 12px;
+  max-width: 75%;
+  padding: 10px 14px;
+  border-radius: 16px;
   animation: fadeIn 0.3s ease-in-out;
+  position: relative;
+}
+.user-a.chat-bubble {
+  background-color: #e1ffc7;
+}
+.user-b.chat-bubble {
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
 }
 
-.chat-bubble.user-a {
-  background-color: #3b82f6;
-  color: white;
-  align-self: flex-start;
-}
-
-.chat-bubble.user-b {
-  background-color: #e5e7eb;
-  color: black;
-  align-self: flex-end;
-}
-
-.chat-bubble .timestamp {
+/* Timestamps and labels */
+.timestamp {
   font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.7);
-  margin-top: 4px;
+  color: rgba(55, 65, 81, 0.7);
+}
+.user-label {
+  margin-right: 4px;
 }
 
+/* Public Mode Post (Twitter-inspired) */
 .post {
   background-color: white;
   border-radius: 12px;
@@ -36,45 +39,40 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   animation: fadeIn 0.3s ease-in-out;
 }
-
-.post .post-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.post-header img {
+  border: 2px solid #3b82f6;
+}
+.post-content {
+  font-size: 1rem;
+  line-height: 1.5;
+  color: #111827;
 }
 
-.post .post-header img {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-}
-
-.post .post-header .username {
-  font-weight: bold;
-}
-
-.post .post-header .timestamp {
-  font-size: 0.75rem;
-  color: gray;
-}
-
-.post .post-actions {
-  display: flex;
-  gap: 12px;
-  margin-top: 12px;
-}
-
-.post .post-actions button {
+/* Post actions */
+.post-actions button {
   background: none;
   border: none;
   color: gray;
   cursor: pointer;
 }
-
-.post .post-actions button:hover {
+.post-actions button:hover {
   color: #3b82f6;
 }
 
+/* Dark Mode Adjustments */
+body.dark .post {
+  background-color: #1f2937;
+  color: #f9fafb;
+}
+body.dark .chat-bubble {
+  background-color: #374151;
+  color: #f9fafb;
+}
+body.dark .timestamp {
+  color: rgba(243, 244, 246, 0.7);
+}
+
+/* Keyframes for fadeIn animation */
 @keyframes fadeIn {
   from {
     opacity: 0;
