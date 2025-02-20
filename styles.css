@@ -1,9 +1,38 @@
 /* Custom Styles */
 
 /* Ensure active modes display correctly */
-.personal-mode.active,
-.public-mode.active {
+.personal-mode,
+.public-mode {
+  display: none;
+}
+
+.personal-mode:not(.hidden) {
   display: block;
+}
+
+.public-mode:not(.hidden) {
+  display: block;
+}
+
+/* DARK MODE GLOBAL OVERRIDES for Tailwind v2.2.19 */
+/* Since Tailwind CDN v2.2.19 doesn't auto-configure dark mode, we add custom dark styles */
+body.dark {
+  background-color: #1f2937 !important;
+  color: #f9fafb !important;
+}
+
+body.dark .container {
+  background-color: #1f2937;
+}
+
+body.dark header,
+body.dark .input-area,
+body.dark .post,
+body.dark .input-area textarea,
+body.dark input {
+  background-color: #374151 !important;
+  border-color: #4b5563 !important;
+  color: #f9fafb !important;
 }
 
 /* Personal Mode Chat Bubbles (WhatsApp-inspired) */
@@ -13,22 +42,25 @@
   border-radius: 16px;
   animation: fadeIn 0.3s ease-in-out;
   position: relative;
+  word-wrap: break-word;
 }
-.user-a.chat-bubble {
-  background-color: #e1ffc7;
+.user-you {
+  background-color: #dcf8c6; /* WhatsApp outgoing bubble color */
+  color: #000;
+  align-self: flex-start;
 }
-.user-b.chat-bubble {
+.user-other {
   background-color: #ffffff;
   border: 1px solid #e5e7eb;
+  color: #000;
+  align-self: flex-end;
 }
 
-/* Timestamps and labels */
+/* Timestamps */
 .timestamp {
   font-size: 0.75rem;
-  color: rgba(55, 65, 81, 0.7);
-}
-.user-label {
-  margin-right: 4px;
+  color: #6b7280;
+  margin-top: 4px;
 }
 
 /* Public Mode Post (Twitter-inspired) */
@@ -59,17 +91,13 @@
   color: #3b82f6;
 }
 
-/* Dark Mode Adjustments */
+/* Dark mode adjustments for public posts */
 body.dark .post {
   background-color: #1f2937;
   color: #f9fafb;
 }
-body.dark .chat-bubble {
-  background-color: #374151;
-  color: #f9fafb;
-}
-body.dark .timestamp {
-  color: rgba(243, 244, 246, 0.7);
+body.dark .post-header .timestamp {
+  color: #9ca3af;
 }
 
 /* Keyframes for fadeIn animation */

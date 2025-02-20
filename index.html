@@ -4,41 +4,44 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Ephemeral Notes</title>
-  <!-- Updated Tailwind CSS to v3 for proper dark mode support -->
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@3.2.7/dist/tailwind.min.css" rel="stylesheet" />
+  <!-- Using Tailwind CSS v2.2.19 -->
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet" />
   <link href="styles.css" rel="stylesheet" />
 </head>
-<body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors">
+<body class="bg-gray-50 text-gray-900 transition-colors" id="body">
   <div class="container mx-auto p-4 max-w-3xl">
     <!-- Header -->
     <header class="flex justify-between items-center mb-8">
       <h1 class="text-2xl font-bold">Ephemeral Notes</h1>
-      <button id="dark-mode-toggle" class="text-xl">
+      <button id="dark-mode-toggle" class="text-xl focus:outline-none">
         <i class="ri-moon-line"></i>
       </button>
     </header>
 
     <!-- Mode Toggle Button -->
     <div class="fixed top-6 right-6 z-50">
-      <button id="mode-toggle" class="bg-blue-500 text-white p-3 rounded-full shadow-lg hover:bg-blue-600 transition">
+      <button id="mode-toggle" class="bg-blue-500 text-white p-3 rounded-full shadow-lg hover:bg-blue-600 transition focus:outline-none">
         <i class="ri-exchange-line"></i>
       </button>
     </div>
 
     <!-- Personal Mode (WhatsApp-inspired) -->
-    <div id="personal-mode" class="personal-mode active">
-      <div id="chat-container" class="flex flex-col gap-4 mb-4 h-[60vh] overflow-y-auto p-2"></div>
+    <div id="personal-mode" class="personal-mode">
+      <!-- Chat container -->
+      <div id="chat-container" class="flex flex-col gap-4 mb-20 h-[60vh] overflow-y-auto p-2"></div>
+      <!-- User switch controls -->
       <div class="flex justify-end mb-2">
-        <button id="user-toggle" class="bg-green-500 text-white p-1 rounded hover:bg-green-600 transition" onclick="toggleUser()">
+        <button id="user-toggle" class="bg-green-500 text-white p-1 rounded hover:bg-green-600 transition focus:outline-none" onclick="toggleUser()">
           Switch User
         </button>
         <span id="current-user-indicator" class="ml-2 text-sm">Active User: A</span>
       </div>
-      <div class="input-area fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 p-4 shadow-lg">
+      <!-- Input area fixed at bottom -->
+      <div class="input-area fixed bottom-0 left-0 right-0 bg-white border-t border-gray-300 p-4 shadow-lg">
         <div class="flex gap-2">
-          <input id="personal-input" type="text" placeholder="Write a note..." class="flex-1 p-2 rounded-lg border border-gray-300 dark:border-gray-600 dark:bg-gray-700" />
-          <button onclick="addPersonalNote()" class="bg-blue-500 text-white p-2 rounded-lg hover:bg-blue-600 transition">
+          <input id="personal-input" type="text" placeholder="Write a note..." class="flex-1 p-2 rounded-lg border border-gray-300" />
+          <button onclick="addPersonalNote()" class="bg-blue-500 text-white p-2 rounded-lg hover:bg-blue-600 transition focus:outline-none">
             <i class="ri-send-plane-2-line"></i>
           </button>
         </div>
@@ -47,18 +50,19 @@
 
     <!-- Public Mode (Twitter-inspired) -->
     <div id="public-mode" class="public-mode hidden">
-      <!-- Input area on top like Twitter -->
-      <div class="input-area mb-4">
-        <textarea id="public-input" placeholder="What's happening?" class="w-full p-4 rounded-xl border border-gray-300 dark:border-gray-600 dark:bg-gray-700"></textarea>
-        <button onclick="addPublicPost()" class="bg-blue-500 text-white p-2 rounded-lg mt-2 hover:bg-blue-600 transition">
+      <!-- Input area on top -->
+      <div class="input-area mb-4 bg-white border p-4 rounded-lg shadow-md">
+        <textarea id="public-input" placeholder="What's happening?" class="w-full p-3 rounded-lg border border-gray-300"></textarea>
+        <button onclick="addPublicPost()" class="bg-blue-500 text-white p-2 rounded-lg mt-2 hover:bg-blue-600 transition focus:outline-none">
           Post
         </button>
       </div>
+      <!-- Posts container -->
       <div id="post-container" class="flex flex-col gap-4"></div>
     </div>
 
     <!-- Clear All Button -->
-    <button onclick="clearAll()" class="mt-4 bg-red-500 text-white p-2 rounded-lg hover:bg-red-600 transition">
+    <button onclick="clearAll()" class="mt-4 bg-red-500 text-white p-2 rounded-lg hover:bg-red-600 transition focus:outline-none">
       Clear All
     </button>
   </div>

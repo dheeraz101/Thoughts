@@ -11,6 +11,7 @@ const personalInput = document.getElementById('personal-input');
 const publicInput = document.getElementById('public-input');
 const darkModeToggle = document.getElementById('dark-mode-toggle');
 const modeToggle = document.getElementById('mode-toggle');
+const bodyEl = document.getElementById('body');
 
 // Load Notes and Posts from Session Storage
 let personalNotes = JSON.parse(sessionStorage.getItem(PERSONAL_NOTES_KEY)) || [];
@@ -27,19 +28,19 @@ function toggleUser() {
 function renderPersonalNotes() {
   chatContainer.innerHTML = personalNotes
     .map((note) => {
+      // If note.user equals currentUser, align left; otherwise align right
+      const alignmentClass = note.user === currentUser ? 'justify-start' : 'justify-end';
       const avatarUrl = note.user === 'A' 
         ? 'https://i.pravatar.cc/40?img=1' 
         : 'https://i.pravatar.cc/40?img=2';
       return `
-        <div class="flex items-start gap-2">
-          <img src="${avatarUrl}" alt="Avatar" class="w-8 h-8 rounded-full">
-          <div class="chat-bubble ${note.user === 'A' ? 'user-a' : 'user-b'}">
-            <div>
-              <span class="user-label font-bold">${note.user === currentUser ? 'You' : 'Other'}</span>
-            </div>
-            <div class="mt-1">${note.text}</div>
-            <div class="timestamp mt-1">${note.time}</div>
+        <div class="flex ${alignmentClass} items-start gap-2">
+          ${note.user === currentUser ? `<img src="${avatarUrl}" alt="Avatar" class="w-8 h-8 rounded-full">` : ''}
+          <div class="chat-bubble ${note.user === currentUser ? 'user-you' : 'user-other'}">
+            <div>${note.text}</div>
+            <div class="timestamp">${note.time}</div>
           </div>
+          ${note.user !== currentUser ? `<img src="${avatarUrl}" alt="Avatar" class="w-8 h-8 rounded-full">` : ''}
         </div>
       `;
     })
@@ -110,13 +111,18 @@ function clearAll() {
   renderPublicPosts();
 }
 
-// Toggle Modes
+// Toggle Modes (ensuring only one mode is visible)
 modeToggle.addEventListener('click', () => {
-  personalMode.classList.toggle('hidden');
-  publicMode.classList.toggle('hidden');
+  if (!personalMode.classList.contains('hidden')) {
+    personalMode.classList.add('hidden');
+    publicMode.classList.remove('hidden');
+  } else {
+    publicMode.classList.add('hidden');
+    personalMode.classList.remove('hidden');
+  }
 });
 
-// Dark Mode Toggle
+// Dark Mode Toggle – affecting complete site by toggling class on body
 darkModeToggle.addEventListener('click', () => {
   document.body.classList.toggle('dark');
   darkModeToggle.innerHTML = document.body.classList.contains('dark') 
