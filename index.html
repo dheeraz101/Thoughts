@@ -1,72 +1,69 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Ephemeral Notes</title>
-  <!-- Using Tailwind CSS v2.2.19 -->
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" />
-  <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet" />
-  <link href="styles.css" rel="stylesheet" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>X Clone</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="script.js"></script>
 </head>
-<body class="bg-gray-50 text-gray-900 transition-colors" id="body">
-  <div class="container mx-auto p-4 max-w-3xl">
-    <!-- Header -->
-    <header class="flex justify-between items-center mb-8">
-      <h1 class="text-2xl font-bold">Ephemeral Notes</h1>
-      <button id="dark-mode-toggle" class="text-xl focus:outline-none">
-        <i class="ri-moon-line"></i>
-      </button>
-    </header>
-
-    <!-- Mode Toggle Button -->
-    <div class="fixed top-6 right-6 z-50">
-      <button id="mode-toggle" class="bg-blue-500 text-white p-3 rounded-full shadow-lg hover:bg-blue-600 transition focus:outline-none">
-        <i class="ri-exchange-line"></i>
-      </button>
-    </div>
-
-    <!-- Personal Mode (WhatsApp-inspired) -->
-    <div id="personal-mode" class="personal-mode">
-      <!-- Chat container -->
-      <div id="chat-container" class="flex flex-col gap-4 mb-20 h-[60vh] overflow-y-auto p-2"></div>
-      <!-- User switch controls -->
-      <div class="flex justify-end mb-2">
-        <button id="user-toggle" class="bg-green-500 text-white p-1 rounded hover:bg-green-600 transition focus:outline-none" onclick="toggleUser()">
-          Switch User
-        </button>
-        <span id="current-user-indicator" class="ml-2 text-sm">Active User: A</span>
-      </div>
-      <!-- Input area fixed at bottom -->
-      <div class="input-area fixed bottom-0 left-0 right-0 bg-white border-t border-gray-300 p-4 shadow-lg">
-        <div class="flex gap-2">
-          <input id="personal-input" type="text" placeholder="Write a note..." class="flex-1 p-2 rounded-lg border border-gray-300" />
-          <button onclick="addPersonalNote()" class="bg-blue-500 text-white p-2 rounded-lg hover:bg-blue-600 transition focus:outline-none">
-            <i class="ri-send-plane-2-line"></i>
-          </button>
+<body class="bg-black text-white flex justify-center p-4">
+    <div class="w-full max-w-xl">
+        <header class="flex justify-between items-center p-4 border-b border-gray-700">
+            <h1 class="text-xl font-bold">X Clone</h1>
+        </header>
+        
+        <div class="p-4 border-b border-gray-700">
+            <textarea id="public-input" class="w-full p-2 bg-black text-white border border-gray-700 rounded-md" placeholder="What's on your mind?" maxlength="500"></textarea>
+            <button id="post-button" class="mt-2 bg-blue-500 text-white px-4 py-2 rounded-md">Post</button>
         </div>
-      </div>
+        
+        <div id="post-container" class="p-4"></div>
     </div>
 
-    <!-- Public Mode (Twitter-inspired) -->
-    <div id="public-mode" class="public-mode hidden">
-      <!-- Input area on top -->
-      <div class="input-area mb-4 bg-white border p-4 rounded-lg shadow-md">
-        <textarea id="public-input" placeholder="What's happening?" class="w-full p-3 rounded-lg border border-gray-300"></textarea>
-        <button onclick="addPublicPost()" class="bg-blue-500 text-white p-2 rounded-lg mt-2 hover:bg-blue-600 transition focus:outline-none">
-          Post
-        </button>
-      </div>
-      <!-- Posts container -->
-      <div id="post-container" class="flex flex-col gap-4"></div>
-    </div>
-
-    <!-- Clear All Button -->
-    <button onclick="clearAll()" class="mt-4 bg-red-500 text-white p-2 rounded-lg hover:bg-red-600 transition focus:outline-none">
-      Clear All
-    </button>
-  </div>
-
-  <script src="script.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const postButton = document.getElementById("post-button");
+            const postContainer = document.getElementById("post-container");
+            const inputField = document.getElementById("public-input");
+            
+            function loadPosts() {
+                const posts = JSON.parse(localStorage.getItem("posts")) || [];
+                postContainer.innerHTML = "";
+                posts.forEach((post, index) => {
+                    const postElement = document.createElement("div");
+                    postElement.classList.add("p-4", "border-b", "border-gray-700");
+                    postElement.innerHTML = `<p>${post.text}</p><small class='text-gray-500'>${post.timestamp}</small>`;
+                    postContainer.prepend(postElement);
+                });
+            }
+            
+            function savePost(text) {
+                let posts = JSON.parse(localStorage.getItem("posts")) || [];
+                const newPost = { text, timestamp: new Date().toLocaleString() };
+                posts.push(newPost);
+                localStorage.setItem("posts", JSON.stringify(posts));
+                loadPosts();
+            }
+            
+            postButton.addEventListener("click", function () {
+                const text = inputField.value.trim();
+                if (text === "" || text.length > 500) return;
+                savePost(text);
+                inputField.value = "";
+            });
+            
+            function removeOldPosts() {
+                let posts = JSON.parse(localStorage.getItem("posts")) || [];
+                const now = new Date().getTime();
+                posts = posts.filter(post => now - new Date(post.timestamp).getTime() < 86400000);
+                localStorage.setItem("posts", JSON.stringify(posts));
+                loadPosts();
+            }
+            
+            setInterval(removeOldPosts, 60000); // Check every minute
+            loadPosts();
+        });
+    </script>
 </body>
 </html>
