@@ -18,6 +18,11 @@
             line-height: 1.5;
         }
 
+        /* Ensure hidden class works with footer */
+        .hidden {
+            display: none;
+        }
+
         header {
             display: flex;
             justify-content: space-between;
@@ -88,11 +93,48 @@
             font-weight: 400;
         }
 
+        #public-input.editing {
+            border-color: #1d9bf0; /* Blue highlight for input */
+            box-shadow: 0 0 8px rgba(29, 155, 240, 0.3); /* Material shadow */
+            background-color: rgba(29, 155, 240, 0.05); /* Subtle blue tint */
+            transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+        }
+
+        #cancel-edit {
+            padding: 8px 16px;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 9999px;
+            background-color: #ffffff;
+            color: #1d9bf0;
+            border: 1px solid #1d9bf0;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: background-color 0.2s ease, box-shadow 0.2s ease;
+            display: none;
+        }
+
+        #cancel-edit:hover {
+            background-color: #f5f8fa;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .edit-post:disabled,
+        .delete-post:disabled {
+            opacity: 0.5; /* Grayed out effect */
+            cursor: not-allowed; /* Indicates non-interactivity */
+        }
+
         .input-footer {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-top: 12px;
+        }
+
+        .input-footer div {
+            display: flex;
+            gap: 8px; /* Small gap between Cancel and Save */
         }
 
         #char-count {
@@ -147,13 +189,13 @@
         .meta-badge {
             display: inline-flex;
             align-items: center;
-            background-color: transparent;
-            border: 1px solid #ffffff;
+            background-color: rgba(34, 34, 34, 0.5); /* Semi-transparent dark gray */
+            border: 1px solid #888888; /* Subtle secondary border */
             border-radius: 10px;
             padding: 1px 5px;
             font-size: 0.6875rem;
             font-weight: 400;
-            color: #d9d9d9;
+            color: #ffffff; /* Keeping text white for contrast */
             letter-spacing: -0.01em;
         }
 
@@ -196,28 +238,74 @@
             fill: currentColor;
         }
 
+        /* Replace .post.editing and .post.editing .post-content */
         .post.editing {
-            background-color: rgba(29, 155, 240, 0.05);
             border-radius: 12px;
             padding: 16px;
             margin: 8px 0;
-            border: 1px solid rgba(29, 155, 240, 0.2);
+            transition: color 0.2s ease;
         }
 
         .post.editing .post-content {
-            opacity: 0.7;
+            color: #f4212e !important; /* Force red text, overriding any parent color */
+        }
+
+        /* Replace the existing #delete-confirmation and .twitter-popup styles */
+        #delete-confirmation {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.4); /* More transparent (40% opacity) */
+            backdrop-filter: blur(8px); /* Stronger blur for aesthetic depth */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 4px;
+            transition: opacity 0.2s ease; /* Smooth fade for show/hide */
+        }
+
+        #delete-confirmation.hidden {
+            display: none; /* Ensure it hides completely */
         }
 
         .twitter-popup {
-            background-color: #14171A;
+            background: rgba(20, 23, 26, 0.7);
             border-radius: 16px;
-            padding: 20px;
+            padding: 24px; /* Increased padding for better whitespace */
             max-width: 320px;
             width: 100%;
-            box-shadow: 0 0 0 1px rgba(136, 153, 166, 0.2), 0 5px 15px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
             color: #ffffff;
             text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(6px);
         }
+
+        /* Adjust the popup text sizes and spacing */
+        .twitter-popup p:first-child {
+            font-size: 1.25rem; /* 20px - Apple's headline size for desktop */
+            font-weight: 700; /* Bold for emphasis */
+            margin-bottom: 12px; /* Increased whitespace */
+            line-height: 1.3; /* Better readability */
+        }
+
+        .twitter-popup p:nth-child(2) {
+            font-size: 1rem; /* 16px - Apple's body text size for desktop */
+            font-weight: 400;
+            color: #71767b;
+            margin-bottom: 16px; /* More whitespace before buttons */
+            line-height: 1.4;
+        }
+
+        /* Buttons spacing */
+        .twitter-popup button {
+            padding: 10px 16px; /* Slightly larger padding for touch */
+            font-size: 1rem; /* 16px - Consistent with body text */
+            font-weight: 600;
+            border-radius: 9999px;
+            width: 100%;
+            margin-bottom: 8px; /* Reduced from mb-2 for tighter spacing */
+        }
+
 
         .search-bar {
             display: flex;
@@ -260,6 +348,45 @@
         .search-bar input::placeholder {
             color: #71767b;
         }
+
+        footer {
+            color: #ffffff;
+        }
+
+        .footer-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr); /* Now only 2 sections */
+            gap: 2rem;
+        }
+
+        .footer-section ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .footer-section h2, .footer-section h3 {
+            margin: 0;
+            line-height: 1.2;
+        }
+
+        .footer-section p, .footer-bottom p {
+            margin: 0;
+            line-height: 1.6;
+        }
+
+        .footer-section a, .footer-bottom a {
+            transition: color 0.2s ease;
+        }
+
+        footer hr {
+            border: none;
+            border-top: 1px solid #333639;
+        }
+
+        .footer-bottom {
+            text-align: center;
+        }
+
 
         @media (max-width: 768px) {
             .container {
@@ -351,25 +478,76 @@
             }
 
             .twitter-popup {
-                padding: 24px;
-                border-radius: 16px;
+                padding: 20px; /* Slightly less padding for mobile */
             }
 
-            .twitter-popup p {
-                font-size: 1.125rem;
-                line-height: 1.45;
-                letter-spacing: -0.01em;
+            .twitter-popup p:first-child {
+                font-size: 1.375rem; /* 22px - Apple's mobile headline size */
+            }
+
+            .twitter-popup p:nth-child(2) {
+                font-size: 1.125rem; /* 18px - Apple's mobile body text */
             }
 
             .twitter-popup button {
-                height: 48px;
-                margin-top: 14px;
-                font-size: 1.125rem;
+                padding: 12px 16px; /* Larger touch target */
+                font-size: 1.125rem; /* 18px - Matches mobile body text */
+                margin-bottom: 10px; /* Adjusted whitespace */
             }
 
             .search-bar {
                 margin-top: 4%;
                 padding: 10px 16px;
+            }
+            .input-footer div {
+                gap: 10px; /* Slightly larger gap for mobile touch */
+            }
+
+            #cancel-edit {
+                height: 40px;
+                padding: 0 20px;
+                font-size: 1.125rem;
+            }
+
+            footer {
+                padding-top: 2.5rem; /* 40px */
+                padding-bottom: 2.5rem;
+            }
+
+            footer .container {
+                padding-left: 1rem; /* 16px */
+                padding-right: 1rem;
+            }
+
+            .footer-grid {
+                grid-template-columns: 1fr;
+                gap: 1.5rem; /* 24px */
+            }
+
+            .footer-section h2 {
+                font-size: 1.75rem; /* 28px */
+            }
+
+            .footer-section h3 {
+                font-size: 1.375rem; /* 22px */
+            }
+
+            .footer-section .text-base {
+                font-size: 1.125rem; /* 18px */
+            }
+
+            .footer-section .text-sm, .footer-bottom .text-sm {
+                font-size: 0.9375rem; /* 15px */
+            }
+
+            .footer-bottom .text-xs {
+                font-size: 0.875rem; /* 14px */
+            }
+
+            footer hr {
+                width: 90%;
+                margin-top: 2rem; /* 32px */
+                margin-bottom: 2rem;
             }
         }
 
@@ -389,6 +567,25 @@
                 justify-content: flex-start;
                 width: auto;
             }
+            footer .footer-section h2 {
+                font-size: 2rem; /* 32px */
+            }
+
+            footer .footer-section h3 {
+                font-size: 1.25rem; /* 20px */
+            }
+
+            footer .footer-section .text-base {
+                font-size: 1.125rem; /* 18px */
+            }
+
+            footer .footer-section .text-sm, footer .footer-bottom .text-sm {
+                font-size: 0.875rem; /* 14px */
+            }
+
+            footer .footer-bottom .text-xs {
+                font-size: 0.75rem; /* 12px */
+            }
         }
     </style>
 </head>
@@ -406,7 +603,7 @@
                 <circle cx="11" cy="11" r="8"></circle>
                 <line x1="16.5" y1="16.5" x2="21" y2="21"></line>
             </svg>
-            <input id="search-input" type="text" placeholder="Search posts...">
+            <input id="search-input" type="text" placeholder="Search notes...">
             <svg class="clear-search" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#71767b" stroke-width="2">
                 <line x1="18" y1="6" x2="6" y2="18"></line>
                 <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -415,20 +612,49 @@
 
         <div class="input-section">
             <div class="input-wrapper">
-                <textarea id="public-input" placeholder="What's happening?"></textarea>
+                <textarea id="public-input" placeholder="What are you thinking?"></textarea>
             </div>
             <div class="input-footer">
                 <span id="char-count">0/500</span>
-                <button id="post-button">Post</button>
+                <div>
+                    <button id="cancel-edit">Cancel</button>
+                    <button id="post-button">Save</button>
+                </div>
             </div>
         </div>
 
         <div id="post-container" class="post-container"></div>
+
+        <footer class="mt-12 py-12 hidden" id="footer">
+            <div class="container w-full max-w-4xl mx-auto px-6">
+                <div class="footer-grid">
+                    <!-- Brand & Author -->
+                    <div class="footer-section">
+                        <h2 class="text-2xl text-[#ffffff] font-bold mb-4">Thoughts</h2>
+                        <p class="text-base text-[#e6e6e6] mb-2">Crafted by <a href="https://dheeraz.netlify.app" class="text-[#1d9bf0] hover:underline" target="_blank">Dheeraz</a></p>
+                        <p class="text-sm text-[#a6a6a6]">v1.0.2</p>
+                    </div>
+                    <!-- Install Guide -->
+                    <div class="footer-section">
+                        <h3 class="text-lg text-[#ffffff] font-semibold mb-4">Go Offline</h3>
+                        <p class="text-sm text-[#e6e6e6] mb-3">Install Thoughts for offline use:</p>
+                        <p class="text-sm text-[#d9d9d9] mb-2"><strong>Android:</strong> Menu (⋮) > Add to Home screen.</p>
+                        <p class="text-sm text-[#d9d9d9]"><strong>iOS:</strong> Share (⬆) > Add to Home Screen.</p>
+                    </div>
+                </div>
+                <hr class="border-[#333639] my-8 mx-auto w-3/4">
+                <div class="footer-bottom">
+                    <p class="text-sm text-[#e6e6e6] mb-2">Thoughts is secure & private. No data collected—your notes stay local.</p>
+                    <br>
+                    <p class="text-xs text-[#a6a6a6]">© 2025 Thoughts. All rights reserved.</p>
+                </div>
+            </div>
+        </footer>
     </div>
 
     <div id="delete-confirmation" class="fixed inset-0 bg-[#000000] bg-opacity-60 hidden flex justify-center items-center p-4">
         <div class="twitter-popup">
-            <p class="mb-4 text-[15px] font-bold">Delete post?</p>
+            <p class="mb-4 text-[15px] font-bold">Delete Note?</p>
             <p class="mb-4" style="color: #71767b; font-size: 13px;">This can’t be undone and it will be removed from your timeline.</p>
             <button id="confirm-delete" class="bg-red-500 text-white px-4 py-1.5 rounded-full font-bold w-full mb-2 hover:bg-red-600">Delete</button>
             <button id="cancel-delete" class="bg-[#ffffff] text-black px-4 py-1.5 rounded-full font-bold w-full hover:bg-[#e6e6e6]">Cancel</button>
@@ -447,32 +673,45 @@
             const cancelDelete = document.getElementById("cancel-delete");
             const searchInput = document.getElementById("search-input");
             const clearSearch = document.querySelector(".clear-search");
+            const cancelEditButton = document.getElementById("cancel-edit");
             let deleteIndex = null;
             let editIndex = null;
-
+    
             function highlightHashtags(text) {
                 return text.replace(/(\s|^)(#\w+)/g, '$1<span class="hashtag">$2</span>').replace(/\n/g, "<br>");
             }
-
+    
             function adjustHeight() {
                 inputWrapper.style.height = "auto";
                 inputWrapper.style.height = `${inputWrapper.scrollHeight}px`;
             }
-
+    
+            function updateEditState() {
+                if (editIndex !== null) {
+                    inputWrapper.classList.add("editing");
+                    cancelEditButton.style.display = "inline-block";
+                    postButton.textContent = "Save";
+                } else {
+                    inputWrapper.classList.remove("editing");
+                    cancelEditButton.style.display = "none";
+                    postButton.textContent = "Save";
+                }
+            }
+    
             inputWrapper.addEventListener("input", function () {
                 const text = this.value;
                 adjustHeight();
                 charCount.textContent = `${text.length}/500`;
                 charCount.classList.toggle("text-red-500", text.length > 500);
             });
-
+    
             adjustHeight();
             inputWrapper.addEventListener("paste", adjustHeight);
-
+    
             postButton.addEventListener("click", function () {
                 const text = inputWrapper.value.trim();
                 if (!text || text.length > 500) return;
-
+    
                 if (editIndex !== null) {
                     let posts = JSON.parse(localStorage.getItem("posts")) || [];
                     posts[editIndex].text = text;
@@ -482,21 +721,32 @@
                 } else {
                     savePost(text);
                 }
-
+    
                 inputWrapper.value = "";
                 adjustHeight();
                 charCount.textContent = "0/500";
                 charCount.classList.remove("text-red-500");
+                updateEditState();
                 renderPosts();
             });
-
+    
+            cancelEditButton.addEventListener("click", function () {
+                inputWrapper.value = "";
+                editIndex = null;
+                adjustHeight();
+                charCount.textContent = "0/500";
+                charCount.classList.remove("text-red-500");
+                updateEditState();
+                renderPosts();
+            });
+    
             function savePost(text) {
                 let posts = JSON.parse(localStorage.getItem("posts")) || [];
                 posts.push({ text, timestamp: new Date().toLocaleString() });
                 localStorage.setItem("posts", JSON.stringify(posts));
                 renderPosts();
             }
-
+    
             function renderPosts(filterText = "") {
                 const posts = JSON.parse(localStorage.getItem("posts")) || [];
                 postContainer.innerHTML = "";
@@ -512,14 +762,14 @@
                             <span class="meta-badge">${post.text.length} chars</span>
                         </div>
                         <div class="post-actions">
-                            <button class="edit-post ${editIndex === index ? "active" : ""}" data-index="${index}">
+                            <button class="edit-post" data-index="${index}" ${editIndex === index ? "disabled" : ""}>
                                 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <path d="M12 20h9"/>
                                     <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
                                 </svg>
                                 <span>Edit</span>
                             </button>
-                            <button class="delete-post" data-index="${index}">
+                            <button class="delete-post" data-index="${index}" ${editIndex === index ? "disabled" : ""}>
                                 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <path d="M3 6h18"/>
                                     <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
@@ -536,24 +786,32 @@
 
                 document.querySelectorAll(".delete-post").forEach(button => {
                     button.addEventListener("click", function () {
-                        deleteIndex = this.getAttribute("data-index");
-                        deleteConfirmation.classList.remove("hidden");
+                        if (!this.disabled) { // Only trigger if not disabled
+                            deleteIndex = this.getAttribute("data-index");
+                            deleteConfirmation.classList.remove("hidden");
+                        }
                     });
                 });
 
                 document.querySelectorAll(".edit-post").forEach(button => {
                     button.addEventListener("click", function () {
-                        editIndex = this.getAttribute("data-index");
-                        const posts = JSON.parse(localStorage.getItem("posts")) || [];
-                        inputWrapper.value = posts[editIndex].text;
-                        adjustHeight();
-                        charCount.textContent = `${inputWrapper.value.length}/500`;
-                        charCount.classList.toggle("text-red-500", inputWrapper.value.length > 500);
-                        renderPosts();
+                        if (!this.disabled) { // Only trigger if not disabled
+                            editIndex = parseInt(this.getAttribute("data-index"));
+                            const posts = JSON.parse(localStorage.getItem("posts")) || [];
+                            inputWrapper.value = posts[editIndex].text;
+                            adjustHeight();
+                            charCount.textContent = `${inputWrapper.value.length}/500`;
+                            charCount.classList.toggle("text-red-500", inputWrapper.value.length > 500);
+                            updateEditState();
+                            renderPosts();
+                        }
                     });
                 });
-            }
 
+                    // Show footer after posts are rendered
+                document.getElementById("footer").classList.remove("hidden");
+            }
+    
             confirmDelete.addEventListener("click", function () {
                 if (deleteIndex !== null) {
                     let posts = JSON.parse(localStorage.getItem("posts")) || [];
@@ -564,70 +822,66 @@
                     deleteIndex = null;
                 }
             });
-
+    
             cancelDelete.addEventListener("click", function () {
                 deleteConfirmation.classList.add("hidden");
                 deleteIndex = null;
             });
-
+    
             deleteAllButton.addEventListener("click", function () {
                 localStorage.removeItem("posts");
                 renderPosts();
             });
-
+    
             searchInput.addEventListener("input", function () {
                 const searchText = this.value.trim();
                 renderPosts(searchText);
                 clearSearch.style.display = searchText ? "block" : "none";
             });
-
+    
             clearSearch.addEventListener("click", function () {
                 searchInput.value = "";
                 renderPosts();
                 clearSearch.style.display = "none";
             });
-
             renderPosts();
         });
-
-        
-    // Install App Prompt
-    let deferredPrompt;
-    window.addEventListener('beforeinstallprompt', (e) => {
-        e.preventDefault();
-        deferredPrompt = e;
-        // Show install button after user interaction
-        setTimeout(() => {
-            const installButton = document.createElement('button');
-            installButton.textContent = 'Install App';
-            installButton.className = 'bg-blue-500 text-white px-4 py-2 rounded-full fixed bottom-4 right-4';
-            installButton.addEventListener('click', () => {
-                deferredPrompt.prompt();
-                deferredPrompt.userChoice.then((choiceResult) => {
-                    if (choiceResult.outcome === 'accepted') {
-                        console.log('User accepted the install prompt');
-                    } else {
-                        console.log('User dismissed the install prompt');
-                    }
-                    deferredPrompt = null;
+    
+        // Install App Prompt
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            setTimeout(() => {
+                const installButton = document.createElement('button');
+                installButton.textContent = 'Install App';
+                installButton.className = 'bg-blue-500 text-white px-4 py-2 rounded-full fixed bottom-4 right-4';
+                installButton.addEventListener('click', () => {
+                    deferredPrompt.prompt();
+                    deferredPrompt.userChoice.then((choiceResult) => {
+                        if (choiceResult.outcome === 'accepted') {
+                            console.log('User accepted the install prompt');
+                        } else {
+                            console.log('User dismissed the install prompt');
+                        }
+                        deferredPrompt = null;
+                    });
                 });
-            });
-            document.body.appendChild(installButton);
-        }, 5000); // Show after 5 seconds
-    });
-
-    // Service Worker for offline support
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('/service-worker.js')
-                .then(registration => {
-                    console.log('ServiceWorker registration successful with scope: ', registration.scope);
-                })
-                .catch(err => {
-                    console.log('ServiceWorker registration failed: ', err);
-                });
+                document.body.appendChild(installButton);
+            }, 5000);
         });
-    }
+    
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(registration => {
+                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                    })
+                    .catch(err => {
+                        console.log('ServiceWorker registration failed: ', err);
+                    });
+            });
+        }
     </script>
 </body>
 </html>
