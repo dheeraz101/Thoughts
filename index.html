@@ -8,7 +8,6 @@
     <link rel="manifest" href="/manifest.json"> <!-- Add manifest for PWA -->
     <meta name="theme-color" content="#000000"> <!-- Theme color for PWA -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
@@ -18,7 +17,7 @@
             padding: 0;
             line-height: 1.5;
         }
-    
+
         header {
             display: flex;
             justify-content: space-between;
@@ -26,37 +25,36 @@
             padding: 16px 0;
             border-bottom: 1px solid #2f3336;
         }
-    
-        /* Increase specificity for h1 to override Tailwind base styles */
+
         header h1 {
-            font-size: 1.75rem; /* 28px - Apple’s large title size for desktop */
+            font-size: 1.75rem;
             font-weight: 800;
             letter-spacing: -0.02em;
         }
-    
+
         #delete-all {
-            font-size: 1rem; /* 16px - Matches secondary action size */
-            font-weight: 600; /* Fixed from 'none' to a valid value */
-            color: #f4212e; /* Consistent with delete theme, overrides Tailwind */
+            font-size: 1rem;
+            font-weight: 600;
+            color: #f4212e;
             background: none;
             border: none;
             cursor: pointer;
             padding: 0;
         }
-    
+
         #delete-all:hover {
-            color: #d61c28; /* Overrides Tailwind hover */
+            color: #d61c28;
         }
-    
+
         .input-section {
             padding: 16px 0;
             border-bottom: 1px solid #2f3336;
         }
-    
+
         .input-wrapper {
             margin-bottom: 12px;
         }
-    
+
         #public-input {
             width: 100%;
             min-height: 150px;
@@ -75,34 +73,34 @@
             box-sizing: border-box;
             transition: border-color 0.2s ease;
         }
-    
+
         #public-input:focus {
             border-color: #ffffff;
         }
-    
+
         #public-input::selection {
             background-color: rgba(29, 155, 240, 0.3);
             color: #ffffff;
         }
-    
+
         #public-input::placeholder {
             color: #71767b;
             font-weight: 400;
         }
-    
+
         .input-footer {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-top: 12px;
         }
-    
+
         #char-count {
             font-size: 1rem;
             font-weight: 400;
             color: #71767b;
         }
-    
+
         #post-button {
             padding: 8px 16px;
             font-size: 1rem;
@@ -114,20 +112,20 @@
             cursor: pointer;
             transition: background-color 0.2s ease;
         }
-    
+
         #post-button:hover {
             background-color: #1a8cd8;
         }
-    
+
         .post-container {
             padding: 16px 0;
         }
-    
+
         .post {
             padding: 16px 0;
             border-bottom: 1px solid #2f3336;
         }
-    
+
         .post-content {
             font-size: 1.25rem;
             font-weight: 400;
@@ -135,18 +133,17 @@
             letter-spacing: -0.01em;
             margin-bottom: 16px;
         }
-    
+
         .post-content .hashtag {
             color: #1d9bf0;
         }
-    
+
         .post-meta {
-            margin-top: 0;
             display: flex;
             flex-wrap: wrap;
             gap: 6px;
         }
-    
+
         .meta-badge {
             display: inline-flex;
             align-items: center;
@@ -159,14 +156,14 @@
             color: #d9d9d9;
             letter-spacing: -0.01em;
         }
-    
+
         .post-actions {
             display: flex;
             gap: 12px;
             margin-top: 10px;
             align-items: center;
         }
-    
+
         .edit-post,
         .delete-post {
             display: flex;
@@ -182,23 +179,23 @@
             text-transform: none;
             min-width: 90px;
         }
-    
+
         .edit-post {
             background-color: #ffffff;
             color: #000000;
         }
-    
+
         .delete-post {
             background-color: #f4212e;
             color: #ffffff;
         }
-    
+
         .icon {
             width: 16px;
             height: 16px;
             fill: currentColor;
         }
-    
+
         .post.editing {
             background-color: rgba(29, 155, 240, 0.05);
             border-radius: 12px;
@@ -206,21 +203,11 @@
             margin: 8px 0;
             border: 1px solid rgba(29, 155, 240, 0.2);
         }
-    
+
         .post.editing .post-content {
             opacity: 0.7;
         }
-    
-        .editing-label {
-            color: #1d9bf0;
-            font-size: 0.875rem;
-            font-weight: 500;
-            margin-bottom: 8px;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-    
+
         .twitter-popup {
             background-color: #14171A;
             border-radius: 16px;
@@ -231,7 +218,7 @@
             color: #ffffff;
             text-align: center;
         }
-    
+
         .search-bar {
             display: flex;
             align-items: center;
@@ -241,13 +228,12 @@
             margin-top: 3%;
             padding: 8px 14px;
             flex-grow: 1;
-            width: 100%;
         }
-    
+
         .search-bar .search-icon {
             flex-shrink: 0;
         }
-    
+
         .search-bar input {
             background-color: transparent;
             border: none;
@@ -258,7 +244,7 @@
             margin-left: 8px;
             padding: 2px 0;
         }
-    
+
         .search-bar .clear-search {
             cursor: pointer;
             flex-shrink: 0;
@@ -266,39 +252,40 @@
             display: none;
             transition: stroke 0.2s ease;
         }
-    
+
         .search-bar .clear-search:hover {
             stroke: #ffffff;
         }
-    
+
         .search-bar input::placeholder {
             color: #71767b;
         }
-    
+
         @media (max-width: 768px) {
             .container {
                 max-width: 100%;
                 padding: 0 12px;
             }
-    
+
             header {
                 padding: 20px 0;
             }
-    
+
             header h1 {
-                font-size: 2rem; /* 32px - Apple’s large title for mobile */
+                font-size: 2rem;
                 font-weight: 800;
                 letter-spacing: -0.03em;
             }
-    
+
             #delete-all {
-                font-size: 1.125rem; /* 18px - Matches mobile secondary action size */
+                font-size: 1.125rem;
+                font-weight: 600;
             }
-    
+
             .input-section {
                 padding: 20px 0;
             }
-    
+
             #public-input {
                 min-height: 160px;
                 padding: 14px;
@@ -306,101 +293,98 @@
                 line-height: 1.45;
                 border-radius: 14px;
             }
-    
+
             .input-footer {
                 margin-top: 12px;
                 padding: 0 4px;
             }
-    
+
             #char-count {
                 font-size: 1.125rem;
                 letter-spacing: -0.01em;
             }
-    
+
             #post-button {
                 height: 40px;
                 padding: 0 20px;
                 font-size: 1.125rem;
-                font-weight: 600;
             }
-    
+
             .post {
                 padding: 20px 0;
             }
-    
+
             .post-content {
                 font-size: 1.375rem;
                 line-height: 1.45;
                 letter-spacing: -0.01em;
                 margin-bottom: 20px;
             }
-    
+
             .post-meta {
-                margin-top: 0;
                 gap: 8px;
             }
-    
+
             .meta-badge {
                 font-size: 0.8125rem;
                 padding: 2px 6px;
                 border-radius: 12px;
             }
-    
+
             .post-actions {
                 gap: 10px;
                 margin-top: 12px;
                 justify-content: space-between;
                 width: 100%;
             }
-    
+
             .edit-post,
             .delete-post {
                 padding: 8px 16px;
                 font-size: 1.125rem;
                 flex: 1;
-                max-width: none;
             }
-    
+
             .icon {
                 width: 18px;
                 height: 18px;
             }
-    
+
             .twitter-popup {
                 padding: 24px;
                 border-radius: 16px;
             }
-    
+
             .twitter-popup p {
                 font-size: 1.125rem;
                 line-height: 1.45;
                 letter-spacing: -0.01em;
             }
-    
+
             .twitter-popup button {
                 height: 48px;
                 margin-top: 14px;
                 font-size: 1.125rem;
             }
-    
+
             .search-bar {
                 margin-top: 4%;
                 padding: 10px 16px;
             }
         }
-    
+
         @media (min-width: 769px) {
             .edit-post,
             .delete-post {
                 padding: 6px 12px;
                 font-size: 0.9375rem;
             }
-    
+
             .meta-badge {
                 padding: 1px 5px;
                 font-size: 0.6875rem;
             }
-    
+
             .post-actions {
                 justify-content: flex-start;
                 width: auto;
@@ -408,7 +392,7 @@
         }
     </style>
 </head>
-<body class="bg-black text-white flex justify-center p-4">
+<body class="flex justify-center p-4">
     <div class="container w-full max-w-3xl">
         <header>
             <div class="flex justify-between w-full">
@@ -418,13 +402,11 @@
         </header>
 
         <div class="search-bar">
-            <!-- Replace fa-search with SVG -->
             <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#71767b" stroke-width="2">
                 <circle cx="11" cy="11" r="8"></circle>
                 <line x1="16.5" y1="16.5" x2="21" y2="21"></line>
             </svg>
             <input id="search-input" type="text" placeholder="Search posts...">
-            <!-- Update clear icon to be more minimal -->
             <svg class="clear-search" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#71767b" stroke-width="2">
                 <line x1="18" y1="6" x2="6" y2="18"></line>
                 <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -447,7 +429,7 @@
     <div id="delete-confirmation" class="fixed inset-0 bg-[#000000] bg-opacity-60 hidden flex justify-center items-center p-4">
         <div class="twitter-popup">
             <p class="mb-4 text-[15px] font-bold">Delete post?</p>
-            <p class="text-twitter-gray text-[13px] mb-4">This can’t be undone and it will be removed from your timeline.</p>
+            <p class="mb-4" style="color: #71767b; font-size: 13px;">This can’t be undone and it will be removed from your timeline.</p>
             <button id="confirm-delete" class="bg-red-500 text-white px-4 py-1.5 rounded-full font-bold w-full mb-2 hover:bg-red-600">Delete</button>
             <button id="cancel-delete" class="bg-[#ffffff] text-black px-4 py-1.5 rounded-full font-bold w-full hover:bg-[#e6e6e6]">Cancel</button>
         </div>
@@ -466,11 +448,10 @@
             const searchInput = document.getElementById("search-input");
             const clearSearch = document.querySelector(".clear-search");
             let deleteIndex = null;
-            let editIndex = null; // Track the index of the post being edited
+            let editIndex = null;
 
             function highlightHashtags(text) {
-                return text.replace(/(\s|^)(#\w+)/g, '$1<span class="hashtag">$2</span>')
-                           .replace(/\n/g, "<br>");
+                return text.replace(/(\s|^)(#\w+)/g, '$1<span class="hashtag">$2</span>').replace(/\n/g, "<br>");
             }
 
             function adjustHeight() {
@@ -493,14 +474,12 @@
                 if (!text || text.length > 500) return;
 
                 if (editIndex !== null) {
-                    // Update the existing post
                     let posts = JSON.parse(localStorage.getItem("posts")) || [];
                     posts[editIndex].text = text;
                     posts[editIndex].timestamp = new Date().toLocaleString();
                     localStorage.setItem("posts", JSON.stringify(posts));
-                    editIndex = null; // Reset edit index
+                    editIndex = null;
                 } else {
-                    // Save a new post
                     savePost(text);
                 }
 
@@ -540,7 +519,6 @@
                                 </svg>
                                 <span>Edit</span>
                             </button>
-
                             <button class="delete-post" data-index="${index}">
                                 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <path d="M3 6h18"/>
@@ -575,6 +553,7 @@
                     });
                 });
             }
+
             confirmDelete.addEventListener("click", function () {
                 if (deleteIndex !== null) {
                     let posts = JSON.parse(localStorage.getItem("posts")) || [];
@@ -611,43 +590,44 @@
             renderPosts();
         });
 
-        // Install App Prompt
-        let deferredPrompt;
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            deferredPrompt = e;
-            // Show install button after user interaction
-            setTimeout(() => {
-                const installButton = document.createElement('button');
-                installButton.textContent = 'Install App';
-                installButton.className = 'bg-blue-500 text-white px-4 py-2 rounded-full fixed bottom-4 right-4';
-                installButton.addEventListener('click', () => {
-                    deferredPrompt.prompt();
-                    deferredPrompt.userChoice.then((choiceResult) => {
-                        if (choiceResult.outcome === 'accepted') {
-                            console.log('User accepted the install prompt');
-                        } else {
-                            console.log('User dismissed the install prompt');
-                        }
-                        deferredPrompt = null;
-                    });
+        
+    // Install App Prompt
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        // Show install button after user interaction
+        setTimeout(() => {
+            const installButton = document.createElement('button');
+            installButton.textContent = 'Install App';
+            installButton.className = 'bg-blue-500 text-white px-4 py-2 rounded-full fixed bottom-4 right-4';
+            installButton.addEventListener('click', () => {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        console.log('User accepted the install prompt');
+                    } else {
+                        console.log('User dismissed the install prompt');
+                    }
+                    deferredPrompt = null;
                 });
-                document.body.appendChild(installButton);
-            }, 5000); // Show after 5 seconds
-        });
-
-        // Service Worker for offline support
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/service-worker.js')
-                    .then(registration => {
-                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
-                    })
-                    .catch(err => {
-                        console.log('ServiceWorker registration failed: ', err);
-                    });
             });
-        }
+            document.body.appendChild(installButton);
+        }, 5000); // Show after 5 seconds
+    });
+
+    // Service Worker for offline support
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/service-worker.js')
+                .then(registration => {
+                    console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                })
+                .catch(err => {
+                    console.log('ServiceWorker registration failed: ', err);
+                });
+        });
+    }
     </script>
 </body>
 </html>
