@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>X Clone</title>
+    <title>Thoughts</title>
+    <link rel="manifest" href="/manifest.json"> <!-- Add manifest for PWA -->
+    <meta name="theme-color" content="#000000"> <!-- Theme color for PWA -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
     <style>
@@ -19,37 +21,37 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 12px 0; /* Subtle depth */
+            padding: 12px 0;
             border-bottom: 1px solid #2f3336;
         }
         h1 {
-            font-size: 1.3rem; /* 20.8px */
-            font-weight: 700; /* Bold but refined */
+            font-size: 1.3rem;
+            font-weight: 700;
         }
         .input-section {
-            padding: 12px 0; /* Consistent spacing */
+            padding: 12px 0;
             border-bottom: 1px solid #2f3336;
         }
         .input-wrapper {
-            margin-bottom: 8px; /* Balanced spacing */
+            margin-bottom: 8px;
         }
         #public-input {
             width: 100%;
-            min-height: 56px; /* Compact yet usable */
+            min-height: 150px;
             background-color: #000000;
             border: 1px solid #333;
-            padding: 10px; /* Precise padding */
-            border-radius: 8px; /* Soft Apple radius */
+            padding: 10px;
+            border-radius: 8px;
             outline: none;
             color: #ffffff;
             caret-color: #ffffff;
             resize: none;
-            font-size: 1.125rem; /* 18px */
+            font-size: 1.125rem;
             font-weight: 400;
             line-height: 1.5;
             overflow: hidden;
             box-sizing: border-box;
-            transition: border-color 0.2s ease; /* Subtle depth */
+            transition: border-color 0.2s ease;
         }
         #public-input:focus {
             border-color: #ffffff;
@@ -69,13 +71,13 @@
             margin-top: 8px;
         }
         #char-count {
-            font-size: 0.9375rem; /* 15px, subtle */
+            font-size: 0.9375rem;
             font-weight: 400;
             color: #71767b;
         }
         #post-button {
-            padding: 6px 14px; /* Compact, tactile */
-            font-size: 0.9375rem; /* 15px */
+            padding: 6px 14px;
+            font-size: 0.9375rem;
             font-weight: 600;
             border-radius: 9999px;
             background-color: #1d9bf0;
@@ -95,7 +97,7 @@
             border-bottom: 1px solid #2f3336;
         }
         .post-content {
-            font-size: 1.0625rem; /* 17px */
+            font-size: 1.0625rem;
             font-weight: 400;
             line-height: 1.5;
         }
@@ -106,7 +108,7 @@
             display: flex;
             justify-content: space-between;
             margin-top: 6px;
-            font-size: 0.9375rem; /* 15px */
+            font-size: 0.9375rem;
             font-weight: 400;
             color: #71767b;
         }
@@ -127,89 +129,121 @@
             color: #ffffff;
             text-align: center;
         }
+        .search-bar {
+            display: flex;
+            align-items: center;
+            background-color: #000000;
+            border: 1px solid #2f3336;
+            border-radius: 9999px;
+            margin-top: 2%;
+            padding: 6px 12px;
+            flex-grow: 1;
+            width: 100%;
+            position: relative;
+        }
+
+        .search-bar .search-icon {
+            flex-shrink: 0;
+        }
+
+        .search-bar input {
+            background-color: transparent;
+            border: none;
+            outline: none;
+            color: #ffffff;
+            font-size: 0.9375rem;
+            flex-grow: 1;
+            margin-left: 8px;
+            padding: 2px 0;
+        }
+
+        .search-bar .clear-search {
+            cursor: pointer;
+            flex-shrink: 0;
+            margin-left: 8px;
+            display: none;  /* Initial state */
+            transition: stroke 0.2s ease;
+        }
+
+        .search-bar .clear-search:hover {
+            stroke: #ffffff;
+        }
+        .search-bar input::placeholder {
+            color: #71767b;
+        }
         @media (max-width: 768px) {
             .container {
                 max-width: 100%;
-                padding: 0 10px; /* Apple's standard padding */
+                padding: 0 10px;
             }
-            
             header {
-                padding: 16px 0; /* Increased vertical rhythm */
+                padding: 16px 0;
             }
-            
             h1 {
-                font-size: 17px; /* Apple's standard text size */
-                letter-spacing: -0.022em; /* Apple's text tracking */
+                font-size: 17px;
+                letter-spacing: -0.022em;
             }
-            
             .input-section {
                 padding: 12px 0;
             }
-            
             #public-input {
-                min-height: 44px; /* Apple's standard touch target */
+                min-height: 164px;
                 padding: 12px;
-                font-size: 17px; /* Apple's body text size */
-                line-height: 1.47059; /* Apple's line height */
-                border-radius: 14px; /* Apple's modern radius */
+                font-size: 17px;
+                line-height: 1.47059;
+                border-radius: 14px;
             }
-            
             .input-footer {
                 margin-top: 8px;
                 padding: 0 4px;
             }
-            
             #char-count {
-                font-size: 13px; /* Apple's caption size */
+                font-size: 13px;
                 letter-spacing: -0.008em;
             }
-            
             #post-button {
-                height: 36px; /* Apple's button height */
+                height: 36px;
                 padding: 0 16px;
-                font-size: 15px; /* Apple's button text size */
+                font-size: 15px;
                 font-weight: 500;
                 letter-spacing: -0.016em;
             }
-            
             .post {
                 padding: 16px 0;
             }
-            
             .post-content {
-                font-size: 17px; /* Apple's body text size */
+                font-size: 17px;
                 line-height: 1.47059;
                 letter-spacing: -0.022em;
             }
-            
             .post-meta {
                 margin-top: 8px;
-                font-size: 13px; /* Apple's caption size */
+                font-size: 13px;
                 letter-spacing: -0.008em;
             }
-            
             .delete-post {
                 padding: 8px;
                 margin: -8px;
             }
-            
-            /* Popup improvements */
             .twitter-popup {
                 border-radius: 14px;
                 padding: 20px;
             }
-            
             .twitter-popup p {
                 font-size: 17px;
                 letter-spacing: -0.022em;
                 line-height: 1.47059;
             }
-            
             .twitter-popup button {
-                height: 44px; /* Apple's primary button height */
+                height: 44px;
                 margin-top: 12px;
                 font-size: 15px;
                 letter-spacing: -0.016em;
+            }
+            .search-bar {
+                width: 100%;
+                margin-top: 4%;
+                padding: 8px 16px;
             }
         }
     </style>
@@ -217,9 +251,25 @@
 <body class="bg-black text-white flex justify-center p-4">
     <div class="container w-full max-w-3xl">
         <header>
-            <h1>X Clone</h1>
-            <button id="delete-all" class="text-red-500 hover:text-red-400">Delete All</button>
+            <div class="flex justify-between w-full">
+                <h1>X Clone</h1>
+                <button id="delete-all" class="text-red-500 hover:text-red-400">Delete All</button>
+            </div>
         </header>
+
+        <div class="search-bar">
+            <!-- Replace fa-search with SVG -->
+            <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#71767b" stroke-width="2">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="16.5" y1="16.5" x2="21" y2="21"></line>
+            </svg>
+            <input id="search-input" type="text" placeholder="Search posts...">
+            <!-- Update clear icon to be more minimal -->
+            <svg class="clear-search" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#71767b" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+        </div>
 
         <div class="input-section">
             <div class="input-wrapper">
@@ -253,6 +303,8 @@
             const deleteConfirmation = document.getElementById("delete-confirmation");
             const confirmDelete = document.getElementById("confirm-delete");
             const cancelDelete = document.getElementById("cancel-delete");
+            const searchInput = document.getElementById("search-input");
+            const clearSearch = document.querySelector(".clear-search");
             let deleteIndex = null;
 
             function highlightHashtags(text) {
@@ -292,10 +344,10 @@
                 renderPosts();
             }
 
-            function renderPosts() {
+            function renderPosts(filterText = "") {
                 const posts = JSON.parse(localStorage.getItem("posts")) || [];
                 postContainer.innerHTML = "";
-                posts.forEach((post, index) => {
+                posts.filter(post => post.text.toLowerCase().includes(filterText.toLowerCase())).forEach((post, index) => {
                     const postElement = document.createElement("div");
                     postElement.className = "post";
                     postElement.innerHTML = `
@@ -339,8 +391,56 @@
                 renderPosts();
             });
 
+            searchInput.addEventListener("input", function () {
+                const searchText = this.value.trim();
+                renderPosts(searchText);
+                clearSearch.style.display = searchText ? "block" : "none";
+            });
+
+            clearSearch.addEventListener("click", function () {
+                searchInput.value = "";
+                renderPosts();
+                clearSearch.style.display = "none";
+            });
+
             renderPosts();
         });
+
+        // Install App Prompt
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            // Show install button or notification
+            const installButton = document.createElement('button');
+            installButton.textContent = 'Install App';
+            installButton.className = 'bg-blue-500 text-white px-4 py-2 rounded-full fixed bottom-4 right-4';
+            installButton.addEventListener('click', () => {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        console.log('User accepted the install prompt');
+                    } else {
+                        console.log('User dismissed the install prompt');
+                    }
+                    deferredPrompt = null;
+                });
+            });
+            document.body.appendChild(installButton);
+        });
+
+        // Service Worker for offline support
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(registration => {
+                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                    })
+                    .catch(err => {
+                        console.log('ServiceWorker registration failed: ', err);
+                    });
+            });
+        }
     </script>
 </body>
 </html>
