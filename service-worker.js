@@ -23,28 +23,23 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('fetch', (event) => {
   event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        // Return cached response if available
-        if (response) {
-          return response;
-        }
-        // Fetch from network if not in cache
-        return fetch(event.request).then((response) => {
-          // Only cache valid responses
-          if (!response || response.status !== 200 || response.type !== 'basic') {
-            return response;
+      caches.match(event.request).then((response) => {
+          if (response) {
+              return response; // Cache-First strategy
           }
-          const responseToCache = response.clone();
-          caches.open(CACHE_NAME)
-            .then((cache) => {
-              cache.put(event.request, responseToCache);
-            });
-          return response;
-        }).catch(() => {
-          // Fallback for offline (optional: return a custom offline page)
-          return caches.match('/index.html');
-        });
+          return fetch(event.request).then((response) => {
+              if (!response || response.status !== 200 || response.type !== 'basic') {
+                  return response;
+              }
+              const responseToCache = response.clone();
+              caches.open(CACHE_NAME).then((cache) => {
+                  cache.put(event.request, responseToCache);
+              });
+              return response;
+          }).catch(() => {
+              // Fallback to a custom offline page
+              return caches.match('/offline.html');
+          });
       })
   );
 });
