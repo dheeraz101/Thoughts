@@ -253,7 +253,7 @@
     <div class="container w-full max-w-3xl">
         <header>
             <div class="flex justify-between w-full">
-                <h1>X Clone</h1>
+                <h1>Thoughts</h1>
                 <button id="delete-all" class="text-red-500 hover:text-red-400">Delete All</button>
             </div>
         </header>
@@ -307,6 +307,7 @@
             const searchInput = document.getElementById("search-input");
             const clearSearch = document.querySelector(".clear-search");
             let deleteIndex = null;
+            let editIndex = null; // Track the index of the post being edited
 
             function highlightHashtags(text) {
                 return text.replace(/(\s|^)(#\w+)/g, '$1<span class="hashtag">$2</span>')
@@ -331,11 +332,24 @@
             postButton.addEventListener("click", function () {
                 const text = inputWrapper.value.trim();
                 if (!text || text.length > 500) return;
-                savePost(text);
+
+                if (editIndex !== null) {
+                    // Update the existing post
+                    let posts = JSON.parse(localStorage.getItem("posts")) || [];
+                    posts[editIndex].text = text;
+                    posts[editIndex].timestamp = new Date().toLocaleString();
+                    localStorage.setItem("posts", JSON.stringify(posts));
+                    editIndex = null; // Reset edit index
+                } else {
+                    // Save a new post
+                    savePost(text);
+                }
+
                 inputWrapper.value = "";
                 adjustHeight();
                 charCount.textContent = "0/500";
                 charCount.classList.remove("text-red-500");
+                renderPosts();
             });
 
             function savePost(text) {
@@ -355,9 +369,14 @@
                         <div class="post-content">${highlightHashtags(post.text)}</div>
                         <div class="post-meta">
                             <small>${post.timestamp.replace(/, /, " • ")} • ${post.text.length} chars</small>
-                            <button class="delete-post" data-index="${index}">
-                                <i class="fas fa-trash-alt"></i>
-                            </button>
+                            <div>
+                                <button class="edit-post" data-index="${index}">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="delete-post" data-index="${index}">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </div>
                         </div>
                     `;
                     postContainer.prepend(postElement);
@@ -367,6 +386,18 @@
                     button.addEventListener("click", function () {
                         deleteIndex = this.getAttribute("data-index");
                         deleteConfirmation.classList.remove("hidden");
+                    });
+                });
+
+                // Add event listener for edit button
+                document.querySelectorAll(".edit-post").forEach(button => {
+                    button.addEventListener("click", function () {
+                        editIndex = this.getAttribute("data-index");
+                        const posts = JSON.parse(localStorage.getItem("posts")) || [];
+                        inputWrapper.value = posts[editIndex].text;
+                        adjustHeight();
+                        charCount.textContent = `${inputWrapper.value.length}/500`;
+                        charCount.classList.toggle("text-red-500", inputWrapper.value.length > 500);
                     });
                 });
             }
