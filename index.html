@@ -163,11 +163,6 @@
             padding: 16px 0;
         }
 
-        .post {
-            padding: 16px 0;
-            border-bottom: 1px solid #2f3336;
-        }
-
         .post-content {
             font-size: 1.25rem;
             font-weight: 400;
@@ -179,6 +174,128 @@
         .post-content .hashtag {
             color: #1d9bf0;
         }
+
+        /* Make links clickable and colored */
+        .post-content a {
+            color: #1d9bf0; /* Twitter blue */
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+
+        .post-content a:hover {
+            color: #1a8cd8; /* Darker blue on hover */
+            text-decoration: underline;
+        }
+
+        /* Post title with @ symbol */
+        .post-title {
+            font-size: 1.5rem; /* Slightly larger for hierarchy */
+            font-weight: 700; /* Bold per Apple design */
+            color: #ffffff;
+            margin-bottom: 8px; /* Whitespace per Apple theory */
+            letter-spacing: -0.02em; /* Tightened for elegance */
+            line-height: 1.2;
+        }
+
+        /* Wrapper for hashtag list and arrows */
+        .hashtag-wrapper {
+            position: relative; /* Parent for absolute positioning of arrows */
+            width: 100%; /* Full width of container */
+        }
+
+        /* Hashtag list container - Horizontal scrolling like YouTube */
+        .hashtag-list {
+            display: flex;
+            flex-wrap: nowrap; /* Single line */
+            overflow-x: auto; /* Horizontal scroll */
+            overflow-y: hidden; /* No vertical scroll */
+            margin-top: 12px; /* Spacing from search bar */
+            padding: 8px 0; /* Vertical padding only */
+            scrollbar-width: none; /* Hide scrollbar in Firefox */
+            -ms-overflow-style: none; /* Hide scrollbar in IE/Edge */
+            width: calc(100% - 80px); /* Reduced width for arrows */
+            margin-left: 40px; /* Space for left arrow */
+            margin-right: 40px; /* Space for right arrow */
+            box-sizing: border-box; /* Include padding in width */
+        }
+
+        .hashtag-list.hidden {
+            display: none; /* Hide when no hashtags */
+        }
+
+        .hashtag-list::-webkit-scrollbar {
+            display: none; /* Hide scrollbar in Webkit browsers */
+        }
+
+
+        /* Hashtag badge */
+        .hashtag-badge {
+            display: inline-flex;
+            align-items: center;
+            background-color: #f4212e; /* Material red */
+            color: #ffffff;
+            padding: 4px 10px;
+            border-radius: 9999px; /* Material pill shape */
+            font-size: 0.875rem; /* 14px - Apple's subhead size */
+            font-weight: 500;
+            margin: 0 8px 0 0; /* Horizontal spacing only */
+            cursor: pointer;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+            white-space: nowrap; /* Prevent text wrapping */
+        }
+
+        .hashtag-badge:hover {
+            background-color: #d61c28; /* Darker red on hover */
+        }
+
+        .hashtag-badge.active {
+            background-color: #ffffff; /* White when active */
+            color: #000000;
+        }
+
+        /* Scroll arrows */
+        .hashtag-scroll-arrow {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 32px;
+            height: 32px;
+            background-color: rgba(255, 255, 255, 0.9); /* White with opacity */
+            color: #000000; /* Black arrows */
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: background-color 0.2s ease, opacity 0.2s ease;
+            z-index: 30; /* Above badges */
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3); /* Depth */
+        }
+
+        .hashtag-scroll-arrow:hover {
+            background-color: #ffffff; /* Solid white on hover */
+        }
+
+        .hashtag-scroll-arrow.left {
+            left: 0; /* Fixed outside the list */
+        }
+
+        .hashtag-scroll-arrow.right {
+            right: 0; /* Fixed outside the list */
+        }
+
+        .hashtag-scroll-arrow.hidden {
+            opacity: 0; /* Fade out */
+            pointer-events: none; /* Prevent clicking when hidden */
+        }
+
+
+
+        /* Adjust post content spacing when title exists */
+        .post-content.with-title {
+            margin-top: 4px; /* Reduced spacing after title */
+        }
+
 
         .post-meta {
             display: flex;
@@ -625,6 +742,30 @@
                 margin-top: 2rem; /* 32px */
                 margin-bottom: 2rem;
             }
+
+            .post-title {
+                font-size: 1.75rem; /* Larger for mobile per Apple */
+            }
+
+            .hashtag-wrapper {
+                width: 100%; /* Full width on mobile */
+            }
+
+            .hashtag-list {
+                width: 100%; /* Full width on mobile */
+                margin-left: 0; /* No offset */
+                margin-right: 0;
+                padding: 6px 0; /* No arrow space */
+            }
+
+            .hashtag-scroll-arrow {
+                display: none; /* Hide arrows on mobile */
+            }
+
+            .hashtag-badge {
+                font-size: 0.9375rem; /* Larger for touch */
+                padding: 6px 12px; /* Larger touch target */
+            }
         }
 
         @media (min-width: 769px) {
@@ -662,6 +803,20 @@
             footer .footer-bottom .text-xs {
                 font-size: 0.75rem; /* 12px */
             }
+            .hashtag-list {
+                width: calc(100% - 80px); /* Maintain reduced width */
+                margin-left: 40px; /* Space for left arrow */
+                margin-right: 40px; /* Space for right arrow */
+                padding: 8px 0; /* Vertical padding only */
+            }
+
+            .hashtag-scroll-arrow.left {
+                left: 0; /* Fixed position */
+            }
+
+            .hashtag-scroll-arrow.right {
+                right: 0; /* Fixed position */
+            }
         }
     </style>
 </head>
@@ -684,6 +839,19 @@
                 <line x1="18" y1="6" x2="6" y2="18"></line>
                 <line x1="6" y1="6" x2="18" y2="18"></line>
             </svg>
+        </div>
+        <div class="hashtag-wrapper">
+            <div class="hashtag-scroll-arrow left hidden">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="2">
+                    <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+            </div>
+            <div id="hashtag-list" class="hashtag-list"></div>
+            <div class="hashtag-scroll-arrow right hidden">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#000000" stroke-width="2">
+                    <polyline points="9 18 15 12 9 6"></polyline>
+                </svg>
+            </div>
         </div>
 
         <div class="input-section">
@@ -753,8 +921,95 @@
                 let deleteIndex = null;
                 let editIndex = null;
 
+
+                const hashtagList = document.getElementById("hashtag-list");
+                let activeHashtag = null;
+
+                // Modified highlightHashtags to also handle links
                 function highlightHashtags(text) {
+                    // First, convert URLs to clickable links
+                    const urlRegex = /(https?:\/\/[^\s]+)/g;
+                    text = text.replace(urlRegex, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+                    // Then, highlight hashtags
                     return text.replace(/(\s|^)(#\w+)/g, '$1<span class="hashtag">$2</span>').replace(/\n/g, "<br>");
+                }
+
+                // Extract title (if any) and content from post text
+                function extractTitleAndContent(text) {
+                    const titleMatch = text.match(/^@(\w+)/);
+                    if (titleMatch) {
+                        const title = titleMatch[0].substring(1); // Remove '@'
+                        const content = text.replace(/^@\w+\s*/, ""); // Remove title from content
+                        return { title, content };
+                    }
+                    return { title: null, content: text };
+                }
+
+                // Extract unique hashtags from posts
+                function getUniqueHashtags(posts) {
+                    const hashtagSet = new Set();
+                    posts.forEach(post => {
+                        const hashtags = post.text.match(/#\w+/g) || [];
+                        hashtags.forEach(tag => hashtagSet.add(tag.substring(1))); // Remove '#'
+                    });
+                    return Array.from(hashtagSet);
+                }
+
+                // Render hashtag list with scroll arrows
+                function renderHashtagList(posts) {
+                    const hashtags = getUniqueHashtags(posts);
+                    hashtagList.innerHTML = "";
+
+                    const leftArrow = document.querySelector(".hashtag-scroll-arrow.left");
+                    const rightArrow = document.querySelector(".hashtag-scroll-arrow.right");
+
+                    if (hashtags.length === 0) {
+                        hashtagList.classList.add("hidden");
+                        leftArrow.classList.add("hidden");
+                        rightArrow.classList.add("hidden");
+                        return;
+                    } else {
+                        hashtagList.classList.remove("hidden");
+                    }
+
+                    hashtags.forEach(tag => {
+                        const badge = document.createElement("span");
+                        badge.className = `hashtag-badge ${activeHashtag === tag ? "active" : ""}`;
+                        badge.textContent = tag; // No '#' prefix
+                        badge.addEventListener("click", () => {
+                            activeHashtag = activeHashtag === tag ? null : tag;
+                            renderPosts(searchInput.value.trim());
+                        });
+                        hashtagList.appendChild(badge);
+                    });
+
+                    // Handle scroll arrows (only for desktop)
+                    if (window.innerWidth > 768) {
+                        // Show/hide arrows based on scroll position
+                        function updateArrows() {
+                            const scrollLeft = hashtagList.scrollLeft;
+                            const scrollWidth = hashtagList.scrollWidth;
+                            const clientWidth = hashtagList.clientWidth;
+                            const hasOverflow = scrollWidth > clientWidth;
+
+                            leftArrow.classList.toggle("hidden", !hasOverflow || scrollLeft <= 0);
+                            rightArrow.classList.toggle("hidden", !hasOverflow || scrollLeft + clientWidth >= scrollWidth - 1);
+                        }
+
+                        // Scroll functionality
+                        leftArrow.addEventListener("click", () => {
+                            hashtagList.scrollBy({ left: -200, behavior: "smooth" });
+                        });
+
+                        rightArrow.addEventListener("click", () => {
+                            hashtagList.scrollBy({ left: 200, behavior: "smooth" });
+                        });
+
+                        // Handle scroll and resize events
+                        hashtagList.addEventListener("scroll", updateArrows);
+                        window.addEventListener("resize", updateArrows);
+                        requestAnimationFrame(updateArrows); // Update after DOM render
+                    }
                 }
 
                 function adjustHeight() {
@@ -834,70 +1089,82 @@
                     renderPosts();
                 }
 
+                // Modified renderPosts to handle titles and hashtag filtering
                 function renderPosts(filterText = "") {
                     const posts = JSON.parse(localStorage.getItem("posts")) || [];
                     postContainer.innerHTML = "";
                     
-                    const pinnedPosts = posts.filter(post => post.pinned);
-                    const regularPosts = posts.filter(post => !post.pinned && post.text.toLowerCase().includes(filterText.toLowerCase()));
+                    let filteredPosts = posts;
+                    if (activeHashtag) {
+                        filteredPosts = posts.filter(post => post.text.includes(`#${activeHashtag}`)); // Match with '#'
+                    } else {
+                        filteredPosts = posts.filter(post => post.text.toLowerCase().includes(filterText.toLowerCase()));
+                    }
+
+                    const pinnedPosts = filteredPosts.filter(post => post.pinned);
+                    const regularPosts = filteredPosts.filter(post => !post.pinned);
 
                     pinnedPosts.forEach((post, index) => {
                         const originalIndex = posts.indexOf(post);
                         renderPost(post, originalIndex, true);
                     });
-                    
+
                     regularPosts.reverse().forEach((post, index) => {
                         const originalIndex = posts.indexOf(post);
                         renderPost(post, originalIndex, false);
                     });
 
-                    function renderPost(post, index, isPinned) {
-                        const [date, time] = post.timestamp.split(", ");
-                        const postElement = document.createElement("div");
-                        postElement.className = `post ${editIndex === index ? "editing" : ""} ${isPinned ? "pinned" : ""}`;
-                        postElement.innerHTML = `
-                            <div class="post-content">${highlightHashtags(post.text)}</div>
-                            <div class="post-meta">
-                                <span class="meta-badge">${date}</span>
-                                <span class="meta-badge">${time}</span>
-                                <span class="meta-badge">${post.text.length} chars</span>
-                                ${isPinned ? '<span class="meta-badge">Pinned</span>' : ''}
-                            </div>
-                            <div class="post-actions">
-                                <button class="edit-post" data-index="${index}" ${editIndex === index ? "disabled" : ""}>
-                                    <svg class="icon" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M12 20h9"/>
-                                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-                                    </svg>
-                                    <span>Edit</span>
-                                </button>
-                                <button class="delete-post" data-index="${index}" ${editIndex === index ? "disabled" : ""}>
-                                    <svg class="icon" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M3 6h18"/>
-                                        <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                                        <path d="M10 11v6"/>
-                                        <path d="M14 11v6"/>
-                                        <path d="M5 6h14l-1 14H6L5 6z"/>
-                                    </svg>
-                                    <span>Bin</span>
-                                </button>
-                                <button class="pin-post ${isPinned ? 'pinned' : ''}" data-index="${index}" ${editIndex === index ? "disabled" : ""} aria-label="${isPinned ? 'Unpin Post' : 'Pin Post'}">
-                                    <svg class="icon" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        ${isPinned ? `
-                                            <path d="M6 3l12 12"/>
-                                            <path d="M6 15l12-12"/>
-                                            <path d="M12 22v-6"/>
-                                        ` : `
-                                            <path d="M12 2v13"/>
-                                            <path d="M5 15l7 7 7-7"/>
-                                            <path d="M19 9H5"/>
-                                        `}
-                                    </svg>
-                                </button>
-                            </div>
-                        `;
-                        postContainer.appendChild(postElement);
-                    }
+                    renderHashtagList(posts); // Render hashtag list after posts
+
+                        function renderPost(post, index, isPinned) {
+                            const [date, time] = post.timestamp.split(", ");
+                            const { title, content } = extractTitleAndContent(post.text);
+                            const postElement = document.createElement("div");
+                            postElement.className = `post ${editIndex === index ? "editing" : ""} ${isPinned ? "pinned" : ""}`;
+                            postElement.innerHTML = `
+                                ${title ? `<div class="post-title">${title}</div>` : ""}
+                                <div class="post-content ${title ? "with-title" : ""}">${highlightHashtags(content)}</div>
+                                <div class="post-meta">
+                                    <span class="meta-badge">${date}</span>
+                                    <span class="meta-badge">${time}</span>
+                                    <span class="meta-badge">${post.text.length} chars</span>
+                                    ${isPinned ? '<span class="meta-badge">Pinned</span>' : ''}
+                                </div>
+                                <div class="post-actions">
+                                    <button class="edit-post" data-index="${index}" ${editIndex === index ? "disabled" : ""}>
+                                        <svg class="icon" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M12 20h9"/>
+                                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                                        </svg>
+                                        <span>Edit</span>
+                                    </button>
+                                    <button class="delete-post" data-index="${index}" ${editIndex === index ? "disabled" : ""}>
+                                        <svg class="icon" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M3 6h18"/>
+                                            <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                            <path d="M10 11v6"/>
+                                            <path d="M14 11v6"/>
+                                            <path d="M5 6h14l-1 14H6L5 6z"/>
+                                        </svg>
+                                        <span>Bin</span>
+                                    </button>
+                                    <button class="pin-post ${isPinned ? 'pinned' : ''}" data-index="${index}" ${editIndex === index ? "disabled" : ""} aria-label="${isPinned ? 'Unpin Post' : 'Pin Post'}">
+                                        <svg class="icon" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            ${isPinned ? `
+                                                <path d="M6 3l12 12"/>
+                                                <path d="M6 15l12-12"/>
+                                                <path d="M12 22v-6"/>
+                                            ` : `
+                                                <path d="M12 2v13"/>
+                                                <path d="M5 15l7 7 7-7"/>
+                                                <path d="M19 9H5"/>
+                                            `}
+                                        </svg>
+                                    </button>
+                                </div>
+                            `;
+                            postContainer.appendChild(postElement);
+                        }
 
                     document.querySelectorAll(".delete-post").forEach(button => {
                         button.addEventListener("click", function () {
