@@ -876,7 +876,7 @@
                     <div class="footer-section">
                         <h2 class="text-2xl text-[#ffffff] font-bold mb-4">Thoughts</h2>
                         <p class="text-base text-[#e6e6e6] mb-2">Crafted by <a href="https://dheeraz.netlify.app" class="text-[#1d9bf0] hover:underline" target="_blank">Dheeraz</a></p>
-                        <p class="text-sm text-[#a6a6a6]">v1.0.5</p>
+                        <p class="text-sm text-[#a6a6a6]">v1.0.3</p>
                     </div>
                     <!-- Install Guide -->
                     <div class="footer-section">
@@ -1237,14 +1237,16 @@
             });
     
         // Install App Prompt
-        let deferredPrompt;
+       let deferredPrompt;
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPrompt = e;
             setTimeout(() => {
                 const installButton = document.createElement('button');
                 installButton.textContent = 'Install App';
-                installButton.className = 'bg-blue-500 text-white px-4 py-2 rounded-full fixed bottom-4 right-4';
+                installButton.style.cssText = 'background-color: #3b82f6; color: #ffffff; padding: 0.5rem 1rem; border-radius: 9999px; position: fixed; bottom: 1rem; right: 1rem;';
+                installButton.addEventListener('mouseover', () => installButton.style.backgroundColor = '#2563eb');
+                installButton.addEventListener('mouseout', () => installButton.style.backgroundColor = '#3b82f6');
                 installButton.addEventListener('click', () => {
                     deferredPrompt.prompt();
                     deferredPrompt.userChoice.then((choiceResult) => {
@@ -1259,7 +1261,7 @@
                 document.body.appendChild(installButton);
             }, 5000);
         });
-    
+
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('/service-worker.js')
