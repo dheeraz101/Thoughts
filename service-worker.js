@@ -1,4 +1,4 @@
-const CACHE_NAME = 'Thoughts-v1';
+const CACHE_NAME = 'Thoughts-v2';
 const ASSETS_TO_CACHE = [
   '/',              // Root route
   '/index.html',    // Main HTML file
