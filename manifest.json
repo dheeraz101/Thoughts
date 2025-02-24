@@ -1,7 +1,7 @@
 {
   "short_name": "Thoughts",
   "name": "Thoughts - Write Freely",
-  "description": "A simple, open-source, privacy-focused blogging platform.",
+  "description": "A simple, open-source, privacy-focused notes app.",
   "icons": [
     {
       "src": "/icon-192x192.png",
@@ -23,5 +23,22 @@
   "background_color": "#000000",
   "display": "standalone",
   "scope": "/",
-  "theme_color": "#000000"
+  "theme_color": "#000000",
+  "version": "1.5.1",
+  "screenshots": [
+    {
+      "src": "/screenshots/desktop-view.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Thoughts on Desktop"
+    },
+    {
+      "src": "/screenshots/mobile-view.png",
+      "sizes": "360x640",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Thoughts on Mobile"
+    }
+  ]
 }
