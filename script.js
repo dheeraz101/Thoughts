@@ -534,6 +534,464 @@ document.addEventListener("DOMContentLoaded", function () {
         console.log('Offline');
         renderPosts();
     });
+
+    // Easter Egg: Sequential Confetti Effects on Header
+    const headerTitle = document.querySelector("header h1");
+    let touchTimer;
+    let currentEffectIndex = 0;
+    let isEffectActive = false; // Prevents overlap
+
+    const effects = [
+        // 0: Realistic (unchanged)
+        () => {
+        console.log("🎉 Easter Egg: Realistic! 🎉");
+        var count = 200;
+        var defaults = { origin: { y: 0.7 } };
+        function fire(particleRatio, opts) {
+            confetti({ ...defaults, ...opts, particleCount: Math.floor(count * particleRatio) });
+        }
+        fire(0.25, { spread: 26, startVelocity: 55 });
+        fire(0.2, { spread: 60 });
+        fire(0.35, { spread: 100, decay: 0.91, scalar: 0.8 });
+        fire(0.1, { spread: 120, startVelocity: 25, decay: 0.92, scalar: 1.2 });
+        fire(0.1, { spread: 120, startVelocity: 45 });
+        },
+        // 1: Fireworks (5s, unchanged)
+        () => {
+        console.log("🎉 Easter Egg: Fireworks! 🎉");
+        const duration = 5 * 1000;
+        const end = Date.now() + duration;
+        const interval = setInterval(() => {
+            if (Date.now() > end) {
+            clearInterval(interval);
+            isEffectActive = false;
+            return;
+            }
+            confetti({
+            particleCount: 100,
+            startVelocity: 30,
+            spread: 360,
+            ticks: 60,
+            origin: { x: Math.random(), y: Math.random() - 0.2 }
+            });
+        }, 200);
+        },
+        // 2: Stars (improved: multi-burst, dazzling golden shower with motion)
+        () => {
+            console.log("🎉 Easter Egg: Starfield Effect! 🎉");
+        
+            // Helper function for random range
+            function randomInRange(min, max) {
+                return Math.random() * (max - min) + min;
+            }
+        
+            // Create a star confetti effect
+            function createStarfield() {
+                const starCount = 12; // Number of stars
+                const container = document.createElement('div');
+                container.style.position = 'fixed';
+                container.style.top = '0';
+                container.style.left = '0';
+                container.style.width = '100%';
+                container.style.height = '100%';
+                container.style.pointerEvents = 'none';
+                document.body.appendChild(container);
+        
+                // Add a dark background for the starfield
+                const background = document.createElement('div');
+                background.style.position = 'fixed';
+                background.style.top = '0';
+                background.style.left = '0';
+                background.style.width = '100%';
+                background.style.height = '100%';
+                background.style.backgroundColor = '#000';
+                background.style.zIndex = '-1';
+                document.body.appendChild(background);
+        
+                // Define star colors
+                const colors = ['#FFFFFF'];
+        
+                // Create star shape points
+                const starPoints = [
+                    '50% 0%',    // top
+                    '61% 35%',   // right top
+                    '98% 35%',   // right point
+                    '68% 57%',   // right bottom
+                    '79% 91%',   // bottom right
+                    '50% 70%',   // bottom middle
+                    '21% 91%',   // bottom left
+                    '32% 57%',   // left bottom
+                    '2% 35%',    // left point
+                    '39% 35%'    // left top
+                ].join(', ');
+        
+                // Create stars
+                for (let i = 0; i < starCount; i++) {
+                    const star = document.createElement('div');
+                    star.style.position = 'absolute';
+                    star.style.width = `${randomInRange(20, 30)}px`;
+                    star.style.height = star.style.width;
+                    star.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                    star.style.clipPath = `polygon(${starPoints})`;
+                    star.style.left = `${randomInRange(0, 100)}%`;
+                    star.style.top = '120%';
+                    star.style.opacity = '0';
+                    star.style.filter = 'drop-shadow(0 0 2px rgba(255, 255, 255, 0.7))';
+                    container.appendChild(star);
+        
+                    // Animate the star
+                    const delay = randomInRange(0, 500);
+                    const speed = randomInRange(1, 2);
+                    const rotation = (Math.random() - 0.5) * 720;
+        
+                    setTimeout(() => {
+                        star.style.transition = `
+                            top ${speed}s ease-out,
+                            opacity ${speed/2}s ease-out,
+                            transform ${speed}s ease-out
+                        `;
+                        star.style.opacity = '1';
+                        star.style.top = '-50px';
+                        star.style.transform = `rotate(${rotation}deg) scale(${randomInRange(0.3, 1)})`;
+                    }, delay);
+        
+                    // Remove star after animation
+                    setTimeout(() => {
+                        star.remove();
+                    }, delay + (speed * 1000));
+                }
+        
+                // Clean up after all animations complete
+                setTimeout(() => {
+                    background.remove();
+                    container.remove();
+                }, 2500);
+            }
+        
+            // Trigger the starfield effect once
+            createStarfield();
+        },
+        // 3: Snow (5s, unchanged)
+        () => {
+        console.log("🎉 Easter Egg: Snow! 🎉");
+        var duration = 5 * 1000;
+        var animationEnd = Date.now() + duration;
+        var skew = 1;
+
+        function randomInRange(min, max) {
+            return Math.random() * (max - min) + min;
+        }
+
+        (function frame() {
+            var timeLeft = animationEnd - Date.now();
+            var ticks = Math.max(200, 500 * (timeLeft / duration));
+            skew = Math.max(0.8, skew - 0.001);
+
+            confetti({
+            particleCount: 1,
+            startVelocity: 0,
+            ticks: ticks,
+            origin: {
+                x: Math.random(),
+                y: (Math.random() * skew) - 0.2
+            },
+            colors: ['#ffffff'],
+            shapes: ['circle'],
+            gravity: randomInRange(0.4, 0.6),
+            scalar: randomInRange(0.4, 1),
+            drift: randomInRange(-0.4, 0.4)
+            });
+
+            if (timeLeft > 0) {
+            requestAnimationFrame(frame);
+            } else {
+            isEffectActive = false;
+            }
+        })();
+        },
+        // 4: School Pride (5s, unchanged)
+        () => {
+        console.log("🎉 Easter Egg: School Pride! 🎉");
+        const duration = 5 * 1000;
+        const end = Date.now() + duration;
+        const interval = setInterval(() => {
+            if (Date.now() > end) {
+            clearInterval(interval);
+            isEffectActive = false;
+            return;
+            }
+            confetti({
+            particleCount: 25,
+            angle: 60,
+            spread: 55,
+            origin: { x: 0 },
+            colors: ['#ff0000', '#ffffff']
+            });
+            confetti({
+            particleCount: 25,
+            angle: 120,
+            spread: 55,
+            origin: { x: 1 },
+            colors: ['#ff0000', '#ffffff']
+            });
+        }, 250);
+        },
+        // 5: Custom Shapes (unchanged)
+        () => {
+        console.log("🎉 Easter Egg: Custom Shapes! 🎉");
+        var pumpkin = confetti.shapeFromPath({
+            path: 'M449.4 142c-5 0-10 .3-15 1a183 183 0 0 0-66.9-19.1V87.5a17.5 17.5 0 1 0-35 0v36.4a183 183 0 0 0-67 19c-4.9-.6-9.9-1-14.8-1C170.3 142 105 219.6 105 315s65.3 173 145.7 173c5 0 10-.3 14.8-1a184.7 184.7 0 0 0 169 0c4.9.7 9.9 1 14.9 1 80.3 0 145.6-77.6 145.6-173s-65.3-173-145.7-173zm-220 138 27.4-40.4a11.6 11.6 0 0 1 16.4-2.7l54.7 40.3a11.3 11.3 0 0 1-7 20.3H239a11.3 11.3 0 0 1-9.6-17.5zM444 383.8l-43.7 17.5a17.7 17.7 0 0 1-13 0l-37.3-15-37.2 15a17.8 17.8 0 0 1-13 0L256 383.8a17.5 17.5 0 0 1 13-32.6l37.3 15 37.2-15c4.2-1.6 8.8-1.6 13 0l37.3 15 37.2-15a17.5 17.5 0 0 1 13 32.6zm17-86.3h-82a11.3 11.3 0 0 1-6.9-20.4l54.7-40.3a11.6 11.6 0 0 1 16.4 2.8l27.4 40.4a11.3 11.3 0 0 1-9.6 17.5z',
+            matrix: [0.020491803278688523, 0, 0, 0.020491803278688523, -7.172131147540983, -5.9016393442622945]
+        });
+        var tree = confetti.shapeFromPath({
+            path: 'M120 240c-41,14 -91,18 -120,1 29,-10 57,-22 81,-40 -18,2 -37,3 -55,-3 25,-14 48,-30 66,-51 -11,5 -26,8 -45,7 20,-14 40,-30 57,-49 -13,1 -26,2 -38,-1 18,-11 35,-25 51,-43 -13,3 -24,5 -35,6 21,-19 40,-41 53,-67 14,26 32,48 54,67 -11,-1 -23,-3 -35,-6 15,18 32,32 51,43 -13,3 -26,2 -38,1 17,19 36,35 56,49 -19,1 -33,-2 -45,-7 19,21 42,37 67,51 -19,6 -37,5 -56,3 25,18 53,30 82,40 -30,17 -79,13 -120,-1l0 41 -31 0 0 -41z',
+            matrix: [0.03597122302158273, 0, 0, 0.03597122302158273, -4.856115107913669, -5.071942446043165]
+        });
+        var heart = confetti.shapeFromPath({
+            path: 'M167 72c19,-38 37,-56 75,-56 42,0 76,33 76,75 0,76 -76,151 -151,227 -76,-76 -151,-151 -151,-227 0,-42 33,-75 75,-75 38,0 57,18 76,56z',
+            matrix: [0.03333333333333333, 0, 0, 0.03333333333333333, -5.566666666666666, -5.533333333333333]
+        });
+
+        var defaults = {
+            scalar: 2,
+            spread: 180,
+            particleCount: 30,
+            origin: { y: -0.1 },
+            startVelocity: -35
+        };
+
+        confetti({ ...defaults, shapes: [pumpkin], colors: ['#ff9a00', '#ff7400', '#ff4d00'] });
+        confetti({ ...defaults, shapes: [tree], colors: ['#8d960f', '#be0f10', '#445404'] });
+        confetti({ ...defaults, shapes: [heart], colors: ['#f93963', '#a10864', '#ee0b93'] });
+        },
+        // 6-10: Emojis (slower on mobile)
+        () => {
+        console.log("🎉 Easter Egg: Emoji - Frog! 🎉");
+        var scalar = 2;
+        var shape = confetti.shapeFromText({ text: '🐸', scalar });
+        var defaults = { spread: 360, ticks: 120, gravity: 0, decay: 0.94, startVelocity: 15, shapes: [shape], scalar }; // Slower: more ticks, less velocity
+        function shoot() {
+            confetti({ ...defaults, particleCount: 30 });
+            confetti({ ...defaults, particleCount: 5, flat: true });
+            confetti({ ...defaults, particleCount: 15, scalar: scalar / 2, shapes: ['circle'] });
+        }
+        setTimeout(shoot, 0);
+        setTimeout(shoot, 300); // Slower delay
+        setTimeout(shoot, 600); // Slower delay
+        },
+        () => {
+        console.log("🎉 Easter Egg: Emoji - Dog! 🎉");
+        var scalar = 2;
+        var shape = confetti.shapeFromText({ text: '🐶', scalar });
+        var defaults = { spread: 360, ticks: 120, gravity: 0, decay: 0.94, startVelocity: 15, shapes: [shape], scalar };
+        function shoot() {
+            confetti({ ...defaults, particleCount: 30 });
+            confetti({ ...defaults, particleCount: 5, flat: true });
+            confetti({ ...defaults, particleCount: 15, scalar: scalar / 2, shapes: ['circle'] });
+        }
+        setTimeout(shoot, 0);
+        setTimeout(shoot, 300);
+        setTimeout(shoot, 600);
+        },
+        () => {
+        console.log("🎉 Easter Egg: Emoji - panda 🎉");
+        var scalar = 2;
+        var shape = confetti.shapeFromText({ text: '🐼', scalar });
+        var defaults = { spread: 360, ticks: 120, gravity: 0, decay: 0.94, startVelocity: 15, shapes: [shape], scalar };
+        function shoot() {
+            confetti({ ...defaults, particleCount: 30 });
+            confetti({ ...defaults, particleCount: 5, flat: true });
+            confetti({ ...defaults, particleCount: 15, scalar: scalar / 2, shapes: ['circle'] });
+        }
+        setTimeout(shoot, 0);
+        setTimeout(shoot, 300);
+        setTimeout(shoot, 600);
+        },
+        () => {
+        console.log("🎉 Easter Egg: Emoji - Alien! 🎉");
+        var scalar = 2;
+        var shape = confetti.shapeFromText({ text: '👾', scalar });
+        var defaults = { spread: 360, ticks: 120, gravity: 0, decay: 0.94, startVelocity: 15, shapes: [shape], scalar };
+        function shoot() {
+            confetti({ ...defaults, particleCount: 30 });
+            confetti({ ...defaults, particleCount: 5, flat: true });
+            confetti({ ...defaults, particleCount: 15, scalar: scalar / 2, shapes: ['circle'] });
+        }
+        setTimeout(shoot, 0);
+        setTimeout(shoot, 300);
+        setTimeout(shoot, 600);
+        },
+        () => {
+        console.log("🎉 Easter Egg: Emoji - Skull! 🎉");
+        var scalar = 2;
+        var shape = confetti.shapeFromText({ text: '💀', scalar });
+        var defaults = { spread: 360, ticks: 120, gravity: 0, decay: 0.94, startVelocity: 15, shapes: [shape], scalar };
+        function shoot() {
+            confetti({ ...defaults, particleCount: 30 });
+            confetti({ ...defaults, particleCount: 5, flat: true });
+            confetti({ ...defaults, particleCount: 15, scalar: scalar / 2, shapes: ['circle'] });
+        }
+        setTimeout(shoot, 0);
+        setTimeout(shoot, 300);
+        setTimeout(shoot, 600);
+        },
+        () => {
+            console.log("🎉 Easter Egg: Emoji - Snake! 🎉");
+            var scalar = 2;
+            var shape = confetti.shapeFromText({ text: '🐍', scalar });
+            var defaults = { spread: 360, ticks: 120, gravity: 0, decay: 0.94, startVelocity: 15, shapes: [shape], scalar };
+            function shoot() {
+                confetti({ ...defaults, particleCount: 30 });
+                confetti({ ...defaults, particleCount: 5, flat: true });
+                confetti({ ...defaults, particleCount: 15, scalar: scalar / 2, shapes: ['circle'] });
+            }
+            setTimeout(shoot, 0);
+            setTimeout(shoot, 300);
+            setTimeout(shoot, 600);
+        },
+        () => {
+            console.log("🎉 Easter Egg: Emoji - Pizza! 🎉");
+            var scalar = 2;
+            var shape = confetti.shapeFromText({ text: '🍕', scalar });
+            var defaults = { spread: 360, ticks: 120, gravity: 0, decay: 0.94, startVelocity: 15, shapes: [shape], scalar };
+            function shoot() {
+                confetti({ ...defaults, particleCount: 30 });
+                confetti({ ...defaults, particleCount: 5, flat: true });
+                confetti({ ...defaults, particleCount: 15, scalar: scalar / 2, shapes: ['circle'] });
+            }
+            setTimeout(shoot, 0);
+            setTimeout(shoot, 300);
+            setTimeout(shoot, 600);
+        },
+        () => {
+            console.log("🎉 Easter Egg: Emoji - Knife! 🎉");
+            var scalar = 2;
+            var shape = confetti.shapeFromText({ text: '🔪', scalar });
+            var defaults = { spread: 360, ticks: 120, gravity: 0, decay: 0.94, startVelocity: 15, shapes: [shape], scalar };
+            function shoot() {
+                confetti({ ...defaults, particleCount: 30 });
+                confetti({ ...defaults, particleCount: 5, flat: true });
+                confetti({ ...defaults, particleCount: 15, scalar: scalar / 2, shapes: ['circle'] });
+            }
+            setTimeout(shoot, 0);
+            setTimeout(shoot, 300);
+            setTimeout(shoot, 600);
+        },
+        () => {
+            console.log("🎉 Easter Egg: Emoji - Hallow! 🎉");
+            var scalar = 2;
+            var shape = confetti.shapeFromText({ text: '🎃', scalar });
+            var defaults = { spread: 360, ticks: 120, gravity: 0, decay: 0.94, startVelocity: 15, shapes: [shape], scalar };
+            function shoot() {
+                confetti({ ...defaults, particleCount: 30 });
+                confetti({ ...defaults, particleCount: 5, flat: true });
+                confetti({ ...defaults, particleCount: 15, scalar: scalar / 2, shapes: ['circle'] });
+            }
+            setTimeout(shoot, 0);
+            setTimeout(shoot, 300);
+            setTimeout(shoot, 600);
+        },
+        () => {
+            console.log("🎉 Easter Egg: Emoji - Ball! 🎉");
+            var scalar = 2;
+            var shape = confetti.shapeFromText({ text: '🏀', scalar });
+            var defaults = { spread: 360, ticks: 120, gravity: 0, decay: 0.94, startVelocity: 15, shapes: [shape], scalar };
+            function shoot() {
+                confetti({ ...defaults, particleCount: 30 });
+                confetti({ ...defaults, particleCount: 5, flat: true });
+                confetti({ ...defaults, particleCount: 15, scalar: scalar / 2, shapes: ['circle'] });
+            }
+            setTimeout(shoot, 0);
+            setTimeout(shoot, 300);
+            setTimeout(shoot, 600);
+        },
+        () => {
+            console.log("🎉 Easter Egg: Emoji - Leaf! 🎉");
+            var scalar = 2;
+            var shape = confetti.shapeFromText({ text: '🍀', scalar });
+            var defaults = { spread: 360, ticks: 120, gravity: 0, decay: 0.94, startVelocity: 15, shapes: [shape], scalar };
+            function shoot() {
+                confetti({ ...defaults, particleCount: 30 });
+                confetti({ ...defaults, particleCount: 5, flat: true });
+                confetti({ ...defaults, particleCount: 15, scalar: scalar / 2, shapes: ['circle'] });
+            }
+            setTimeout(shoot, 0);
+            setTimeout(shoot, 300);
+            setTimeout(shoot, 600);
+        },
+        () => {
+            console.log("🎉 Easter Egg: Emoji - Sun moon! 🎉");
+            var scalar = 2;
+            var shape = confetti.shapeFromText({ text: '🌞🌝', scalar });
+            var defaults = { spread: 360, ticks: 120, gravity: 0, decay: 0.94, startVelocity: 15, shapes: [shape], scalar };
+            function shoot() {
+                confetti({ ...defaults, particleCount: 30 });
+                confetti({ ...defaults, particleCount: 5, flat: true });
+                confetti({ ...defaults, particleCount: 15, scalar: scalar / 2, shapes: ['circle'] });
+            }
+            setTimeout(shoot, 0);
+            setTimeout(shoot, 300);
+            setTimeout(shoot, 600);
+        },
+        () => {
+            console.log("🎉 Easter Egg: Emoji - Earth! 🎉");
+            var scalar = 2;
+            var shape = confetti.shapeFromText({ text: '🌏', scalar });
+            var defaults = { spread: 360, ticks: 120, gravity: 0, decay: 0.94, startVelocity: 15, shapes: [shape], scalar };
+            function shoot() {
+                confetti({ ...defaults, particleCount: 30 });
+                confetti({ ...defaults, particleCount: 5, flat: true });
+                confetti({ ...defaults, particleCount: 15, scalar: scalar / 2, shapes: ['circle'] });
+            }
+            setTimeout(shoot, 0);
+            setTimeout(shoot, 300);
+            setTimeout(shoot, 600);
+        }
+    ];
+
+    // Trigger function
+    function triggerNextEffect() {
+        if (isEffectActive) return; // Skip if an effect is running
+        isEffectActive = true;
+
+        effects[currentEffectIndex](); // Run current effect
+
+        // Reset isEffectActive based on effect type
+        if (currentEffectIndex === 1 || currentEffectIndex === 3 || currentEffectIndex === 4) {
+        // Fireworks (5s), Snow (5s), School Pride (5s)
+        setTimeout(() => { isEffectActive = false; }, 5000);
+        } else if (currentEffectIndex >= 6) {
+        // Emojis (~2s due to 600ms delays)
+        setTimeout(() => { isEffectActive = false; }, 2000);
+        } else {
+        // Realistic, Stars, Custom Shapes (~3s)
+        setTimeout(() => { isEffectActive = false; }, 3000);
+        }
+
+        currentEffectIndex = (currentEffectIndex + 1) % effects.length; // Cycle to next
+    }
+
+    // Right-click (Desktop) - Header only
+    headerTitle.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        triggerNextEffect();
+    });
+
+    // Touch-and-hold (Mobile) - Header only
+    headerTitle.addEventListener("touchstart", (e) => {
+        touchTimer = setTimeout(() => {
+        triggerNextEffect();
+        }, 500);
+    });
+
+    headerTitle.addEventListener("touchend", () => {
+        clearTimeout(touchTimer);
+    });
+
+    headerTitle.addEventListener("touchmove", () => {
+        clearTimeout(touchTimer);
+    });
+
 });
 
 // Install App Prompt
