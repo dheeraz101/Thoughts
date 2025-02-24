@@ -1,0 +1,890 @@
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background-color: #000000;
+    color: #ffffff;
+    margin: 0;
+    padding: 0;
+    line-height: 1.5;
+}
+
+/* Ensure hidden class works with footer */
+.hidden {
+    display: none;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 0;
+    border-bottom: 1px solid #2f3336;
+}
+
+header h1 {
+    font-size: 1.75rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+}
+
+#delete-all {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #f4212e;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent; /* Remove mobile tap highlight */
+}
+
+#delete-all:hover {
+    color: #d61c28;
+}
+
+.input-section {
+    padding: 16px 0;
+    border-bottom: 1px solid #2f3336;
+}
+
+.input-wrapper {
+    margin-bottom: 12px;
+}
+
+#public-input {
+    width: 100%;
+    min-height: 150px;
+    background-color: #000000;
+    border: 1px solid #333;
+    padding: 12px;
+    border-radius: 12px;
+    outline: none;
+    color: #ffffff;
+    caret-color: #ffffff;
+    resize: none;
+    font-size: 1.25rem;
+    font-weight: 400;
+    line-height: 1.5;
+    overflow: hidden;
+    box-sizing: border-box;
+    transition: border-color 0.2s ease;
+}
+
+#public-input:focus {
+    border-color: #ffffff;
+}
+
+#public-input::selection {
+    background-color: rgba(29, 155, 240, 0.3);
+    color: #ffffff;
+}
+
+#public-input::placeholder {
+    color: #71767b;
+    font-weight: 400;
+}
+
+#public-input.editing {
+    border-color: #1d9bf0; /* Blue highlight for input */
+    box-shadow: 0 0 8px rgba(29, 155, 240, 0.3); /* Material shadow */
+    background-color: rgba(29, 155, 240, 0.05); /* Subtle blue tint */
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+#cancel-edit {
+    padding: 8px 16px;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 9999px;
+    background-color: #ffffff;
+    color: #1d9bf0;
+    border: 1px solid #1d9bf0;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+    display: none;
+}
+
+#cancel-edit:hover {
+    background-color: #f5f8fa;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.edit-post:disabled,
+.delete-post:disabled {
+    opacity: 0.5; /* Grayed out effect */
+    cursor: not-allowed; /* Indicates non-interactivity */
+}
+
+.input-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 12px;
+}
+
+.input-footer div {
+    display: flex;
+    gap: 8px; /* Small gap between Cancel and Save */
+}
+
+#char-count {
+    font-size: 1rem;
+    font-weight: 400;
+    color: #71767b;
+}
+
+#post-button {
+    padding: 8px 16px;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 9999px;
+    background-color: #1d9bf0;
+    color: #ffffff;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    -webkit-tap-highlight-color: transparent; /* Remove mobile tap highlight */
+}
+
+#post-button:hover {
+    background-color: #1a8cd8;
+}
+
+#post-button:active {
+    background-color: #177bb8; /* Darker blue when clicked */
+}
+
+.post-container {
+    padding: 16px 0;
+}
+
+.post-content {
+    font-size: 1.25rem;
+    font-weight: 400;
+    line-height: 1.5;
+    letter-spacing: -0.01em;
+    margin-bottom: 16px;
+    word-break: break-word; /* Added to break long words */
+}
+
+.input-section.hidden-on-search {
+    display: none;
+}
+
+.post-content .hashtag {
+    color: #1d9bf0;
+}
+
+/* Make links clickable and colored */
+.post-content a {
+    color: #1d9bf0; /* Twitter blue */
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+.post-content a:hover {
+    color: #1a8cd8; /* Darker blue on hover */
+    text-decoration: underline;
+}
+
+/* Post title with @ symbol */
+.post-title {
+    font-size: 1.5rem; /* Slightly larger for hierarchy */
+    font-weight: 700; /* Bold per Apple design */
+    color: #ffffff;
+    margin-bottom: 8px; /* Whitespace per Apple theory */
+    letter-spacing: -0.02em; /* Tightened for elegance */
+    line-height: 1.2;
+    word-break: break-word; /* Added to break long words */
+}
+
+/* Wrapper for hashtag list and arrows */
+.hashtag-wrapper {
+    position: relative; /* Parent for absolute positioning of arrows */
+    width: 100%; /* Full width of container */
+}
+
+/* Hashtag list container - Horizontal scrolling like YouTube */
+.hashtag-list {
+    display: flex;
+    flex-wrap: nowrap; /* Single line */
+    overflow-x: auto; /* Horizontal scroll */
+    overflow-y: hidden; /* No vertical scroll */
+    margin-top: 12px; /* Spacing from search bar */
+    padding: 8px 0; /* Vertical padding only */
+    scrollbar-width: none; /* Hide scrollbar in Firefox */
+    -ms-overflow-style: none; /* Hide scrollbar in IE/Edge */
+    width: calc(100% - 80px); /* Reduced width for arrows */
+    margin-left: 40px; /* Space for left arrow */
+    margin-right: 40px; /* Space for right arrow */
+    box-sizing: border-box; /* Include padding in width */
+}
+
+.hashtag-list.hidden {
+    display: none; /* Hide when no hashtags */
+}
+
+.hashtag-list::-webkit-scrollbar {
+    display: none; /* Hide scrollbar in Webkit browsers */
+}
+
+
+/* Hashtag badge */
+.hashtag-badge {
+    display: inline-flex;
+    align-items: center;
+    background-color: #f4212e; /* Material red */
+    color: #ffffff;
+    padding: 4px 10px;
+    border-radius: 9999px; /* Material pill shape */
+    font-size: 0.875rem; /* 14px - Apple's subhead size */
+    font-weight: 500;
+    margin: 0 8px 0 0; /* Horizontal spacing only */
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+    white-space: nowrap; /* Prevent text wrapping */
+}
+
+.hashtag-badge:hover {
+    background-color: #d61c28; /* Darker red on hover */
+}
+
+.hashtag-badge.active {
+    background-color: #ffffff; /* White when active */
+    color: #000000;
+}
+
+/* Scroll arrows */
+.hashtag-scroll-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 32px;
+    height: 32px;
+    background-color: rgba(255, 255, 255, 0.9); /* White with opacity */
+    color: #000000; /* Black arrows */
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 0.2s ease, opacity 0.2s ease;
+    z-index: 30; /* Above badges */
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3); /* Depth */
+}
+
+.hashtag-scroll-arrow:hover {
+    background-color: #ffffff; /* Solid white on hover */
+}
+
+.hashtag-scroll-arrow.left {
+    left: 0; /* Fixed outside the list */
+}
+
+.hashtag-scroll-arrow.right {
+    right: 0; /* Fixed outside the list */
+}
+
+.hashtag-scroll-arrow.hidden {
+    opacity: 0; /* Fade out */
+    pointer-events: none; /* Prevent clicking when hidden */
+}
+
+
+
+/* Adjust post content spacing when title exists */
+.post-content.with-title {
+    margin-top: 4px; /* Reduced spacing after title */
+}
+
+
+.post-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.meta-badge {
+    display: inline-flex;
+    align-items: center;
+    background-color: rgba(34, 34, 34, 0.5); /* Semi-transparent dark gray */
+    border: 1px solid #888888; /* Subtle secondary border */
+    border-radius: 10px;
+    padding: 1px 5px;
+    font-size: 0.6875rem;
+    font-weight: 400;
+    color: #ffffff; /* Keeping text white for contrast */
+    letter-spacing: -0.01em;
+}
+
+.post-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 10px;
+    align-items: center;
+}
+
+.edit-post,
+.delete-post {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 9999px;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    text-transform: none;
+    min-width: 90px;
+}
+
+.edit-post {
+    background-color: #ffffff;
+    color: #000000;
+    -webkit-tap-highlight-color: transparent; /* Remove mobile tap highlight */
+}
+
+.delete-post {
+    background-color: #f4212e;
+    color: #ffffff;
+    outline: none;
+    -webkit-tap-highlight-color: transparent; /* Remove mobile tap highlight */
+}
+
+.icon {
+    width: 16px;
+    height: 16px;
+    fill: currentColor;
+}
+
+/* Replace .post.editing and .post.editing .post-content */
+.post.editing {
+    border-radius: 12px;
+    padding: 16px;
+    margin: 8px 0;
+    transition: color 0.2s ease;
+}
+
+.post.editing .post-title,
+.post.editing .post-content,
+.post.editing .post-content a,
+.post.editing .post-content .hashtag {
+    color: #f4212e; /* Ensure all elements inherit or match the red color */
+}
+
+/* Replace the existing #delete-confirmation and .twitter-popup styles */
+#delete-confirmation {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4); /* More transparent (40% opacity) */
+    backdrop-filter: blur(8px); /* Stronger blur for aesthetic depth */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 4px;
+    transition: opacity 0.2s ease; /* Smooth fade for show/hide */
+}
+
+#delete-confirmation.hidden {
+    display: none; /* Ensure it hides completely */
+}
+
+.twitter-popup {
+    background: rgba(20, 23, 26, 0.7);
+    border-radius: 16px;
+    padding: 24px; /* Increased padding for better whitespace */
+    max-width: 320px;
+    width: 100%;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    color: #ffffff;
+    text-align: center;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(6px);
+}
+
+/* Adjust the popup text sizes and spacing */
+.twitter-popup p:first-child {
+    font-size: 1.25rem; /* 20px - Apple's headline size for desktop */
+    font-weight: 700; /* Bold for emphasis */
+    margin-bottom: 12px; /* Increased whitespace */
+    line-height: 1.3; /* Better readability */
+}
+
+.twitter-popup p:nth-child(2) {
+    font-size: 1rem; /* 16px - Apple's body text size for desktop */
+    font-weight: 400;
+    color: #71767b;
+    margin-bottom: 16px; /* More whitespace before buttons */
+    line-height: 1.4;
+}
+
+/* Buttons spacing */
+.twitter-popup button {
+    padding: 10px 16px; /* Slightly larger padding for touch */
+    font-size: 1rem; /* 16px - Consistent with body text */
+    font-weight: 600;
+    border-radius: 9999px;
+    width: 100%;
+    margin-bottom: 8px; /* Reduced from mb-2 for tighter spacing */
+}
+
+
+.search-bar {
+    display: flex;
+    align-items: center;
+    background-color: #000000;
+    border: 1px solid #2f3336;
+    border-radius: 9999px;
+    margin-top: 3%;
+    padding: 8px 14px;
+    flex-grow: 1;
+}
+
+.search-bar .search-icon {
+    flex-shrink: 0;
+}
+
+.search-bar input {
+    background-color: transparent;
+    border: none;
+    outline: none;
+    color: #ffffff;
+    font-size: 1rem;
+    flex-grow: 1;
+    margin-left: 8px;
+    padding: 2px 0;
+}
+
+.search-bar .clear-search {
+    cursor: pointer;
+    flex-shrink: 0;
+    margin-left: 8px;
+    display: none;
+    transition: stroke 0.2s ease;
+}
+
+.search-bar .clear-search:hover {
+    stroke: #ffffff;
+}
+
+.search-bar input::placeholder {
+    color: #71767b;
+}
+
+footer {
+    color: #ffffff;
+}
+
+.footer-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr); /* Now only 2 sections */
+    gap: 2rem;
+}
+
+.footer-section ul {
+    list-style: none;
+    padding: 0;
+}
+
+.footer-section h2, .footer-section h3 {
+    margin: 0;
+    line-height: 1.2;
+}
+
+.footer-section p, .footer-bottom p {
+    margin: 0;
+    line-height: 1.6;
+}
+
+.footer-section a, .footer-bottom a {
+    transition: color 0.2s ease;
+}
+
+footer hr {
+    border: none;
+    border-top: 1px solid #333639;
+}
+
+.footer-bottom {
+    text-align: center;
+}
+
+/* Pinned Post Styling */
+.post.pinned {
+    background-color: #212121; /* Dark gray, subtle contrast */
+    border: 1px solid #ffffff33; /* Soft white border */
+    border-radius: 16px; /* Rounded corners */
+    padding: 20px; /* Slightly reduced for balance */
+    margin: 16px 0; /* Consistent spacing */
+    box-shadow: 0 2px 8px rgba(255, 255, 255, 0.05); /* Subtle elevation */
+    transition: all 0.2s ease; /* Smooth transitions */
+}
+
+/* Pin Button Styling */
+.pin-post {
+    background-color: #333333; /* Dark gray base */
+    color: #ffffff;
+    padding: 8px;
+    border-radius: 9999px;
+    border: none;
+    cursor: pointer;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s ease, opacity 0.2s ease;
+}
+
+.pin-post.pinned {
+    background-color: #ffffff; /* White when pinned */
+    color: #000000; /* Black icon for contrast */
+    opacity: 0.9; /* Slightly muted */
+}
+
+/* Disabled State for Pin Button */
+.pin-post:disabled {
+    opacity: 0.5; /* Match edit/delete buttons */
+    cursor: not-allowed; /* No interaction */
+}
+
+/* Post Actions Layout */
+.post-actions {
+    gap: 8px;
+    margin-top: 16px;
+}
+
+/* Icon Styling */
+.icon {
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+}
+
+.pin-post .icon {
+        width: 20px;
+        height: 20px;
+        color: var(--text-color);
+        transition: color 0.3s ease;
+}
+
+.pin-post:not(.pinned) .icon {
+    color: gray; /* Unpinned state */
+}
+
+/* Meta Badges for Pinned Post */
+.post.pinned .meta-badge {
+    background-color: rgba(255, 255, 255, 0.1); /* Subtle white tint */
+    border-color: #ffffff33; /* Matches border */
+}
+
+/* Ensure regular posts don't interfere */
+.post {
+    padding: 16px 0;
+    border-bottom: 1px solid #2f3336;
+}
+/* Scroll to Top Button */
+#scroll-to-top {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 48px;
+    height: 48px;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(8px);
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, transform 0.2s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    z-index: 1000;
+    -webkit-tap-highlight-color: transparent; /* Remove mobile tap highlight */
+}
+
+#scroll-to-top.visible {
+    opacity: 0.9;
+    visibility: visible;
+    transform: translateX(-50%) scale(1);
+}
+
+#scroll-to-top:hover {
+    opacity: 1;
+    transform: translateX(-50%) scale(1.05);
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* Remove outline and add custom focus effect for all states */
+#scroll-to-top:focus,
+#scroll-to-top:active {
+    outline: none; /* Remove square outline */
+    box-shadow: 0 0 0 3px rgba(29, 155, 240, 0.3); /* Twitter-blue glow */
+}
+
+#scroll-to-top svg {
+    width: 24px;
+    height: 24px;
+    stroke: #ffffff;
+    stroke-width: 2;
+}
+
+.no-posts {
+    padding: 20px;
+    text-align: center;
+    color: #888;
+    font-style: italic;
+}
+
+.no-results {
+    padding: 20px;
+    text-align: center;
+    color: #666;
+}
+
+@media (max-width: 768px) {
+    .container {
+        max-width: 100%;
+        padding: 0 12px;
+    }
+
+    header {
+        padding: 20px 0;
+    }
+
+    header h1 {
+        font-size: 2rem;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+    }
+
+    #delete-all {
+        font-size: 1.125rem;
+        font-weight: 600;
+    }
+
+    .input-section {
+        padding: 20px 0;
+    }
+
+    #public-input {
+        min-height: 160px;
+        padding: 14px;
+        font-size: 1.375rem;
+        line-height: 1.45;
+        border-radius: 14px;
+    }
+
+    .input-footer {
+        margin-top: 12px;
+        padding: 0 4px;
+    }
+
+    #char-count {
+        font-size: 1.125rem;
+        letter-spacing: -0.01em;
+    }
+
+    #post-button {
+        height: 40px;
+        padding: 0 20px;
+        font-size: 1.125rem;
+    }
+
+    .post {
+        padding: 20px 0;
+    }
+
+    .post-content {
+        font-size: 1.375rem;
+        line-height: 1.45;
+        letter-spacing: -0.01em;
+        margin-bottom: 20px;
+    }
+
+    .post-meta {
+        gap: 8px;
+    }
+
+    .meta-badge {
+        font-size: 0.8125rem;
+        padding: 2px 6px;
+        border-radius: 12px;
+    }
+
+    .post-actions {
+        gap: 10px;
+        margin-top: 12px;
+        justify-content: space-between;
+        width: 100%;
+    }
+
+    .edit-post,
+    .delete-post {
+        padding: 8px 16px;
+        font-size: 1.125rem;
+        flex: 1;
+    }
+
+    .icon {
+        width: 18px;
+        height: 18px;
+    }
+
+    .twitter-popup {
+        padding: 20px; /* Slightly less padding for mobile */
+    }
+
+    .twitter-popup p:first-child {
+        font-size: 1.375rem; /* 22px - Apple's mobile headline size */
+    }
+
+    .twitter-popup p:nth-child(2) {
+        font-size: 1.125rem; /* 18px - Apple's mobile body text */
+    }
+
+    .twitter-popup button {
+        padding: 12px 16px; /* Larger touch target */
+        font-size: 1.125rem; /* 18px - Matches mobile body text */
+        margin-bottom: 10px; /* Adjusted whitespace */
+    }
+
+    .search-bar {
+        margin-top: 4%;
+        padding: 10px 16px;
+    }
+    .input-footer div {
+        gap: 10px; /* Slightly larger gap for mobile touch */
+    }
+
+    #cancel-edit {
+        height: 40px;
+        padding: 0 20px;
+        font-size: 1.125rem;
+    }
+
+    footer {
+        padding-top: 2.5rem; /* 40px */
+        padding-bottom: 2.5rem;
+    }
+
+    footer .container {
+        padding-left: 1rem; /* 16px */
+        padding-right: 1rem;
+    }
+
+    .footer-grid {
+        grid-template-columns: 1fr;
+        gap: 1.5rem; /* 24px */
+    }
+
+    .footer-section h2 {
+        font-size: 1.75rem; /* 28px */
+    }
+
+    .footer-section h3 {
+        font-size: 1.375rem; /* 22px */
+    }
+
+    .footer-section .text-base {
+        font-size: 1.125rem; /* 18px */
+    }
+
+    .footer-section .text-sm, .footer-bottom .text-sm {
+        font-size: 0.9375rem; /* 15px */
+    }
+
+    .footer-bottom .text-xs {
+        font-size: 0.875rem; /* 14px */
+    }
+
+    footer hr {
+        width: 90%;
+        margin-top: 2rem; /* 32px */
+        margin-bottom: 2rem;
+    }
+
+    .post-title {
+        font-size: 1.75rem; /* Larger for mobile per Apple */
+    }
+
+    .hashtag-wrapper {
+        width: 100%; /* Full width on mobile */
+    }
+
+    .hashtag-list {
+        width: 100%; /* Full width on mobile */
+        margin-left: 0; /* No offset */
+        margin-right: 0;
+        padding: 6px 0; /* No arrow space */
+    }
+
+    .hashtag-scroll-arrow {
+        display: none; /* Hide arrows on mobile */
+    }
+
+    .hashtag-badge {
+        font-size: 0.9375rem; /* Larger for touch */
+        padding: 6px 12px; /* Larger touch target */
+    }
+}
+
+@media (min-width: 769px) {
+    .edit-post,
+    .delete-post {
+        padding: 6px 12px;
+        font-size: 0.9375rem;
+    }
+
+    .meta-badge {
+        padding: 1px 5px;
+        font-size: 0.6875rem;
+    }
+
+    .post-actions {
+        justify-content: flex-start;
+        width: auto;
+    }
+    footer .footer-section h2 {
+        font-size: 2rem; /* 32px */
+    }
+
+    footer .footer-section h3 {
+        font-size: 1.25rem; /* 20px */
+    }
+
+    footer .footer-section .text-base {
+        font-size: 1.125rem; /* 18px */
+    }
+
+    footer .footer-section .text-sm, footer .footer-bottom .text-sm {
+        font-size: 0.875rem; /* 14px */
+    }
+
+    footer .footer-bottom .text-xs {
+        font-size: 0.75rem; /* 12px */
+    }
+    .hashtag-list {
+        width: calc(100% - 80px); /* Maintain reduced width */
+        margin-left: 40px; /* Space for left arrow */
+        margin-right: 40px; /* Space for right arrow */
+        padding: 8px 0; /* Vertical padding only */
+    }
+
+    .hashtag-scroll-arrow.left {
+        left: 0; /* Fixed position */
+    }
+
+    .hashtag-scroll-arrow.right {
+        right: 0; /* Fixed position */
+    }
+}
