@@ -1,5 +1,5 @@
 // Version info (update this with each release)
-const APP_VERSION = '1.5.4'; // Matches your footer
+const APP_VERSION = '1.5.4-beta'; // Matches your footer
 
 document.addEventListener("DOMContentLoaded", function () {
     const postButton = document.getElementById("post-button");
@@ -166,32 +166,83 @@ document.addEventListener("DOMContentLoaded", function () {
         document.body.appendChild(notification);
       }
     
-      // Show update confirmation after reload
-      function showUpdateConfirmation() {
+    // Show update confirmation after reload
+    function showUpdateConfirmation() {
+        // Check if version exists
         const updatedVersion = sessionStorage.getItem('updateVersion');
-        if (updatedVersion) {
-          const confirmation = document.createElement('div');
-          confirmation.style.position = 'fixed';
-          confirmation.style.top = '20px';
-          confirmation.style.left = '50%';
-          confirmation.style.transform = 'translateX(-50%)';
-          confirmation.style.background = '#22c55e'; // Green for success
-          confirmation.style.color = '#fff';
-          confirmation.style.padding = '10px 20px';
-          confirmation.style.borderRadius = '8px';
-          confirmation.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
-          confirmation.style.zIndex = '1000';
-          confirmation.style.fontSize = '14px';
-          confirmation.style.fontWeight = '500';
-          confirmation.textContent = `Updated to version ${updatedVersion}`;
-          
-          document.body.appendChild(confirmation);
-          setTimeout(() => {
+        if (!updatedVersion) {
+        console.log('No update version in sessionStorage. Aborting.');
+        return;
+        }
+        console.log('Version found:', updatedVersion);
+    
+        // Create notification element
+        const confirmation = document.createElement('div');
+        
+        // Apply styles with maximum visibility assurance
+        Object.assign(confirmation.style, {
+        position: 'fixed',
+        top: '10px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        backgroundColor: '#22c55e',    // Explicit background color
+        color: '#ffffff',             // Explicit white text
+        padding: '8px 16px',
+        borderRadius: '6px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+        zIndex: '10000',              // Very high z-index
+        fontSize: '14px',
+        fontWeight: '500',
+        maxWidth: '90vw',
+        textAlign: 'center',
+        transition: 'opacity 0.3s ease',
+        opacity: '1',
+        display: 'block',             // Explicitly block
+        visibility: 'visible',        // Force visibility
+        width: 'auto',
+        minHeight: '20px'             // Ensure it has height
+        });
+    
+        // Set content explicitly
+        confirmation.innerText = `Updated to version ${updatedVersion}`;
+        console.log('Element created with text:', confirmation.innerText);
+    
+        // Ensure body is ready and append
+        if (document.body) {
+        document.body.appendChild(confirmation);
+        console.log('Appended to body. OffsetHeight:', confirmation.offsetHeight);
+        } else {
+        console.log('Body not ready, waiting...');
+        window.addEventListener('DOMContentLoaded', () => {
+            document.body.appendChild(confirmation);
+            console.log('Appended after DOM loaded. OffsetHeight:', confirmation.offsetHeight);
+        });
+        }
+    
+        // Responsive adjustments
+        const updateStylesForScreen = () => {
+        if (window.innerWidth < 768) {
+            confirmation.style.fontSize = '13px';
+            confirmation.style.padding = '6px 12px';
+        } else {
+            confirmation.style.fontSize = '14px';
+            confirmation.style.padding = '10px 20px';
+        }
+        };
+        updateStylesForScreen();
+        window.addEventListener('resize', updateStylesForScreen);
+    
+        // Fade out after delay
+        setTimeout(() => {
+        confirmation.style.opacity = '0';
+        setTimeout(() => {
             confirmation.remove();
             sessionStorage.removeItem('updateVersion');
-          }, 3000); // Hide after 3 seconds
-        }
-      }
+            window.removeEventListener('resize', updateStylesForScreen);
+            console.log('Notification removed');
+        }, 300);
+        }, 2700);
+    }
     
       // Initial check with auto-reload
       if (!sessionStorage.getItem('justUpdated')) {
