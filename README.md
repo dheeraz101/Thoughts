@@ -1,0 +1,2 @@
+# Thoughts
+Thoughts - Write Freely.
