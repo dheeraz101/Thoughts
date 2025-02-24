@@ -1,5 +1,5 @@
 // Version info (update this with each release)
-const APP_VERSION = '1.5.1'; // Matches your footer
+const APP_VERSION = '1.5.3'; // Matches your footer
 
 document.addEventListener("DOMContentLoaded", function () {
     const postButton = document.getElementById("post-button");

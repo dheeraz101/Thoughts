@@ -1,4 +1,4 @@
-const CACHE_NAME = 'Thoughts-v1.5.2'; // Update this with each major release
+const CACHE_NAME = 'Thoughts-v1.5.3'; // Update this with each major release
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
