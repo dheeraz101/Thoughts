@@ -1,5 +1,5 @@
 // Version info (update this with each release)
-const APP_VERSION = '1.5.3'; // Matches your footer
+const APP_VERSION = '1.5.4'; // Matches your footer
 
 document.addEventListener("DOMContentLoaded", function () {
     const postButton = document.getElementById("post-button");
@@ -56,28 +56,50 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Initialize appVersion if not set
     if (!localStorage.getItem('appVersion')) {
-    localStorage.setItem('appVersion', APP_VERSION);
+        localStorage.setItem('appVersion', APP_VERSION);
     }
 
-    // Check online status and update availability
-    function checkForUpdates() {
-    if (navigator.onLine) {
-        fetch('/manifest.json', { cache: 'no-store' })
-        .then(response => response.json())
-        .then(manifest => {
-            const cachedVersion = localStorage.getItem('appVersion');
-            if (manifest.version && manifest.version !== cachedVersion) {
-            // New version detected
-            showUpdateNotification(manifest.version);
-            }
-        })
-        .catch(() => console.log('Offline or fetch failed'));
-    } else {
-        console.log('Offline mode: Using cached content');
-    }
-    }
-
-    function showUpdateNotification(newVersion) {
+    function checkForUpdates(forceReload = false) {
+        if (navigator.onLine) {
+          fetch('/manifest.json', { cache: 'no-store' })
+            .then(response => {
+              if (!response.ok) throw new Error('Manifest fetch failed');
+              return response.json();
+            })
+            .then(manifest => {
+              const cachedVersion = localStorage.getItem('appVersion') || APP_VERSION;
+              console.log('Cached:', cachedVersion, 'Manifest:', manifest.version);
+              if (manifest.version && manifest.version !== cachedVersion) {
+                console.log('Update detected');
+                showUpdateNotification(manifest.version, forceReload);
+              } else {
+                console.log('Versions match, no update needed');
+              }
+            })
+            .catch(err => console.error('Update check failed:', err));
+        } else {
+          console.log('Offline, skipping update check');
+        }
+      }
+    
+      function showUpdateNotification(newVersion, forceReload) {
+        if (forceReload) {
+          console.log('Forcing update to version:', newVersion);
+          localStorage.setItem('appVersion', newVersion);
+          sessionStorage.setItem('updateVersion', newVersion); // Store for post-reload display
+          caches.keys().then(keys => Promise.all(keys.map(key => caches.delete(key))))
+            .then(() => {
+              if (navigator.serviceWorker.controller) {
+                navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
+              }
+              sessionStorage.setItem('justUpdated', 'true');
+              window.location.reload(true);
+            })
+            .catch(err => console.error('Update failed:', err));
+          return;
+        }
+    
+        // Manual update prompt for periodic checks
         const notification = document.createElement('div');
         notification.style.position = 'fixed';
         notification.style.bottom = '20px';
@@ -119,32 +141,116 @@ document.addEventListener("DOMContentLoaded", function () {
         updateButton.style.transition = 'all 0.2s ease-in-out';
     
         updateButton.addEventListener('mouseover', () => {
-            updateButton.style.background = 'rgba(255, 255, 255, 0.9)';
+          updateButton.style.background = 'rgba(255, 255, 255, 0.9)';
         });
         updateButton.addEventListener('mouseout', () => {
-            updateButton.style.background = '#fff';
+          updateButton.style.background = '#fff';
         });
         updateButton.addEventListener('click', () => {
-            caches.keys().then(keys => Promise.all(keys.map(key => caches.delete(key))))
-                .then(() => {
-                    if (navigator.serviceWorker.controller) {
-                        navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
-                    }
-                    localStorage.setItem('appVersion', newVersion);
-                    window.location.reload(true);
-                })
-                .catch(err => console.error('Update failed:', err));
+          console.log('Applying update to version:', newVersion);
+          localStorage.setItem('appVersion', newVersion);
+          sessionStorage.setItem('updateVersion', newVersion);
+          caches.keys().then(keys => Promise.all(keys.map(key => caches.delete(key))))
+            .then(() => {
+              if (navigator.serviceWorker.controller) {
+                navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
+              }
+              sessionStorage.setItem('justUpdated', 'true');
+              window.location.reload(true);
+            })
+            .catch(err => console.error('Update failed:', err));
         });
     
         notification.appendChild(text);
         notification.appendChild(updateButton);
         document.body.appendChild(notification);
-    }
+      }
     
-
-    // Periodic update check (every 5 minutes when online)
-    checkForUpdates();
-    setInterval(checkForUpdates, 5 * 60 * 1000);
+      // Show update confirmation after reload
+      function showUpdateConfirmation() {
+        const updatedVersion = sessionStorage.getItem('updateVersion');
+        if (updatedVersion) {
+          const confirmation = document.createElement('div');
+          confirmation.style.position = 'fixed';
+          confirmation.style.top = '20px';
+          confirmation.style.left = '50%';
+          confirmation.style.transform = 'translateX(-50%)';
+          confirmation.style.background = '#22c55e'; // Green for success
+          confirmation.style.color = '#fff';
+          confirmation.style.padding = '10px 20px';
+          confirmation.style.borderRadius = '8px';
+          confirmation.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
+          confirmation.style.zIndex = '1000';
+          confirmation.style.fontSize = '14px';
+          confirmation.style.fontWeight = '500';
+          confirmation.textContent = `Updated to version ${updatedVersion}`;
+          
+          document.body.appendChild(confirmation);
+          setTimeout(() => {
+            confirmation.remove();
+            sessionStorage.removeItem('updateVersion');
+          }, 3000); // Hide after 3 seconds
+        }
+      }
+    
+      // Initial check with auto-reload
+      if (!sessionStorage.getItem('justUpdated')) {
+        checkForUpdates(true);
+      } else {
+        console.log('Skipping initial check after update');
+        showUpdateConfirmation(); // Show confirmation after reload
+        sessionStorage.removeItem('justUpdated');
+      }
+      setInterval(() => {
+        if (!sessionStorage.getItem('justUpdated')) {
+          checkForUpdates(); // Manual prompt for periodic checks
+        }
+      }, 5 * 60 * 1000);
+    
+      window.addEventListener('online', () => {
+        console.log('Back online');
+        updateOnlineStatus();
+        setTimeout(() => {
+          if (!sessionStorage.getItem('justUpdated')) {
+            checkForUpdates(true); // Auto-reload on online
+          }
+          renderPosts();
+        }, 1000);
+      });
+      
+      window.addEventListener('offline', () => {
+        console.log('Offline');
+        updateOnlineStatus();
+        renderPosts();
+      });
+      
+      function updateOnlineStatus() {
+        const existingStatus = document.querySelector('.online-status');
+        if (existingStatus) existingStatus.remove(); // Remove previous status if exists
+      
+        const status = document.createElement('div');
+        status.className = 'online-status';
+        status.textContent = navigator.onLine ? '↑' : '↓';
+        Object.assign(status.style, {
+          position: 'fixed',
+          top: '8px',
+          right: '8px',
+          width: '20px',
+          height: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: navigator.onLine ? '#22c55e' : '#ef4444',
+          color: '#fff',
+          fontSize: '12px',
+          fontWeight: 'bold',
+          borderRadius: '50%',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+          zIndex: '1000'
+        });
+        document.body.appendChild(status);
+        setTimeout(() => status.remove(), 1500); // Shorter duration for minimalism
+      }  
 
     // Show/hide button based on scroll position
     window.addEventListener("scroll", () => {
@@ -524,16 +630,6 @@ document.addEventListener("DOMContentLoaded", function () {
     });   
 
     renderPosts();
-    // Handle online/offline events
-    window.addEventListener('online', () => {
-        console.log('Back online');
-        checkForUpdates();
-        renderPosts();
-    });
-    window.addEventListener('offline', () => {
-        console.log('Offline');
-        renderPosts();
-    });
 
     // Easter Egg: Sequential Confetti Effects on Header
     const headerTitle = document.querySelector("header h1");
@@ -992,6 +1088,84 @@ document.addEventListener("DOMContentLoaded", function () {
         clearTimeout(touchTimer);
     });
 
+    function exportNotes() {
+        const posts = JSON.parse(localStorage.getItem('posts')) || [];
+        const blob = new Blob([JSON.stringify(posts, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'thoughts-backup.json';
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+      
+      function importNotes(event) {
+        const file = event.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            try {
+              const posts = JSON.parse(e.target.result);
+              localStorage.setItem('posts', JSON.stringify(posts));
+              renderPosts();
+            } catch (err) {
+              showError('Invalid backup file');
+            }
+          };
+          reader.readAsText(file);
+        }
+      }
+      
+      // Add buttons to footer with elegant, minimal styling
+      document.querySelector('#footer').innerHTML += `
+        <div class="backup-actions">
+          <button id="export-notes">Export</button>
+          <input type="file" id="import-notes" accept=".json" style="display: none;">
+          <button id="import-trigger">Import</button>
+        </div>
+        <style>
+          .backup-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            padding: 12px 0;
+            margin-top: 16px;
+          }
+          #export-notes, #import-trigger {
+            padding: 6px 14px;
+            font-size: 13px;
+            font-weight: 500;
+            letter-spacing: 0.02em;
+            color: #ffffff;
+            background: rgba(255, 255, 255, 0.08);
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background 0.2s ease, opacity 0.2s ease;
+            backdrop-filter: blur(6px);
+            -webkit-tap-highlight-color: transparent; /* Remove mobile tap highlight */
+          }
+          #export-notes:hover, #import-trigger:hover {
+            background: rgba(255, 255, 255, 0.18);
+          }
+          #export-notes:active, #import-trigger:active {
+            opacity: 0.8;
+          }
+          @media (max-width: 768px) {
+            .backup-actions {
+              gap: 8px;
+              padding: 10px 0;
+            }
+            #export-notes, #import-trigger {
+              padding: 5px 12px;
+              font-size: 18px;
+            }
+          }
+        </style>
+      `;
+      document.getElementById('export-notes').addEventListener('click', exportNotes);
+      document.getElementById('import-trigger').addEventListener('click', () => document.getElementById('import-notes').click());
+      document.getElementById('import-notes').addEventListener('change', importNotes);
 });
 
 // Install App Prompt
