@@ -1,5 +1,5 @@
 // Version info (update this with each release)
-const APP_VERSION = "1.5.4-beta-final";
+const APP_VERSION = "1.5.4-beta-final_0";
 let languageData = {};
 let selectedLanguage = localStorage.getItem("language") || null;
 let texts; // Global reference to current language texts
