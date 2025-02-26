@@ -7,6 +7,7 @@ const ASSETS_TO_CACHE = [
   '/script.js',
   '/confetti.js',
   '/manifest.json',
+  '/languages.json',
   '/icon-192x192.png',
   '/icon-512x512.png',
   '/icon-144x144.png',
