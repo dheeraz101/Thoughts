@@ -64,23 +64,27 @@
                 <div class="footer-grid">
                     <!-- Brand & Author -->
                     <div class="footer-section">
-                        <h2 class="text-2xl text-[#ffffff] font-bold mb-4">Thoughts</h2>
-                        <p class="text-base text-[#e6e6e6] mb-2">Crafted by <a href="https://dheeraz.netlify.app" class="text-[#1d9bf0] hover:underline" target="_blank">Dheeraz</a></p>
-                        <p class="text-sm text-[#a6a6a6]">v</p>
+                        <h2 class="text-2xl text-[#ffffff] font-bold mb-4" id="footer-title"></h2>
+                        <p class="text-base text-[#e6e6e6] mb-2" id="footer-crafted-by">
+                            <span id="crafted-by-text"></span>
+                            <a href="https://dheeraz.netlify.app" class="text-[#1d9bf0] hover:underline" target="_blank">Dheeraz</a>
+                        </p>
+                        <p class="text-sm text-[#a6a6a6]" id="footer-version">v1.5.4-beta</p>
                     </div>
                     <!-- Install Guide -->
                     <div class="footer-section">
                         <h3 class="text-lg text-[#ffffff] font-semibold mb-4">Go Offline</h3>
-                        <p class="text-sm text-[#e6e6e6] mb-3">Install Thoughts for offline use:</p>
-                        <p class="text-sm text-[#d9d9d9] mb-2"><strong>Android:</strong> Menu (⋮) > Add to Home screen.</p>
-                        <p class="text-sm text-[#d9d9d9]"><strong>iOS:</strong> Share (⬆) > Add to Home Screen.</p>
+                        <p class="text-sm text-[#e6e6e6] mb-3" id="footer-offline-text">Install Thoughts for offline use:</p>
+                        <p class="text-sm text-[#d9d9d9] mb-2" id="footer-android-guide"><strong>Android:</strong> Menu (⋮) > Add to Home screen.</p>
+                        <p class="text-sm text-[#d9d9d9]" id="footer-ios-guide"><strong>iOS:</strong> Share (⬆) > Add to Home Screen.</p>
                     </div>
                 </div>
                 <hr class="border-[#333639] my-8 mx-auto w-3/4">
                 <div class="footer-bottom">
-                    <p class="text-sm text-[#e6e6e6] mb-2">Thoughts is secure & private. No data collected—your notes stays local.</p>
+                    <p class="text-sm text-[#e6e6e6]" id="footer-made-with-love"></p>
+                    <p class="text-sm text-[#e6e6e6] mb-2" id="footer-privacy">Thoughts is secure & private. No data collected—your notes stays local.</p>
                     <br>
-                    <p class="text-xs text-[#a6a6a6]">© 2025 Thoughts. All rights reserved.</p>
+                    <p class="text-xs text-[#a6a6a6]" id="footer-rights-reserved"></p>
                 </div>
             </div>
         </footer>
@@ -93,14 +97,46 @@
         </svg>
     </button>
 
-    <div id="delete-confirmation" class="fixed inset-0 bg-[#000000] bg-opacity-60 hidden flex justify-center items-center p-4">
-        <div class="twitter-popup">
-            <p class="mb-4 text-[15px] font-bold">Delete Note?</p>
-            <p class="mb-4" style="color: #71767b; font-size: 13px;">This can’t be undone and it will be removed from your timeline.</p>
-            <button id="confirm-delete" class="bg-red-500 text-white px-4 py-1.5 rounded-full font-bold w-full mb-2 hover:bg-red-600">Delete</button>
-            <button id="cancel-delete" class="bg-[#ffffff] text-black px-4 py-1.5 rounded-full font-bold w-full hover:bg-[#e6e6e6]">Cancel</button>
+    <!-- Delete Post Popup (Updated) -->
+    <div id="delete-confirmation" class="fixed inset-0 bg-[rgba(0,0,0,0.4)] backdrop-blur-[8px] hidden flex justify-center items-center p-4 z-[2000]">
+        <div class="twitter-popup bg-[rgba(20,23,26,0.7)] rounded-[16px] p-6 max-w-[320px] w-full shadow-lg border border-[rgba(255,255,255,0.1)] backdrop-blur-[6px]">
+            <p class="mb-4 text-[1.375rem] font-bold text-white text-center md:text-[20px]">Delete Note?</p>
+            <p class="mb-4 text-[1.125rem] text-[#71767b] text-center md:text-[16px]">This can’t be undone and it will be removed from your timeline.</p>
+            <button id="confirm-delete" class="bg-red-500 text-white px-4 py-[10px] rounded-full font-bold w-full mb-2 hover:bg-red-600 transition-colors -webkit-tap-highlight-color-transparent md:text-[16px]">Delete</button>
+            <button id="cancel-delete" class="bg-white text-black px-4 py-[10px] rounded-full font-bold w-full hover:bg-gray-200 transition-colors -webkit-tap-highlight-color-transparent md:text-[16px]">Cancel</button>
         </div>
     </div>
+
+    <!-- Language Selection Popup (Updated) -->
+    <div id="language-selection" class="fixed inset-0 bg-[rgba(0,0,0,0.4)] backdrop-blur-[8px] hidden flex justify-center items-center p-4 z-[2000]">
+        <div class="twitter-popup bg-[rgba(20,23,26,0.7)] rounded-[16px] p-6 max-w-[320px] w-full shadow-lg border border-[rgba(255,255,255,0.1)] backdrop-blur-[6px]">
+            <p class="mb-4 text-[1.375rem] font-bold text-white text-center md:text-[20px]">Choose Your Language</p>
+            <button id="lang-english" class="bg-white text-black px-4 py-[10px] rounded-full font-bold w-full mb-2 hover:bg-gray-200 transition-colors -webkit-tap-highlight-color-transparent md:text-[16px]">English</button>
+            <button id="lang-hinglish" class="bg-white text-black px-4 py-[10px] rounded-full font-bold w-full hover:bg-gray-200 transition-colors -webkit-tap-highlight-color-transparent md:text-[16px]">Hinglish</button>
+        </div>
+    </div>
+
+    <!-- Custom Popup for Delete All/Export -->
+    <div id="custom-popup" class="fixed inset-0 bg-[rgba(0,0,0,0.4)] backdrop-blur-[8px] hidden flex justify-center items-center p-4 z-[2000]">
+        <div class="twitter-popup bg-[rgba(20,23,26,0.7)] rounded-[16px] p-6 max-w-[320px] w-full shadow-lg border border-[rgba(255,255,255,0.1)] backdrop-blur-[6px]">
+            <p id="custom-popup-title" class="mb-4 text-[1.375rem] font-bold text-white text-center md:text-[20px]"></p>
+            <p id="custom-popup-message" class="mb-4 text-[1.125rem] text-[#71767b] text-center md:text-[16px]"></p>
+            <button id="custom-popup-confirm" class="bg-red-500 text-white px-4 py-[10px] rounded-full font-bold w-full mb-2 hover:bg-red-600 transition-colors -webkit-tap-highlight-color-transparent md:text-[16px]"></button>
+            <button id="custom-popup-cancel" class="bg-white text-black px-4 py-[10px] rounded-full font-bold w-full hover:bg-gray-200 transition-colors -webkit-tap-highlight-color-transparent md:text-[16px]">Cancel</button>
+        </div>
+    </div>
+
+    <!-- Import Confirmation Popup -->
+    <div id="import-confirmation" class="fixed inset-0 bg-[rgba(0,0,0,0.4)] backdrop-blur-[8px] hidden flex justify-center items-center p-4 z-[2000]">
+        <div class="twitter-popup bg-[rgba(20,23,26,0.7)] rounded-[16px] p-6 max-w-[320px] w-full shadow-lg border border-[rgba(255,255,255,0.1)] backdrop-blur-[6px]">
+            <p class="mb-4 text-[1.375rem] font-bold text-white text-center md:text-[20px]">Import Notes?</p>
+            <p class="mb-4 text-[1.125rem] text-[#71767b] text-center md:text-[16px]">You’ve got existing notes. Merge them with the new ones or replace everything?</p>
+            <button id="merge-import" class="bg-[#1d9bf0] text-white px-4 py-[10px] rounded-full font-bold w-full mb-2 hover:bg-[#1a8cd8] transition-colors -webkit-tap-highlight-color-transparent md:text-[16px]">Merge</button>
+            <button id="replace-import" class="bg-red-500 text-white px-4 py-[10px] rounded-full font-bold w-full mb-2 hover:bg-red-600 transition-colors -webkit-tap-highlight-color-transparent md:text-[16px]">Replace</button>
+            <button id="cancel-import" class="bg-white text-black px-4 py-[10px] rounded-full font-bold w-full hover:bg-gray-200 transition-colors -webkit-tap-highlight-color-transparent md:text-[16px]">Cancel</button>
+        </div>
+    </div>
+
     <script src="/confetti.js"></script>
     <script src="/script.js"></script>
 </body>
