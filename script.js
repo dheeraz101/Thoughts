@@ -226,7 +226,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             showCustomPopup(
                 texts.deleteAllConfirmTitle,
                 texts.deleteAllEmptyMessage,
-                "OK", // Confirm text is static "OK" for no posts
+                texts.okButton, // Confirm text is static "OK" for no posts
                 () => {},
                 false
             );
@@ -724,9 +724,9 @@ document.addEventListener("DOMContentLoaded", async function () {
         const posts = JSON.parse(localStorage.getItem("posts")) || [];
         if (posts.length === 0) {
             showCustomPopup(
-                "Export Notes",
+                texts.exportNotesTitle, // Fetch "Export Notes" or "Notes Export Karo"
                 texts.exportEmptyMessage,
-                "OK",
+                texts.okButton, // Fetch "OK" or "Theek Hai"
                 () => {},
                 false // No cancel button when no posts
             );
