@@ -1414,6 +1414,13 @@ document.addEventListener("DOMContentLoaded", async function () {
     renderPosts(); // Safe to call now as texts is guaranteed to be set
     document.getElementById("footer").classList.remove("hidden"); // Extra safety
 
+        // Hide splash screen after content is ready
+        const splashScreen = document.getElementById("splash-screen");
+        splashScreen.style.opacity = "0"; // Start fade-out
+        setTimeout(() => {
+            splashScreen.style.display = "none"; // Remove from layout after fade
+        }, 500); // Match transition duration
+
 });
 
 // PWA Support
