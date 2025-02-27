@@ -1,31 +1,45 @@
-// Version info (update this with each release)
+// Version info
 const APP_VERSION = "1.5.4-beta-final_0";
 let languageData = {};
-let selectedLanguage = localStorage.getItem("language") || null;
-let texts; // Global reference to current language texts
+let selectedLanguage = localStorage.getItem("language") || "english"; // Default to "english" if null
+let texts = {};
+let editIndex = null;
+let updateEditState; // Define globally for updateDynamicText
 
-// Load language data synchronously (assuming languages.json is pre-fetched or embedded)
-fetch("/languages.json")
-    .then(response => response.json())
-    .then(data => {
-        languageData = data;
-        texts = languageData[selectedLanguage] || languageData["english"]; // Set texts immediately
-    })
-    .catch(err => {
-        console.error("Failed to load languages:", err);
-        languageData = { english: {} };
-        texts = languageData["english"];
-    });
+// Utility: Debounce function
+function debounce(func, wait) {
+    let timeout;
+    return function (...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+}
 
-document.addEventListener("DOMContentLoaded", async function () {
-    // Load language data
+// Async fetch for languages
+async function fetchLanguages() {
     try {
         const response = await fetch("/languages.json");
         languageData = await response.json();
+        texts = languageData[selectedLanguage] || languageData["english"];
+        const splashTitle = document.getElementById("splash-title");
+        splashTitle.textContent = texts.appName;
+        splashTitle.classList.add("scale-110");
+        setTimeout(() => splashTitle.classList.remove("scale-110"), 300);
     } catch (err) {
         console.error("Failed to load languages:", err);
-        languageData = { english: {} }; // Fallback to empty English
+        languageData = { english: {} };
+        texts = languageData["english"];
+        const splashTitle = document.getElementById("splash-title");
+        splashTitle.textContent = texts.appName;
+        splashTitle.classList.add("scale-110");
+        setTimeout(() => splashTitle.classList.remove("scale-110"), 300);
     }
+}
+
+// Main app initialization
+document.addEventListener("DOMContentLoaded", async function () {
+    // Wait for languages to load
+    await fetchLanguages();
 
     // Initialize DOM elements
     const postButton = document.getElementById("post-button");
@@ -41,7 +55,6 @@ document.addEventListener("DOMContentLoaded", async function () {
     const clearSearch = document.querySelector(".clear-search");
     const cancelEditButton = document.getElementById("cancel-edit");
     let actionContext = null;
-    let editIndex = null;
     const hashtagList = document.getElementById("hashtag-list");
     let activeHashtag = null;
 
@@ -78,8 +91,10 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     function savePost(text) {
         let posts = JSON.parse(localStorage.getItem("posts")) || [];
-        posts.push({ text, timestamp: new Date().toLocaleString(), pinned: false });
+        const newPost = { text, timestamp: new Date().toLocaleString(), pinned: false };
+        posts.push(newPost);
         localStorage.setItem("posts", JSON.stringify(posts));
+        console.log("Post saved:", newPost);
         renderPosts();
     }
 
@@ -95,29 +110,32 @@ document.addEventListener("DOMContentLoaded", async function () {
     // Language Functions
     function showLanguageSelection() {
         const selectionDiv = document.getElementById("language-selection");
+        const popupDiv = selectionDiv.querySelector(".twitter-popup");
+        const chooseText = texts.chooseLanguage || "Choose Your Language";
+        popupDiv.innerHTML = `
+            <p class="mb-4 text-[1.375rem] font-bold text-white text-center md:text-[20px]">${chooseText}</p>
+        `;
+
+        Object.keys(languageData).forEach(lang => {
+            const button = document.createElement("button");
+            button.className = "bg-white text-black px-4 py-[12px] rounded-full font-bold w-full mb-4 hover:bg-gray-200 transition-colors -webkit-tap-highlight-color-transparent md:text-[16px] text-[1.125rem]";
+            button.textContent = languageData[lang].name;
+            button.addEventListener("click", () => {
+                selectedLanguage = lang;
+                localStorage.setItem("language", lang);
+                applyLanguage(lang);
+                renderPosts();
+                selectionDiv.classList.add("hidden");
+                document.body.style.overflow = "";
+                showLanguageChangeNotification(lang);
+            });
+            popupDiv.appendChild(button);
+        });
+
         selectionDiv.classList.remove("hidden");
-        document.body.style.overflow = "hidden"; // Disable body scroll
-    
-        document.getElementById("lang-english").addEventListener("click", () => {
-            selectedLanguage = "english";
-            localStorage.setItem("language", "english");
-            applyLanguage("english");
-            renderPosts();
-            selectionDiv.classList.add("hidden");
-            document.body.style.overflow = ""; // Re-enable body scroll
-        });
-    
-        document.getElementById("lang-hinglish").addEventListener("click", () => {
-            selectedLanguage = "hinglish";
-            localStorage.setItem("language", "hinglish");
-            applyLanguage("hinglish");
-            renderPosts();
-            selectionDiv.classList.add("hidden");
-            document.body.style.overflow = ""; // Re-enable body scroll
-        });
+        document.body.style.overflow = "hidden";
     }
 
-    // Update applyLanguage to ensure header updates immediately
     function applyLanguage(lang) {
         texts = languageData[lang] || languageData["english"];
         console.log("Applying language:", lang, texts);
@@ -131,7 +149,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         document.getElementById("export-notes").textContent = texts.exportButton;
         document.getElementById("import-trigger").textContent = texts.importButton;
         document.getElementById("export-pdf") && (document.getElementById("export-pdf").textContent = texts.exportPDFButton);
-        document.getElementById("language-switch").textContent = lang === "english" ? "English" : "Hinglish"; // Update switch button
+        document.getElementById("language-switch").textContent = texts.name;
         document.querySelector(".footer-section h3").textContent = texts.footerOfflineTitle;
         document.getElementById("footer-offline-text").textContent = texts.footerOfflineText;
         document.getElementById("footer-android-guide").textContent = texts.footerAndroidGuide;
@@ -141,13 +159,15 @@ document.addEventListener("DOMContentLoaded", async function () {
         document.getElementById("footer-privacy").textContent = texts.footerPrivacy;
         document.getElementById("footer-made-with-love").textContent = texts.footerMadeWithLove;
         document.getElementById("footer-rights-reserved").textContent = texts.footerRightsReserved;
+
         updateDynamicText();
     }
-    
-    // Inside DOMContentLoaded, after utility functions
+
     function renderPosts(filterText = "") {
         const posts = JSON.parse(localStorage.getItem("posts")) || [];
         postContainer.innerHTML = "";
+        
+        console.log("Rendering posts:", posts);
         
         if (posts.length === 0) {
             postContainer.innerHTML = `<div class="no-posts">${texts.noPostsMessage}</div>`;
@@ -166,7 +186,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             }
         }
         renderHashtagList(posts);
-        document.getElementById("footer").classList.remove("hidden"); // Ensure footer is visible
+        document.getElementById("footer").classList.remove("hidden");
     }
 
     function showCustomPopup(title, message, confirmText, confirmAction, showCancel = true) {
@@ -175,37 +195,31 @@ document.addEventListener("DOMContentLoaded", async function () {
         const messageEl = document.getElementById("custom-popup-message");
         const confirmBtn = document.getElementById("custom-popup-confirm");
         const cancelBtn = document.getElementById("custom-popup-cancel");
-    
+
         titleEl.textContent = title;
         messageEl.textContent = message;
-        confirmBtn.textContent = confirmText; // Already dynamic (e.g., "OK" or texts.confirmDeleteButton)
-        cancelBtn.textContent = texts.cancelButton; // Fetch from texts
-    
+        confirmBtn.textContent = confirmText;
+        cancelBtn.textContent = texts.cancelButton;
+
         cancelBtn.style.display = showCancel ? "block" : "none";
-    
+
         popupDiv.classList.remove("hidden");
-        document.body.style.overflow = "hidden"; // Disable body scroll
-    
+        document.body.style.overflow = "hidden";
+
         confirmBtn.onclick = () => {
             confirmAction();
             popupDiv.classList.add("hidden");
-            document.body.style.overflow = ""; // Re-enable body scroll
+            document.body.style.overflow = "";
         };
         cancelBtn.onclick = () => {
             popupDiv.classList.add("hidden");
-            document.body.style.overflow = ""; // Re-enable body scroll
+            document.body.style.overflow = "";
         };
     }
 
     function updateDynamicText() {
-        inputWrapper.addEventListener("input", function () {
-            const text = this.value;
-            adjustHeight();
-            charCount.textContent = texts.charCount.replace("{count}", text.length);
-            charCount.classList.toggle("text-red-500", text.length > 500);
-        });
-        charCount.textContent = texts.charCount.replace("{count}", "0");
-    
+        charCount.textContent = (texts.charCount || "{count} characters").replace("{count}", inputWrapper.value.length || "0");
+
         updateEditState = function () {
             if (editIndex !== null) {
                 inputWrapper.classList.add("editing");
@@ -226,7 +240,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             showCustomPopup(
                 texts.deleteAllConfirmTitle,
                 texts.deleteAllEmptyMessage,
-                texts.okButton, // Confirm text is static "OK" for no posts
+                texts.okButton,
                 () => {},
                 false
             );
@@ -234,7 +248,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             showCustomPopup(
                 texts.deleteAllConfirmTitle,
                 texts.deleteAllConfirmText,
-                texts.confirmDeleteButton, // Fetches "Delete" or Hinglish equivalent
+                texts.confirmDeleteButton,
                 () => {
                     localStorage.removeItem("posts");
                     renderPosts();
@@ -246,10 +260,9 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     cancelDelete.addEventListener("click", function () {
         deleteConfirmation.classList.add("hidden");
-        document.body.style.overflow = ""; // Re-enable body scroll
+        document.body.style.overflow = "";
         confirmDelete.classList.replace("bg-[#1d9bf0]", "bg-red-500");
         confirmDelete.classList.replace("hover:bg-[#1a8cd8]", "hover:bg-red-600");
-        confirmDelete.textContent = texts.confirmDeleteButton;
         actionContext = null;
         if (window.scrollY > 200) scrollToTopButton.classList.add("visible");
     });
@@ -408,6 +421,401 @@ document.addEventListener("DOMContentLoaded", async function () {
         setTimeout(() => status.remove(), 1500);
     }
 
+    // Footer Setup
+    const versionElement = document.querySelector("#footer-version");
+    if (versionElement) versionElement.textContent = `v${APP_VERSION}`;
+    if (!localStorage.getItem("appVersion")) localStorage.setItem("appVersion", APP_VERSION);
+
+    document.querySelector('#footer').innerHTML += `
+        <div class="backup-actions">
+            <div class="import-export-buttons">
+                <button id="export-notes">${texts.exportButton}</button>
+                <input type="file" id="import-notes" accept=".json" style="display: none;">
+                <button id="import-trigger">${texts.importButton}</button>
+            </div>
+            <button id="language-switch">${texts.name}</button>
+        </div>
+        <style>
+            .backup-actions {
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                justify-content: center;
+                padding: 12px 0;
+                margin-top: 16px;
+            }
+            .import-export-buttons {
+                display: flex;
+                gap: 10px;
+                justify-content: center;
+                width: 100%;
+            }
+            #export-notes, #import-trigger, #language-switch {
+                padding: 6px 14px;
+                font-size: 13px;
+                font-weight: 500;
+                letter-spacing: 0.02em;
+                color: #ffffff;
+                background: rgba(255, 255, 255, 0.08);
+                border: none;
+                border-radius: 10px;
+                cursor: pointer;
+                transition: background 0.2s ease, opacity 0.2s ease;
+                backdrop-filter: blur(6px);
+                -webkit-tap-highlight-color: transparent;
+                flex: 1;
+                min-width: 80px;
+                text-align: center;
+            }
+            #export-notes:hover, #import-trigger:hover, #language-switch:hover {
+                background: rgba(255, 255, 255, 0.18);
+            }
+            #export-notes:active, #import-trigger:active, #language-switch:active {
+                opacity: 0.8;
+            }
+            @media (max-width: 768px) {
+                .backup-actions {
+                    gap: 8px;
+                    padding: 10px 0;
+                }
+                .import-export-buttons {
+                    gap: 8px;
+                }
+                #export-notes, #import-trigger {
+                    padding: 5px 12px;
+                    font-size: 18px;
+                    width: 50%;
+                    min-width: 0;
+                }
+                #language-switch {
+                    padding: 5px 12px;
+                    font-size: 18px;
+                    width: 100%;
+                    min-width: 0;
+                }
+            }
+            @media (min-width: 769px) {
+                .backup-actions {
+                    flex-direction: row;
+                }
+                .import-export-buttons {
+                    width: auto;
+                    flex: 2;
+                }
+                #export-notes, #import-trigger, #language-switch {
+                    width: auto;
+                    flex: 1;
+                }
+            }
+        </style>
+    `;
+
+    // Import/Export Functions
+    function exportNotes() {
+        const posts = JSON.parse(localStorage.getItem("posts")) || [];
+        if (posts.length === 0) {
+            showCustomPopup(
+                texts.exportNotesTitle,
+                texts.exportEmptyMessage,
+                texts.okButton,
+                () => {},
+                false
+            );
+            return;
+        }
+        const exportData = { appId: "thoughts-app", posts: posts };
+        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "thoughts-backup.json";
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    function importNotes(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        if (!file.name.endsWith(".json")) {
+            showCustomPopup("Import Error", texts.importErrorInvalidFile, texts.okButton, () => {}, false);
+            return;
+        }
+    
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = JSON.parse(e.target.result);
+                if (!data.appId || data.appId !== "thoughts-app") {
+                    showCustomPopup("Import Error", texts.importErrorNotThoughts, texts.okButton, () => {}, false);
+                    return;
+                }
+                if (!Array.isArray(data.posts) || !data.posts.every(post => 
+                    typeof post.text === "string" && typeof post.timestamp === "string" && typeof post.pinned === "boolean")) {
+                    showCustomPopup("Import Error", texts.importErrorInvalidFormat, texts.okButton, () => {}, false);
+                    return;
+                }
+                const existingPosts = JSON.parse(localStorage.getItem("posts")) || [];
+                if (existingPosts.length > 0) {
+                    showImportConfirmation(data.posts, existingPosts);
+                } else {
+                    localStorage.setItem("posts", JSON.stringify(data.posts));
+                    renderPosts();
+                    showSuccess(texts.importSuccessFirst);
+                }
+            } catch (err) {
+                showCustomPopup("Import Error", texts.importErrorInvalidJSON, texts.okButton, () => {}, false);
+            }
+        };
+        reader.readAsText(file);
+    }
+    
+    function showImportConfirmation(newPosts, existingPosts) {
+        const popupDiv = document.getElementById("import-confirmation");
+        const mergeBtn = document.getElementById("merge-import");
+        const replaceBtn = document.getElementById("replace-import");
+        const cancelBtn = document.getElementById("cancel-import");
+    
+        const titleEl = popupDiv.querySelector(".twitter-popup p:first-child");
+        const messageEl = popupDiv.querySelector(".twitter-popup p:nth-child(2)");
+        titleEl.textContent = texts.importConfirmTitle;
+        messageEl.textContent = texts.importConfirmText;
+    
+        mergeBtn.textContent = texts.mergeButton;
+        replaceBtn.textContent = texts.replaceButton;
+        cancelBtn.textContent = texts.cancelButton;
+    
+        popupDiv.classList.remove("hidden");
+        document.body.style.overflow = "hidden";
+    
+        mergeBtn.onclick = () => {
+            const mergedPosts = mergePosts(existingPosts, newPosts);
+            localStorage.setItem("posts", JSON.stringify(mergedPosts));
+            renderPosts();
+            showSuccess(texts.importSuccessMerge);
+            popupDiv.classList.add("hidden");
+            document.body.style.overflow = "";
+        };
+    
+        replaceBtn.onclick = () => {
+            localStorage.setItem("posts", JSON.stringify(newPosts));
+            renderPosts();
+            showSuccess(texts.importSuccessReplace);
+            popupDiv.classList.add("hidden");
+            document.body.style.overflow = "";
+        };
+    
+        cancelBtn.onclick = () => {
+            popupDiv.classList.add("hidden");
+            document.body.style.overflow = "";
+        };
+    }
+
+    function mergePosts(existingPosts, newPosts) {
+        const combined = [...existingPosts];
+        newPosts.forEach(newPost => {
+            if (!combined.some(post => post.text === newPost.text && post.timestamp === newPost.timestamp)) {
+                combined.push(newPost);
+            }
+        });
+        return combined;
+    }
+
+    function showSuccess(message) {
+        const successDiv = document.createElement("div");
+        successDiv.textContent = message;
+        Object.assign(successDiv.style, {
+            position: "fixed",
+            top: "20px",
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "rgba(20, 23, 26, 0.85)",
+            backdropFilter: "blur(8px)",
+            color: "#ffffff",
+            padding: "14px 28px",
+            borderRadius: "16px",
+            border: "1px solid rgba(255, 255, 255, 0.15)",
+            boxShadow: "0 6px 16px rgba(0, 0, 0, 0.3)",
+            zIndex: "3000",
+            fontSize: "18px",
+            fontWeight: "600",
+            fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+            textAlign: "center",
+            maxWidth: "90%",
+            width: "auto",
+            margin: "0 16px",
+            opacity: "0",
+            transition: "opacity 0.3s ease-in-out"
+        });
+    
+        if (window.innerWidth <= 768) {
+            Object.assign(successDiv.style, {
+                fontSize: "16px",
+                padding: "12px 20px",
+                margin: "0 12px"
+            });
+        }
+    
+        document.body.appendChild(successDiv);
+        setTimeout(() => successDiv.style.opacity = "1", 10);
+        setTimeout(() => {
+            successDiv.style.opacity = "0";
+            setTimeout(() => successDiv.remove(), 300);
+        }, 4500);
+    }
+
+    // Footer Event Listeners
+    document.getElementById("export-notes").addEventListener("click", exportNotes);
+    document.getElementById("import-trigger").addEventListener("click", () => document.getElementById("import-notes").click());
+    document.getElementById("import-notes").addEventListener("change", importNotes);
+
+    document.getElementById("language-switch").addEventListener("click", function () {
+        const languages = Object.keys(languageData);
+        const currentIndex = languages.indexOf(selectedLanguage);
+        const nextIndex = (currentIndex + 1) % languages.length;
+        const newLanguage = languages[nextIndex];
+        selectedLanguage = newLanguage;
+        localStorage.setItem("language", newLanguage);
+        texts = languageData[newLanguage] || languageData["english"];
+        applyLanguage(newLanguage);
+        renderPosts();
+        this.textContent = languageData[newLanguage].name;
+        showLanguageChangeNotification(newLanguage);
+    });
+
+    function showLanguageChangeNotification(language) {
+        const notificationDiv = document.createElement("div");
+        notificationDiv.textContent = `Language Changed to ${languageData[language].name}`;
+        Object.assign(notificationDiv.style, {
+            position: "fixed",
+            top: "20px",
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "rgba(20, 23, 26, 0.85)",
+            backdropFilter: "blur(8px)",
+            color: "#ffffff",
+            padding: "14px 28px",
+            borderRadius: "16px",
+            border: "1px solid rgba(255, 255, 255, 0.15)",
+            boxShadow: "0 6px 16px rgba(0, 0, 0, 0.3)",
+            zIndex: "3000",
+            fontSize: "18px",
+            fontWeight: "600",
+            fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+            textAlign: "center",
+            maxWidth: "90%",
+            width: "auto",
+            margin: "0 16px",
+            opacity: "0",
+            transition: "opacity 0.3s ease-in-out"
+        });
+    
+        if (window.innerWidth <= 768) {
+            Object.assign(notificationDiv.style, {
+                fontSize: "16px",
+                padding: "12px 20px",
+                margin: "0 12px"
+            });
+        }
+    
+        document.body.appendChild(notificationDiv);
+        setTimeout(() => notificationDiv.style.opacity = "1", 10);
+        setTimeout(() => {
+            notificationDiv.style.opacity = "0";
+            setTimeout(() => notificationDiv.remove(), 300);
+        }, 1500);
+    }
+
+    // Render Post
+    function renderPost(post, index, isPinned) {
+        const [date, time] = post.timestamp.split(", ");
+        const { title, content } = extractTitleAndContent(post.text);
+        const postElement = document.createElement("div");
+        postElement.className = `post ${editIndex === index ? "editing" : ""} ${isPinned ? "pinned" : ""}`;
+        postElement.innerHTML = `
+            ${title ? `<div class="post-title">${title}</div>` : ""}
+            <div class="post-content ${title ? "with-title" : ""}">${highlightHashtags(content)}</div>
+            <div class="post-meta">
+                <span class="meta-badge">${date}</span>
+                <span class="meta-badge">${time}</span>
+                <span class="meta-badge">${post.text.length} chars</span>
+                ${isPinned ? '<span class="meta-badge">Pinned</span>' : ''}
+            </div>
+            <div class="post-actions">
+                <button class="edit-post" data-index="${index}" ${editIndex === index ? "disabled" : ""}>
+                    <svg class="icon" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                    </svg>
+                    <span>${texts.editButton || "Edit"}</span>
+                </button>
+                <button class="delete-post" data-index="${index}" ${editIndex === index ? "disabled" : ""}>
+                    <svg class="icon" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M5 6h14l-1 14H6L5 6z"/>
+                    </svg>
+                    <span>${texts.deleteButton || "Bin"}</span>
+                </button>
+                <button class="pin-post ${isPinned ? "pinned" : ""}" data-index="${index}" ${editIndex === index ? "disabled" : ""} aria-label="${isPinned ? "Unpin Post" : "Pin Post"}">
+                    <svg class="icon" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        ${isPinned ? `<path d="M6 3l12 12"/><path d="M6 15l12-12"/><path d="M12 22v-6"/>` : `<path d="M12 2v13"/><path d="M5 15l7 7 7-7"/><path d="M19 9H5"/>`}
+                    </svg>
+                </button>
+            </div>
+        `;
+        postContainer.appendChild(postElement);
+
+        postElement.querySelector(".delete-post").addEventListener("click", function () {
+            if (!this.disabled) {
+                actionContext = { type: "delete", index: this.getAttribute("data-index") };
+                deleteConfirmation.classList.remove("hidden");
+                scrollToTopButton.classList.remove("visible");
+                document.body.style.overflow = "hidden";
+                const popupText = deleteConfirmation.querySelector(".twitter-popup p:first-child");
+                const popupSubtext = deleteConfirmation.querySelector(".twitter-popup p:nth-child(2)");
+                confirmDelete.textContent = texts.confirmDeleteButton;
+                cancelDelete.textContent = texts.cancelButton;
+                popupText.textContent = texts.deletePostConfirmTitle;
+                popupSubtext.textContent = texts.deletePostConfirmText;
+                confirmDelete.classList.replace("bg-[#1d9bf0]", "bg-red-500");
+                confirmDelete.classList.replace("hover:bg-[#1a8cd8]", "hover:bg-red-600");
+            }
+        });
+
+        postElement.querySelector(".edit-post").addEventListener("click", function () {
+            if (!this.disabled) {
+                const newEditIndex = parseInt(this.getAttribute("data-index"));
+                const posts = JSON.parse(localStorage.getItem("posts")) || [];
+                const currentText = inputWrapper.value.trim();
+
+                if (editIndex !== null && currentText && currentText !== posts[editIndex].text) {
+                    deleteConfirmation.classList.remove("hidden");
+                    scrollToTopButton.classList.remove("visible");
+                    document.body.style.overflow = "hidden";
+                    const popupText = deleteConfirmation.querySelector(".twitter-popup p:first-child");
+                    const popupSubtext = deleteConfirmation.querySelector(".twitter-popup p:nth-child(2)");
+                    confirmDelete.textContent = texts.discardButton;
+                    cancelDelete.textContent = texts.cancelButton;
+                    popupText.textContent = texts.discardConfirmTitle;
+                    popupSubtext.textContent = texts.discardConfirmText;
+                    actionContext = { type: "edit-switch", newIndex: newEditIndex };
+                    return;
+                }
+
+                editIndex = newEditIndex;
+                inputWrapper.value = posts[editIndex].text;
+                adjustHeight();
+                charCount.textContent = (texts.charCount || "{count} characters").replace("{count}", inputWrapper.value.length);
+                charCount.classList.toggle("text-red-500", inputWrapper.value.length > 500);
+                updateEditState();
+                renderPosts();
+                inputWrapper.focus();
+            }
+        });
+
+        postElement.querySelector(".pin-post").addEventListener("click", function () {
+            const index = parseInt(this.getAttribute("data-index"));
+            togglePin(index);
+        });
+    }
+
     // Event Listeners
     window.addEventListener("scroll", () => {
         scrollToTopButton.classList.toggle("visible", window.scrollY > 200);
@@ -419,23 +827,25 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     inputWrapper.addEventListener("paste", adjustHeight);
 
-    // Update event listeners to use the globally defined renderPosts
     postButton.addEventListener("click", function () {
         const text = inputWrapper.value.trim();
         if (!text || text.length > 500) return;
-
+    
         if (editIndex !== null) {
             let posts = JSON.parse(localStorage.getItem("posts")) || [];
             posts[editIndex].text = text;
             posts[editIndex].timestamp = new Date().toLocaleString();
             localStorage.setItem("posts", JSON.stringify(posts));
+            console.log("Edited post saved:", posts[editIndex]);
             editIndex = null;
         } else {
             savePost(text);
         }
         inputWrapper.value = "";
+        localStorage.removeItem("draftNote");
+        console.log("Draft cleared after post");
         adjustHeight();
-        charCount.textContent = texts.charCount.replace("{count}", "0");
+        charCount.textContent = (texts.charCount || "{count} characters").replace("{count}", "0");
         charCount.classList.remove("text-red-500");
         updateEditState();
         renderPosts();
@@ -445,7 +855,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         inputWrapper.value = "";
         editIndex = null;
         adjustHeight();
-        charCount.textContent = texts.charCount.replace("{count}", "0");
+        charCount.textContent = (texts.charCount || "{count} characters").replace("{count}", "0");
         charCount.classList.remove("text-red-500");
         updateEditState();
         renderPosts();
@@ -465,13 +875,13 @@ document.addEventListener("DOMContentLoaded", async function () {
                 editIndex = actionContext.newIndex;
                 inputWrapper.value = posts[editIndex].text;
                 adjustHeight();
-                charCount.textContent = texts.charCount.replace("{count}", inputWrapper.value.length);
+                charCount.textContent = (texts.charCount || "{count} characters").replace("{count}", inputWrapper.value.length);
                 charCount.classList.toggle("text-red-500", inputWrapper.value.length > 500);
                 updateEditState();
                 renderPosts();
             }
             deleteConfirmation.classList.add("hidden");
-            document.body.style.overflow = ""; // Re-enable body scroll
+            document.body.style.overflow = "";
             actionContext = null;
             if (window.scrollY > 200) scrollToTopButton.classList.add("visible");
         }
@@ -537,416 +947,6 @@ document.addEventListener("DOMContentLoaded", async function () {
         }
     }
 
-    // Render Post
-    function renderPost(post, index, isPinned) {
-        const [date, time] = post.timestamp.split(", ");
-        const { title, content } = extractTitleAndContent(post.text);
-        const postElement = document.createElement("div");
-        postElement.className = `post ${editIndex === index ? "editing" : ""} ${isPinned ? "pinned" : ""}`;
-        postElement.innerHTML = `
-            ${title ? `<div class="post-title">${title}</div>` : ""}
-            <div class="post-content ${title ? "with-title" : ""}">${highlightHashtags(content)}</div>
-            <div class="post-meta">
-                <span class="meta-badge">${date}</span>
-                <span class="meta-badge">${time}</span>
-                <span class="meta-badge">${post.text.length} chars</span>
-                ${isPinned ? '<span class="meta-badge">Pinned</span>' : ''}
-            </div>
-            <div class="post-actions">
-                <button class="edit-post" data-index="${index}" ${editIndex === index ? "disabled" : ""}>
-                    <svg class="icon" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-                    </svg>
-                    <span>${texts.editButton || "Edit"}</span>
-                </button>
-                <button class="delete-post" data-index="${index}" ${editIndex === index ? "disabled" : ""}>
-                    <svg class="icon" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M5 6h14l-1 14H6L5 6z"/>
-                    </svg>
-                    <span>${texts.deleteButton || "Bin"}</span>
-                </button>
-                <button class="pin-post ${isPinned ? "pinned" : ""}" data-index="${index}" ${editIndex === index ? "disabled" : ""} aria-label="${isPinned ? "Unpin Post" : "Pin Post"}">
-                    <svg class="icon" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        ${isPinned ? `<path d="M6 3l12 12"/><path d="M6 15l12-12"/><path d="M12 22v-6"/>` : `<path d="M12 2v13"/><path d="M5 15l7 7 7-7"/><path d="M19 9H5"/>`}
-                    </svg>
-                </button>
-            </div>
-        `;
-        postContainer.appendChild(postElement);
-
-        postElement.querySelector(".delete-post").addEventListener("click", function () {
-            if (!this.disabled) {
-                actionContext = { type: "delete", index: this.getAttribute("data-index") };
-                deleteConfirmation.classList.remove("hidden");
-                scrollToTopButton.classList.remove("visible");
-                document.body.style.overflow = "hidden"; // Disable body scroll
-                const popupText = deleteConfirmation.querySelector(".twitter-popup p:first-child");
-                const popupSubtext = deleteConfirmation.querySelector(".twitter-popup p:nth-child(2)");
-                confirmDelete.textContent = texts.confirmDeleteButton; // Fetch from texts
-                cancelDelete.textContent = texts.cancelButton; // Fetch from texts
-                popupText.textContent = texts.deletePostConfirmTitle;
-                popupSubtext.textContent = texts.deletePostConfirmText;
-                confirmDelete.classList.replace("bg-[#1d9bf0]", "bg-red-500");
-                confirmDelete.classList.replace("hover:bg-[#1a8cd8]", "hover:bg-red-600");
-            }
-        });    
-
-        // Inside renderPost
-        postElement.querySelector(".edit-post").addEventListener("click", function () {
-            if (!this.disabled) {
-                const newEditIndex = parseInt(this.getAttribute("data-index"));
-                const posts = JSON.parse(localStorage.getItem("posts")) || [];
-                const currentText = inputWrapper.value.trim();
-
-                if (editIndex !== null && currentText && currentText !== posts[editIndex].text) {
-                    deleteConfirmation.classList.remove("hidden");
-                    scrollToTopButton.classList.remove("visible");
-                    document.body.style.overflow = "hidden"; // Disable body scroll
-                    const popupText = deleteConfirmation.querySelector(".twitter-popup p:first-child");
-                    const popupSubtext = deleteConfirmation.querySelector(".twitter-popup p:nth-child(2)");
-                    confirmDelete.textContent = texts.discardButton; // Fetch from texts
-                    cancelDelete.textContent = texts.cancelButton; // Fetch from texts
-                    popupText.textContent = texts.discardConfirmTitle;
-                    popupSubtext.textContent = texts.discardConfirmText;
-                    actionContext = { type: "edit-switch", newIndex: newEditIndex };
-                    return;
-                }
-
-                editIndex = newEditIndex;
-                inputWrapper.value = posts[editIndex].text;
-                adjustHeight();
-                charCount.textContent = texts.charCount.replace("{count}", inputWrapper.value.length);
-                charCount.classList.toggle("text-red-500", inputWrapper.value.length > 500);
-                updateEditState();
-                renderPosts();
-                inputWrapper.focus();
-            }
-        });
-
-        postElement.querySelector(".pin-post").addEventListener("click", function () {
-            const index = parseInt(this.getAttribute("data-index"));
-            togglePin(index);
-        });
-    }
-
-    // Footer Setup
-    const versionElement = document.querySelector(".footer-section p.text-sm");
-    if (versionElement) versionElement.textContent = `v${APP_VERSION}`;
-    if (!localStorage.getItem("appVersion")) localStorage.setItem("appVersion", APP_VERSION);
-
-    //footer codes
-    document.querySelector('#footer').innerHTML += `
-        <div class="backup-actions">
-            <div class="import-export-buttons">
-                <button id="export-notes">Export</button>
-                <input type="file" id="import-notes" accept=".json" style="display: none;">
-                <button id="import-trigger">Import</button>
-            </div>
-            <button id="language-switch">${selectedLanguage === "english" ? "English" : "Hinglish"}</button>
-        </div>
-        <style>
-            .backup-actions {
-                display: flex;
-                flex-direction: column;
-                gap: 10px;
-                justify-content: center;
-                padding: 12px 0;
-                margin-top: 16px;
-            }
-            .import-export-buttons {
-                display: flex;
-                gap: 10px;
-                justify-content: center;
-                width: 100%;
-            }
-            #export-notes, #import-trigger, #language-switch {
-                padding: 6px 14px;
-                font-size: 13px;
-                font-weight: 500;
-                letter-spacing: 0.02em;
-                color: #ffffff;
-                background: rgba(255, 255, 255, 0.08);
-                border: none;
-                border-radius: 10px;
-                cursor: pointer;
-                transition: background 0.2s ease, opacity 0.2s ease;
-                backdrop-filter: blur(6px);
-                -webkit-tap-highlight-color: transparent;
-                flex: 1; /* Equal width distribution */
-                min-width: 80px; /* Minimum width for consistency */
-                text-align: center; /* Centered text */
-            }
-            #export-notes:hover, #import-trigger:hover, #language-switch:hover {
-                background: rgba(255, 255, 255, 0.18);
-            }
-            #export-notes:active, #import-trigger:active, #language-switch:active {
-                opacity: 0.8;
-            }
-            @media (max-width: 768px) {
-                .backup-actions {
-                    gap: 8px;
-                    padding: 10px 0;
-                }
-                .import-export-buttons {
-                    gap: 8px;
-                }
-                #export-notes, #import-trigger {
-                    padding: 5px 12px;
-                    font-size: 18px;
-                    width: 50%;
-                    min-width: 0; /* Reset min-width for mobile */
-                }
-                #language-switch {
-                    padding: 5px 12px;
-                    font-size: 18px;
-                    width: 100%;
-                    min-width: 0; /* Reset min-width for mobile */
-                }
-            }
-            @media (min-width: 769px) {
-                .backup-actions {
-                    flex-direction: row;
-                }
-                .import-export-buttons {
-                    width: auto; /* Reset to content width on desktop */
-                    flex: 2; /* Slightly larger flex for balance */
-                }
-                #export-notes, #import-trigger, #language-switch {
-                    width: auto; /* Reset to content width on desktop */
-                    flex: 1; /* Equal flex for all buttons */
-                }
-            }
-        </style>
-    `;
-
-    // Import/Export Functions
-    function exportNotes() {
-        const posts = JSON.parse(localStorage.getItem("posts")) || [];
-        if (posts.length === 0) {
-            showCustomPopup(
-                texts.exportNotesTitle, // Fetch "Export Notes" or "Notes Export Karo"
-                texts.exportEmptyMessage,
-                texts.okButton, // Fetch "OK" or "Theek Hai"
-                () => {},
-                false // No cancel button when no posts
-            );
-            return;
-        }
-        const exportData = { appId: "thoughts-app", posts: posts };
-        const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "thoughts-backup.json";
-        a.click();
-        URL.revokeObjectURL(url);
-    }
-
-    function importNotes(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-        if (!file.name.endsWith(".json")) {
-            showCustomPopup("Import Error", texts.importErrorInvalidFile, texts.okButton, () => {}, false);
-            return;
-        }
-    
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            try {
-                const data = JSON.parse(e.target.result);
-                if (!data.appId || data.appId !== "thoughts-app") {
-                    showCustomPopup("Import Error", texts.importErrorNotThoughts, texts.okButton, () => {}, false);
-                    return;
-                }
-                if (!Array.isArray(data.posts) || !data.posts.every(post => 
-                    typeof post.text === "string" && typeof post.timestamp === "string" && typeof post.pinned === "boolean")) {
-                    showCustomPopup("Import Error", texts.importErrorInvalidFormat, texts.okButton, () => {}, false);
-                    return;
-                }
-                const existingPosts = JSON.parse(localStorage.getItem("posts")) || [];
-                if (existingPosts.length > 0) {
-                    showImportConfirmation(data.posts, existingPosts);
-                } else {
-                    localStorage.setItem("posts", JSON.stringify(data.posts));
-                    renderPosts();
-                    showSuccess(texts.importSuccessFirst);
-                }
-            } catch (err) {
-                showCustomPopup("Import Error", texts.importErrorInvalidJSON, texts.okButton, () => {}, false);
-            }
-        };
-        reader.readAsText(file);
-    }
-    
-    function showImportConfirmation(newPosts, existingPosts) {
-        const popupDiv = document.getElementById("import-confirmation");
-        const mergeBtn = document.getElementById("merge-import");
-        const replaceBtn = document.getElementById("replace-import");
-        const cancelBtn = document.getElementById("cancel-import");
-    
-        // Update text content from texts object
-        const titleEl = popupDiv.querySelector(".twitter-popup p:first-child");
-        const messageEl = popupDiv.querySelector(".twitter-popup p:nth-child(2)");
-        titleEl.textContent = texts.importConfirmTitle;
-        messageEl.textContent = texts.importConfirmText;
-    
-        mergeBtn.textContent = texts.mergeButton;
-        replaceBtn.textContent = texts.replaceButton;
-        cancelBtn.textContent = texts.cancelButton;
-    
-        popupDiv.classList.remove("hidden");
-        document.body.style.overflow = "hidden"; // Disable body scroll
-    
-        mergeBtn.onclick = () => {
-            const mergedPosts = mergePosts(existingPosts, newPosts);
-            localStorage.setItem("posts", JSON.stringify(mergedPosts));
-            renderPosts();
-            showSuccess(texts.importSuccessMerge);
-            popupDiv.classList.add("hidden");
-            document.body.style.overflow = ""; // Re-enable body scroll
-        };
-    
-        replaceBtn.onclick = () => {
-            localStorage.setItem("posts", JSON.stringify(newPosts));
-            renderPosts();
-            showSuccess(texts.importSuccessReplace);
-            popupDiv.classList.add("hidden");
-            document.body.style.overflow = ""; // Re-enable body scroll
-        };
-    
-        cancelBtn.onclick = () => {
-            popupDiv.classList.add("hidden");
-            document.body.style.overflow = ""; // Re-enable body scroll
-        };
-    }
-
-    function mergePosts(existingPosts, newPosts) {
-        const combined = [...existingPosts];
-        newPosts.forEach(newPost => {
-            if (!combined.some(post => post.text === newPost.text && post.timestamp === newPost.timestamp)) {
-                combined.push(newPost);
-            }
-        });
-        return combined;
-    }
-
-    function showSuccess(message) {
-        const successDiv = document.createElement("div");
-        successDiv.textContent = message;
-        Object.assign(successDiv.style, {
-            position: "fixed",
-            top: "20px",
-            left: "50%",
-            transform: "translateX(-50%)",
-            background: "rgba(20, 23, 26, 0.85)", // Dark translucent background
-            backdropFilter: "blur(8px)", // Stronger blur for elegance
-            color: "#ffffff", // White text for contrast
-            padding: "14px 28px", // Generous padding per Apple theory
-            borderRadius: "16px", // Softer, Apple-like corners
-            border: "1px solid rgba(255, 255, 255, 0.15)", // Subtle border
-            boxShadow: "0 6px 16px rgba(0, 0, 0, 0.3)", // Deeper shadow for depth
-            zIndex: "3000", // Above popups
-            fontSize: "18px", // Larger base size for clarity
-            fontWeight: "600", // Bold yet refined
-            fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", // System font
-            textAlign: "center", // Centered text per Apple
-            maxWidth: "90%", // Responsive width
-            width: "auto",
-            margin: "0 16px", // Side margins for mobile breathing room
-            opacity: "0", // Start hidden for fade-in
-            transition: "opacity 0.3s ease-in-out" // Smooth fade
-        });
-    
-        // Responsive adjustments for mobile
-        if (window.innerWidth <= 768) {
-            Object.assign(successDiv.style, {
-                fontSize: "16px", // Slightly smaller for mobile
-                padding: "12px 20px", // Adjusted padding
-                margin: "0 12px" // Reduced side margins
-            });
-        }
-    
-        document.body.appendChild(successDiv);
-    
-        // Fade in
-        setTimeout(() => {
-            successDiv.style.opacity = "1";
-        }, 10);
-    
-        // Fade out after 3 seconds
-        setTimeout(() => {
-            successDiv.style.opacity = "0";
-            setTimeout(() => successDiv.remove(), 300);
-        }, 4500);
-    }
-
-    // Footer Event Listeners
-    document.getElementById("export-notes").addEventListener("click", exportNotes);
-    document.getElementById("import-trigger").addEventListener("click", () => document.getElementById("import-notes").click());
-    document.getElementById("import-notes").addEventListener("change", importNotes);
-
-    document.getElementById("language-switch").addEventListener("click", function () {
-        const newLanguage = selectedLanguage === "english" ? "hinglish" : "english";
-        selectedLanguage = newLanguage;
-        localStorage.setItem("language", newLanguage);
-        texts = languageData[newLanguage] || languageData["english"];
-        applyLanguage(newLanguage);
-        renderPosts();
-        this.textContent = newLanguage === "english" ? "English" : "Hinglish"; // Update button text
-        showLanguageChangeNotification(newLanguage);
-    });
-
-    // Add notification function (similar to showSuccess)
-    function showLanguageChangeNotification(language) {
-        const notificationDiv = document.createElement("div");
-        notificationDiv.textContent = `Language Changed to ${language === "english" ? "English" : "Hinglish"}`;
-        Object.assign(notificationDiv.style, {
-            position: "fixed",
-            top: "20px",
-            left: "50%",
-            transform: "translateX(-50%)",
-            background: "rgba(20, 23, 26, 0.85)", // Darker translucent background
-            backdropFilter: "blur(8px)", // Stronger blur for elegance
-            color: "#ffffff", // White text for contrast
-            padding: "14px 28px", // Generous padding per Apple theory
-            borderRadius: "16px", // Softer, Apple-like corners
-            border: "1px solid rgba(255, 255, 255, 0.15)", // Subtle border
-            boxShadow: "0 6px 16px rgba(0, 0, 0, 0.3)", // Deeper shadow for depth
-            zIndex: "3000", // Above popups
-            fontSize: "18px", // Larger base size for clarity
-            fontWeight: "600", // Bold yet refined
-            fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", // System font
-            textAlign: "center", // Centered text per Apple
-            maxWidth: "90%", // Responsive width
-            width: "auto",
-            margin: "0 16px", // Side margins for mobile breathing room
-            opacity: "0", // Start hidden for fade-in
-            transition: "opacity 0.3s ease-in-out" // Smooth fade
-        });
-    
-        // Responsive adjustments for mobile
-        if (window.innerWidth <= 768) {
-            Object.assign(notificationDiv.style, {
-                fontSize: "16px", // Slightly smaller for mobile
-                padding: "12px 20px", // Adjusted padding
-                margin: "0 12px" // Reduced side margins
-            });
-        }
-    
-        document.body.appendChild(notificationDiv);
-    
-        // Fade in
-        setTimeout(() => {
-            notificationDiv.style.opacity = "1";
-        }, 10);
-    
-        // Fade out after 3 seconds
-        setTimeout(() => {
-            notificationDiv.style.opacity = "0";
-            setTimeout(() => notificationDiv.remove(), 300);
-        }, 1500);
-    }
-
     // Easter Egg: Confetti Effects
     const headerTitle = document.querySelector("header h1");
     let touchTimer;
@@ -986,18 +986,13 @@ document.addEventListener("DOMContentLoaded", async function () {
                 });
             }, 200);
         },
-        // 2: Stars (improved: multi-burst, dazzling golden shower with motion)
         () => {
             console.log("🎉 Easter Egg: Starfield Effect! 🎉");
-        
-            // Helper function for random range
             function randomInRange(min, max) {
                 return Math.random() * (max - min) + min;
             }
-        
-            // Create a star confetti effect
             function createStarfield() {
-                const starCount = 12; // Number of stars
+                const starCount = 12;
                 const container = document.createElement('div');
                 container.style.position = 'fixed';
                 container.style.top = '0';
@@ -1006,8 +1001,6 @@ document.addEventListener("DOMContentLoaded", async function () {
                 container.style.height = '100%';
                 container.style.pointerEvents = 'none';
                 document.body.appendChild(container);
-        
-                // Add a dark background for the starfield
                 const background = document.createElement('div');
                 background.style.position = 'fixed';
                 background.style.top = '0';
@@ -1017,25 +1010,11 @@ document.addEventListener("DOMContentLoaded", async function () {
                 background.style.backgroundColor = '#000';
                 background.style.zIndex = '-1';
                 document.body.appendChild(background);
-        
-                // Define star colors
                 const colors = ['#FFFFFF'];
-        
-                // Create star shape points
                 const starPoints = [
-                    '50% 0%',    // top
-                    '61% 35%',   // right top
-                    '98% 35%',   // right point
-                    '68% 57%',   // right bottom
-                    '79% 91%',   // bottom right
-                    '50% 70%',   // bottom middle
-                    '21% 91%',   // bottom left
-                    '32% 57%',   // left bottom
-                    '2% 35%',    // left point
-                    '39% 35%'    // left top
+                    '50% 0%', '61% 35%', '98% 35%', '68% 57%', '79% 91%',
+                    '50% 70%', '21% 91%', '32% 57%', '2% 35%', '39% 35%'
                 ].join(', ');
-        
-                // Create stars
                 for (let i = 0; i < starCount; i++) {
                     const star = document.createElement('div');
                     star.style.position = 'absolute';
@@ -1048,12 +1027,9 @@ document.addEventListener("DOMContentLoaded", async function () {
                     star.style.opacity = '0';
                     star.style.filter = 'drop-shadow(0 0 2px rgba(255, 255, 255, 0.7))';
                     container.appendChild(star);
-        
-                    // Animate the star
                     const delay = randomInRange(0, 500);
                     const speed = randomInRange(1, 2);
                     const rotation = (Math.random() - 0.5) * 720;
-        
                     setTimeout(() => {
                         star.style.transition = `
                             top ${speed}s ease-out,
@@ -1064,186 +1040,168 @@ document.addEventListener("DOMContentLoaded", async function () {
                         star.style.top = '-50px';
                         star.style.transform = `rotate(${rotation}deg) scale(${randomInRange(0.3, 1)})`;
                     }, delay);
-        
-                    // Remove star after animation
-                    setTimeout(() => {
-                        star.remove();
-                    }, delay + (speed * 1000));
+                    setTimeout(() => star.remove(), delay + (speed * 1000));
                 }
-        
-                // Clean up after all animations complete
                 setTimeout(() => {
                     background.remove();
                     container.remove();
+                    isEffectActive = false;
                 }, 2500);
             }
-        
-            // Trigger the starfield effect once
             createStarfield();
         },
-        // 3: Snow (5s, unchanged)
         () => {
-        console.log("🎉 Easter Egg: Snow! 🎉");
-        var duration = 5 * 1000;
-        var animationEnd = Date.now() + duration;
-        var skew = 1;
-
-        function randomInRange(min, max) {
-            return Math.random() * (max - min) + min;
-        }
-
-        (function frame() {
-            var timeLeft = animationEnd - Date.now();
-            var ticks = Math.max(200, 500 * (timeLeft / duration));
-            skew = Math.max(0.8, skew - 0.001);
-
-            confetti({
-            particleCount: 1,
-            startVelocity: 0,
-            ticks: ticks,
-            origin: {
-                x: Math.random(),
-                y: (Math.random() * skew) - 0.2
-            },
-            colors: ['#ffffff'],
-            shapes: ['circle'],
-            gravity: randomInRange(0.4, 0.6),
-            scalar: randomInRange(0.4, 1),
-            drift: randomInRange(-0.4, 0.4)
-            });
-
-            if (timeLeft > 0) {
-            requestAnimationFrame(frame);
-            } else {
-            isEffectActive = false;
+            console.log("🎉 Easter Egg: Snow! 🎉");
+            var duration = 5 * 1000;
+            var animationEnd = Date.now() + duration;
+            var skew = 1;
+            function randomInRange(min, max) {
+                return Math.random() * (max - min) + min;
             }
-        })();
+            (function frame() {
+                var timeLeft = animationEnd - Date.now();
+                var ticks = Math.max(200, 500 * (timeLeft / duration));
+                skew = Math.max(0.8, skew - 0.001);
+                confetti({
+                    particleCount: 1,
+                    startVelocity: 0,
+                    ticks: ticks,
+                    origin: { x: Math.random(), y: (Math.random() * skew) - 0.2 },
+                    colors: ['#ffffff'],
+                    shapes: ['circle'],
+                    gravity: randomInRange(0.4, 0.6),
+                    scalar: randomInRange(0.4, 1),
+                    drift: randomInRange(-0.4, 0.4)
+                });
+                if (timeLeft > 0) {
+                    requestAnimationFrame(frame);
+                } else {
+                    isEffectActive = false;
+                }
+            })();
         },
-        // 4: School Pride (5s, unchanged)
         () => {
-        console.log("🎉 Easter Egg: School Pride! 🎉");
-        const duration = 5 * 1000;
-        const end = Date.now() + duration;
-        const interval = setInterval(() => {
-            if (Date.now() > end) {
-            clearInterval(interval);
-            isEffectActive = false;
-            return;
+            console.log("🎉 Easter Egg: School Pride! 🎉");
+            const duration = 5 * 1000;
+            const end = Date.now() + duration;
+            const interval = setInterval(() => {
+                if (Date.now() > end) {
+                    clearInterval(interval);
+                    isEffectActive = false;
+                    return;
+                }
+                confetti({
+                    particleCount: 25,
+                    angle: 60,
+                    spread: 55,
+                    origin: { x: 0 },
+                    colors: ['#ff0000', '#ffffff']
+                });
+                confetti({
+                    particleCount: 25,
+                    angle: 120,
+                    spread: 55,
+                    origin: { x: 1 },
+                    colors: ['#ff0000', '#ffffff']
+                });
+            }, 250);
+        },
+        () => {
+            console.log("🎉 Easter Egg: Custom Shapes! 🎉");
+            var pumpkin = confetti.shapeFromPath({
+                path: 'M449.4 142c-5 0-10 .3-15 1a183 183 0 0 0-66.9-19.1V87.5a17.5 17.5 0 1 0-35 0v36.4a183 183 0 0 0-67 19c-4.9-.6-9.9-1-14.8-1C170.3 142 105 219.6 105 315s65.3 173 145.7 173c5 0 10-.3 14.8-1a184.7 184.7 0 0 0 169 0c4.9.7 9.9 1 14.9 1 80.3 0 145.6-77.6 145.6-173s-65.3-173-145.7-173zm-220 138 27.4-40.4a11.6 11.6 0 0 1 16.4-2.7l54.7 40.3a11.3 11.3 0 0 1-7 20.3H239a11.3 11.3 0 0 1-9.6-17.5zM444 383.8l-43.7 17.5a17.7 17.7 0 0 1-13 0l-37.3-15-37.2 15a17.8 17.8 0 0 1-13 0L256 383.8a17.5 17.5 0 0 1 13-32.6l37.3 15 37.2-15c4.2-1.6 8.8-1.6 13 0l37.3 15 37.2-15a17.5 17.5 0 0 1 13 32.6zm17-86.3h-82a11.3 11.3 0 0 1-6.9-20.4l54.7-40.3a11.6 11.6 0 0 1 16.4 2.8l27.4 40.4a11.3 11.3 0 0 1-9.6 17.5z',
+                matrix: [0.020491803278688523, 0, 0, 0.020491803278688523, -7.172131147540983, -5.9016393442622945]
+            });
+            var tree = confetti.shapeFromPath({
+                path: 'M120 240c-41,14 -91,18 -120,1 29,-10 57,-22 81,-40 -18,2 -37,3 -55,-3 25,-14 48,-30 66,-51 -11,5 -26,8 -45,7 20,-14 40,-30 57,-49 -13,1 -26,2 -38,-1 18,-11 35,-25 51,-43 -13,3 -24,5 -35,6 21,-19 40,-41 53,-67 14,26 32,48 54,67 -11,-1 -23,-3 -35,-6 15,18 32,32 51,43 -13,3 -26,2 -38,1 17,19 36,35 56,49 -19,1 -33,-2 -45,-7 19,21 42,37 67,51 -19,6 -37,5 -56,3 25,18 53,30 82,40 -30,17 -79,13 -120,-1l0 41 -31 0 0 -41z',
+                matrix: [0.03597122302158273, 0, 0, 0.03597122302158273, -4.856115107913669, -5.071942446043165]
+            });
+            var heart = confetti.shapeFromPath({
+                path: 'M167 72c19,-38 37,-56 75,-56 42,0 76,33 76,75 0,76 -76,151 -151,227 -76,-76 -151,-151 -151,-227 0,-42 33,-75 75,-75 38,0 57,18 76,56z',
+                matrix: [0.03333333333333333, 0, 0, 0.03333333333333333, -5.566666666666666, -5.533333333333333]
+            });
+
+            var defaults = {
+                scalar: 2,
+                spread: 180,
+                particleCount: 30,
+                origin: { y: -0.1 },
+                startVelocity: -35
+            };
+
+            confetti({ ...defaults, shapes: [pumpkin], colors: ['#ff9a00', '#ff7400', '#ff4d00'] });
+            confetti({ ...defaults, shapes: [tree], colors: ['#8d960f', '#be0f10', '#445404'] });
+            confetti({ ...defaults, shapes: [heart], colors: ['#f93963', '#a10864', '#ee0b93'] });
+        },
+        () => {
+            console.log("🎉 Easter Egg: Emoji - Frog! 🎉");
+            var scalar = 2;
+            var shape = confetti.shapeFromText({ text: '🐸', scalar });
+            var defaults = { spread: 360, ticks: 120, gravity: 0, decay: 0.94, startVelocity: 15, shapes: [shape], scalar };
+            function shoot() {
+                confetti({ ...defaults, particleCount: 30 });
+                confetti({ ...defaults, particleCount: 5, flat: true });
+                confetti({ ...defaults, particleCount: 15, scalar: scalar / 2, shapes: ['circle'] });
             }
-            confetti({
-            particleCount: 25,
-            angle: 60,
-            spread: 55,
-            origin: { x: 0 },
-            colors: ['#ff0000', '#ffffff']
-            });
-            confetti({
-            particleCount: 25,
-            angle: 120,
-            spread: 55,
-            origin: { x: 1 },
-            colors: ['#ff0000', '#ffffff']
-            });
-        }, 250);
-        },
-        // 5: Custom Shapes (unchanged)
-        () => {
-        console.log("🎉 Easter Egg: Custom Shapes! 🎉");
-        var pumpkin = confetti.shapeFromPath({
-            path: 'M449.4 142c-5 0-10 .3-15 1a183 183 0 0 0-66.9-19.1V87.5a17.5 17.5 0 1 0-35 0v36.4a183 183 0 0 0-67 19c-4.9-.6-9.9-1-14.8-1C170.3 142 105 219.6 105 315s65.3 173 145.7 173c5 0 10-.3 14.8-1a184.7 184.7 0 0 0 169 0c4.9.7 9.9 1 14.9 1 80.3 0 145.6-77.6 145.6-173s-65.3-173-145.7-173zm-220 138 27.4-40.4a11.6 11.6 0 0 1 16.4-2.7l54.7 40.3a11.3 11.3 0 0 1-7 20.3H239a11.3 11.3 0 0 1-9.6-17.5zM444 383.8l-43.7 17.5a17.7 17.7 0 0 1-13 0l-37.3-15-37.2 15a17.8 17.8 0 0 1-13 0L256 383.8a17.5 17.5 0 0 1 13-32.6l37.3 15 37.2-15c4.2-1.6 8.8-1.6 13 0l37.3 15 37.2-15a17.5 17.5 0 0 1 13 32.6zm17-86.3h-82a11.3 11.3 0 0 1-6.9-20.4l54.7-40.3a11.6 11.6 0 0 1 16.4 2.8l27.4 40.4a11.3 11.3 0 0 1-9.6 17.5z',
-            matrix: [0.020491803278688523, 0, 0, 0.020491803278688523, -7.172131147540983, -5.9016393442622945]
-        });
-        var tree = confetti.shapeFromPath({
-            path: 'M120 240c-41,14 -91,18 -120,1 29,-10 57,-22 81,-40 -18,2 -37,3 -55,-3 25,-14 48,-30 66,-51 -11,5 -26,8 -45,7 20,-14 40,-30 57,-49 -13,1 -26,2 -38,-1 18,-11 35,-25 51,-43 -13,3 -24,5 -35,6 21,-19 40,-41 53,-67 14,26 32,48 54,67 -11,-1 -23,-3 -35,-6 15,18 32,32 51,43 -13,3 -26,2 -38,1 17,19 36,35 56,49 -19,1 -33,-2 -45,-7 19,21 42,37 67,51 -19,6 -37,5 -56,3 25,18 53,30 82,40 -30,17 -79,13 -120,-1l0 41 -31 0 0 -41z',
-            matrix: [0.03597122302158273, 0, 0, 0.03597122302158273, -4.856115107913669, -5.071942446043165]
-        });
-        var heart = confetti.shapeFromPath({
-            path: 'M167 72c19,-38 37,-56 75,-56 42,0 76,33 76,75 0,76 -76,151 -151,227 -76,-76 -151,-151 -151,-227 0,-42 33,-75 75,-75 38,0 57,18 76,56z',
-            matrix: [0.03333333333333333, 0, 0, 0.03333333333333333, -5.566666666666666, -5.533333333333333]
-        });
-
-        var defaults = {
-            scalar: 2,
-            spread: 180,
-            particleCount: 30,
-            origin: { y: -0.1 },
-            startVelocity: -35
-        };
-
-        confetti({ ...defaults, shapes: [pumpkin], colors: ['#ff9a00', '#ff7400', '#ff4d00'] });
-        confetti({ ...defaults, shapes: [tree], colors: ['#8d960f', '#be0f10', '#445404'] });
-        confetti({ ...defaults, shapes: [heart], colors: ['#f93963', '#a10864', '#ee0b93'] });
-        },
-        // 6-10: Emojis (slower on mobile)
-        () => {
-        console.log("🎉 Easter Egg: Emoji - Frog! 🎉");
-        var scalar = 2;
-        var shape = confetti.shapeFromText({ text: '🐸', scalar });
-        var defaults = { spread: 360, ticks: 120, gravity: 0, decay: 0.94, startVelocity: 15, shapes: [shape], scalar }; // Slower: more ticks, less velocity
-        function shoot() {
-            confetti({ ...defaults, particleCount: 30 });
-            confetti({ ...defaults, particleCount: 5, flat: true });
-            confetti({ ...defaults, particleCount: 15, scalar: scalar / 2, shapes: ['circle'] });
-        }
-        setTimeout(shoot, 0);
-        setTimeout(shoot, 300); // Slower delay
-        setTimeout(shoot, 600); // Slower delay
+            setTimeout(shoot, 0);
+            setTimeout(shoot, 300);
+            setTimeout(shoot, 600);
         },
         () => {
-        console.log("🎉 Easter Egg: Emoji - Dog! 🎉");
-        var scalar = 2;
-        var shape = confetti.shapeFromText({ text: '🐶', scalar });
-        var defaults = { spread: 360, ticks: 120, gravity: 0, decay: 0.94, startVelocity: 15, shapes: [shape], scalar };
-        function shoot() {
-            confetti({ ...defaults, particleCount: 30 });
-            confetti({ ...defaults, particleCount: 5, flat: true });
-            confetti({ ...defaults, particleCount: 15, scalar: scalar / 2, shapes: ['circle'] });
-        }
-        setTimeout(shoot, 0);
-        setTimeout(shoot, 300);
-        setTimeout(shoot, 600);
+            console.log("🎉 Easter Egg: Emoji - Dog! 🎉");
+            var scalar = 2;
+            var shape = confetti.shapeFromText({ text: '🐶', scalar });
+            var defaults = { spread: 360, ticks: 120, gravity: 0, decay: 0.94, startVelocity: 15, shapes: [shape], scalar };
+            function shoot() {
+                confetti({ ...defaults, particleCount: 30 });
+                confetti({ ...defaults, particleCount: 5, flat: true });
+                confetti({ ...defaults, particleCount: 15, scalar: scalar / 2, shapes: ['circle'] });
+            }
+            setTimeout(shoot, 0);
+            setTimeout(shoot, 300);
+            setTimeout(shoot, 600);
         },
         () => {
-        console.log("🎉 Easter Egg: Emoji - panda 🎉");
-        var scalar = 2;
-        var shape = confetti.shapeFromText({ text: '🐼', scalar });
-        var defaults = { spread: 360, ticks: 120, gravity: 0, decay: 0.94, startVelocity: 15, shapes: [shape], scalar };
-        function shoot() {
-            confetti({ ...defaults, particleCount: 30 });
-            confetti({ ...defaults, particleCount: 5, flat: true });
-            confetti({ ...defaults, particleCount: 15, scalar: scalar / 2, shapes: ['circle'] });
-        }
-        setTimeout(shoot, 0);
-        setTimeout(shoot, 300);
-        setTimeout(shoot, 600);
+            console.log("🎉 Easter Egg: Emoji - Panda! 🎉");
+            var scalar = 2;
+            var shape = confetti.shapeFromText({ text: '🐼', scalar });
+            var defaults = { spread: 360, ticks: 120, gravity: 0, decay: 0.94, startVelocity: 15, shapes: [shape], scalar };
+            function shoot() {
+                confetti({ ...defaults, particleCount: 30 });
+                confetti({ ...defaults, particleCount: 5, flat: true });
+                confetti({ ...defaults, particleCount: 15, scalar: scalar / 2, shapes: ['circle'] });
+            }
+            setTimeout(shoot, 0);
+            setTimeout(shoot, 300);
+            setTimeout(shoot, 600);
         },
         () => {
-        console.log("🎉 Easter Egg: Emoji - Alien! 🎉");
-        var scalar = 2;
-        var shape = confetti.shapeFromText({ text: '👾', scalar });
-        var defaults = { spread: 360, ticks: 120, gravity: 0, decay: 0.94, startVelocity: 15, shapes: [shape], scalar };
-        function shoot() {
-            confetti({ ...defaults, particleCount: 30 });
-            confetti({ ...defaults, particleCount: 5, flat: true });
-            confetti({ ...defaults, particleCount: 15, scalar: scalar / 2, shapes: ['circle'] });
-        }
-        setTimeout(shoot, 0);
-        setTimeout(shoot, 300);
-        setTimeout(shoot, 600);
+            console.log("🎉 Easter Egg: Emoji - Alien! 🎉");
+            var scalar = 2;
+            var shape = confetti.shapeFromText({ text: '👾', scalar });
+            var defaults = { spread: 360, ticks: 120, gravity: 0, decay: 0.94, startVelocity: 15, shapes: [shape], scalar };
+            function shoot() {
+                confetti({ ...defaults, particleCount: 30 });
+                confetti({ ...defaults, particleCount: 5, flat: true });
+                confetti({ ...defaults, particleCount: 15, scalar: scalar / 2, shapes: ['circle'] });
+            }
+            setTimeout(shoot, 0);
+            setTimeout(shoot, 300);
+            setTimeout(shoot, 600);
         },
         () => {
-        console.log("🎉 Easter Egg: Emoji - Skull! 🎉");
-        var scalar = 2;
-        var shape = confetti.shapeFromText({ text: '💀', scalar });
-        var defaults = { spread: 360, ticks: 120, gravity: 0, decay: 0.94, startVelocity: 15, shapes: [shape], scalar };
-        function shoot() {
-            confetti({ ...defaults, particleCount: 30 });
-            confetti({ ...defaults, particleCount: 5, flat: true });
-            confetti({ ...defaults, particleCount: 15, scalar: scalar / 2, shapes: ['circle'] });
-        }
-        setTimeout(shoot, 0);
-        setTimeout(shoot, 300);
-        setTimeout(shoot, 600);
+            console.log("🎉 Easter Egg: Emoji - Skull! 🎉");
+            var scalar = 2;
+            var shape = confetti.shapeFromText({ text: '💀', scalar });
+            var defaults = { spread: 360, ticks: 120, gravity: 0, decay: 0.94, startVelocity: 15, shapes: [shape], scalar };
+            function shoot() {
+                confetti({ ...defaults, particleCount: 30 });
+                confetti({ ...defaults, particleCount: 5, flat: true });
+                confetti({ ...defaults, particleCount: 15, scalar: scalar / 2, shapes: ['circle'] });
+            }
+            setTimeout(shoot, 0);
+            setTimeout(shoot, 300);
+            setTimeout(shoot, 600);
         },
         () => {
             console.log("🎉 Easter Egg: Emoji - Snake! 🎉");
@@ -1357,7 +1315,6 @@ document.addEventListener("DOMContentLoaded", async function () {
             setTimeout(shoot, 300);
             setTimeout(shoot, 600);
         }
-        // Add other effects here (Stars, Snow, etc.) as per your original script
     ];
 
     function triggerNextEffect() {
@@ -1404,23 +1361,49 @@ document.addEventListener("DOMContentLoaded", async function () {
         renderPosts();
     });
 
-    if (!selectedLanguage) {
-        applyLanguage("english"); // Default to English on first load
-        showLanguageSelection();  // Show popup but UI is already initialized
+    // Load posts and draft
+    const posts = JSON.parse(localStorage.getItem("posts")) || [];
+    const savedDraft = localStorage.getItem("draftNote") || "";
+    const latestPost = posts.length > 0 ? posts[posts.length - 1] : null;
+
+    if (savedDraft && (!latestPost || savedDraft !== latestPost.text) && editIndex === null) {
+        inputWrapper.value = savedDraft;
+        adjustHeight();
+        charCount.textContent = (texts.charCount || "{count} characters").replace("{count}", savedDraft.length);
+        charCount.classList.toggle("text-red-500", savedDraft.length > 500);
     } else {
-        applyLanguage(selectedLanguage);
+        localStorage.removeItem("draftNote");
     }
+    console.log("Loaded posts:", posts, "Draft:", savedDraft);
 
-    renderPosts(); // Safe to call now as texts is guaranteed to be set
-    document.getElementById("footer").classList.remove("hidden"); // Extra safety
+    const saveDraft = debounce(function (text) {
+        localStorage.setItem("draftNote", text);
+        console.log("Draft saved:", text);
+    }, 500);
 
-        // Hide splash screen after content is ready
-        const splashScreen = document.getElementById("splash-screen");
-        splashScreen.style.opacity = "0"; // Start fade-out
-        setTimeout(() => {
-            splashScreen.style.display = "none"; // Remove from layout after fade
-        }, 500); // Match transition duration
+    inputWrapper.addEventListener("input", function () {
+        const text = this.value.trim();
+        saveDraft(text);
+        adjustHeight();
+        charCount.textContent = (texts.charCount || "{count} characters").replace("{count}", text.length);
+        charCount.classList.toggle("text-red-500", text.length > 500);
+    });
 
+    if (!localStorage.getItem("language")) {
+        applyLanguage("english");
+        showLanguageSelection();
+    } else {
+        selectedLanguage = localStorage.getItem("language");
+        applyLanguage(selectedLanguage);
+        renderPosts();
+    }
+    document.getElementById("footer").classList.remove("hidden");
+
+    const splashScreen = document.getElementById("splash-screen");
+    splashScreen.style.opacity = "0";
+    setTimeout(() => {
+        splashScreen.style.display = "none";
+    }, 700);
 });
 
 // PWA Support
