@@ -551,7 +551,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         const file = event.target.files[0];
         if (!file) return;
         if (!file.name.endsWith(".json")) {
-            showCustomPopup("Import Error", texts.importErrorInvalidFile, texts.okButton, () => {}, false);
+            showCustomPopup(texts.importErrorTitle, texts.importErrorInvalidFile, texts.okButton, () => {}, false);
             return;
         }
     
@@ -560,12 +560,12 @@ document.addEventListener("DOMContentLoaded", async function () {
             try {
                 const data = JSON.parse(e.target.result);
                 if (!data.appId || data.appId !== "thoughts-app") {
-                    showCustomPopup("Import Error", texts.importErrorNotThoughts, texts.okButton, () => {}, false);
+                    showCustomPopup(texts.importErrorTitle, texts.importErrorNotThoughts, texts.okButton, () => {}, false);
                     return;
                 }
                 if (!Array.isArray(data.posts) || !data.posts.every(post => 
                     typeof post.text === "string" && typeof post.timestamp === "string" && typeof post.pinned === "boolean")) {
-                    showCustomPopup("Import Error", texts.importErrorInvalidFormat, texts.okButton, () => {}, false);
+                    showCustomPopup(texts.importErrorTitle, texts.importErrorInvalidFormat, texts.okButton, () => {}, false);
                     return;
                 }
                 const existingPosts = JSON.parse(localStorage.getItem("posts")) || [];
@@ -577,8 +577,12 @@ document.addEventListener("DOMContentLoaded", async function () {
                     showSuccess(texts.importSuccessFirst);
                 }
             } catch (err) {
-                showCustomPopup("Import Error", texts.importErrorInvalidJSON, texts.okButton, () => {}, false);
+                showCustomPopup(texts.importErrorTitle, texts.importErrorInvalidJSON, texts.okButton, () => {}, false);
             }
+            
+            // ✅ Reset input field to allow re-importing the same file
+            event.target.value = "";
+            
         };
         reader.readAsText(file);
     }
