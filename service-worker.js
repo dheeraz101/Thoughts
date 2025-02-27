@@ -1,9 +1,10 @@
-const CACHE_NAME = 'Thoughts-v1.5.4-beta-final_0'; // Update with each release
+const CACHE_NAME = 'Thoughts-v1.5.4-beta-final_0x'; // Update with each release
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
   '/styles.css',
   '/custom.css',
+  '/slangs.json',
   '/script.js',
   '/confetti.js',
   '/manifest.json',

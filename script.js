@@ -1,10 +1,24 @@
 // Version info
-const APP_VERSION = "1.5.4-beta-final_0";
+const APP_VERSION = "1.5.4-beta-final_0x";
 let languageData = {};
 let selectedLanguage = localStorage.getItem("language") || "english"; // Default to "english" if null
+let isGodMode = localStorage.getItem("isGodMode") === "true" || false; // Load from localStorage
 let texts = {};
 let editIndex = null;
 let updateEditState; // Define globally for updateDynamicText
+let originalLanguageData = {};
+
+// Simple hash function (djb2 variant)
+function simpleHash(str) {
+    let hash = 5381;
+    for (let i = 0; i < str.length; i++) {
+        hash = (hash * 33) ^ str.charCodeAt(i); // XOR for better distribution
+    }
+    return hash >>> 0; // Ensure positive integer
+}
+
+// Precomputed hash of the secret code
+const SECRET_CODE_HASH = 3912020992; 
 
 // Utility: Debounce function
 function debounce(func, wait) {
@@ -18,8 +32,13 @@ function debounce(func, wait) {
 // Async fetch for languages
 async function fetchLanguages() {
     try {
-        const response = await fetch("/languages.json");
-        languageData = await response.json();
+        // Always load original languages for fallback
+        const originalResponse = await fetch("/languages.json");
+        originalLanguageData = await originalResponse.json();
+
+        const filePath = isGodMode ? "/slangs.json" : "/languages.json";
+        const response = await fetch(filePath);
+        languageData = await response.json(); // Load the active language file
         texts = languageData[selectedLanguage] || languageData["english"];
         const splashTitle = document.getElementById("splash-title");
         splashTitle.textContent = texts.appName;
@@ -27,7 +46,8 @@ async function fetchLanguages() {
         setTimeout(() => splashTitle.classList.remove("scale-110"), 300);
     } catch (err) {
         console.error("Failed to load languages:", err);
-        languageData = { english: {} };
+        originalLanguageData = { english: {} }; // Fallback for original
+        languageData = { english: {} }; // Fallback for active
         texts = languageData["english"];
         const splashTitle = document.getElementById("splash-title");
         splashTitle.textContent = texts.appName;
@@ -175,6 +195,158 @@ document.addEventListener("DOMContentLoaded", async function () {
         document.getElementById("footer-rights-reserved").textContent = texts.footerRightsReserved;
 
         updateDynamicText();
+    }
+
+    async function activateGodMode() {
+        try {
+            const response = await fetch("/slangs.json");
+            const secretLangData = await response.json();
+            languageData = secretLangData; // Switch to secret language
+            isGodMode = true;
+            localStorage.setItem("isGodMode", "true"); // Persist God Mode state
+            texts = languageData[selectedLanguage] || languageData["english"];
+            applyLanguage(selectedLanguage);
+            renderPosts();
+    
+            // Show notification
+            showGodModeNotification();
+    
+            // Add exit button
+            addExitButton();
+        } catch (err) {
+            console.error("Failed to load secret language:", err);
+        }
+    }
+
+    // Add this new function after `showGodModeNotification`
+    function showGodModeConfirmation(callback) {
+        document.body.style.overflow = "hidden";
+    
+        const overlayDiv = document.createElement("div");
+        overlayDiv.className = "fixed inset-0 bg-[rgba(0,0,0,0.4)] backdrop-blur-[6px] z-[3999]";
+    
+        const popupDiv = document.createElement("div");
+        popupDiv.className = "fixed inset-0 flex items-center justify-center z-[4000] px-4 transition-opacity duration-300";
+        popupDiv.style.opacity = "0";
+    
+        popupDiv.innerHTML = `
+            <div class="bg-[rgba(0,0,0,0.95)] backdrop-blur-[8px] rounded-[16px] p-6 w-full max-w-[320px] shadow-lg border-[rgba(255,255,255,0.1)]">
+                <p class="text-lg md:text-[20px] font-semibold text-white mb-3 text-center">Unlock God Mode?</p>
+                <p class="text-sm text-[#d9d9d9] mb-4 text-center">Enter 'yes' to confirm</p>
+                <input type="text" id="god-mode-confirm-input" class="w-full p-4 text-base text-white bg-[rgba(20,23,26,0.7)] rounded-[16px] border-[#333639] mb-4 focus:outline-none focus:border-[#1d9bf0] transition-colors duration-300" placeholder="Type 'yes' here">
+                <div class="flex justify-between gap-3">
+                    <button id="god-mode-confirm-btn" class="flex-1 bg-[#1d9bf0] text-white font-semibold text-base py-[10px] px-4 rounded-full hover:bg-[#1a8cd8] transition-colors duration-300">Confirm</button>
+                    <button id="god-mode-cancel-btn" class="flex-1 bg-red-500 text-white font-semibold text-base py-[10px] px-4 rounded-full hover:bg-red-600 transition-colors duration-300">Cancel</button>
+                </div>
+            </div>
+        `;
+    
+        document.body.appendChild(overlayDiv);
+        document.body.appendChild(popupDiv);
+    
+        setTimeout(() => popupDiv.style.opacity = "1", 10);
+    
+        const confirmBtn = document.getElementById("god-mode-confirm-btn");
+        const cancelBtn = document.getElementById("god-mode-cancel-btn");
+        const confirmInput = document.getElementById("god-mode-confirm-input");
+    
+        confirmBtn.onclick = () => {
+            if (confirmInput.value.trim().toLowerCase() === "yes") {
+                popupDiv.style.opacity = "0";
+                setTimeout(() => {
+                    localStorage.removeItem("draftNote"); // Clear draft on activation
+                    callback();
+                    popupDiv.remove();
+                    overlayDiv.remove();
+                    document.body.style.overflow = "";
+                }, 300);
+            }
+        };
+    
+        cancelBtn.onclick = () => {
+            popupDiv.style.opacity = "0";
+            setTimeout(() => {
+                const inputWrapper = document.getElementById("public-input");
+                const charCount = document.getElementById("char-count");
+                inputWrapper.value = "";
+                localStorage.removeItem("draftNote"); // Already cleared here
+                charCount.textContent = (texts.charCount || "{count} characters").replace("{count}", "0");
+                charCount.classList.remove("text-red-500");
+                popupDiv.remove();
+                overlayDiv.remove();
+                document.body.style.overflow = "";
+            }, 300);
+        };
+    }
+
+    function addExitButton() {
+        const footer = document.querySelector(".backup-actions");
+        const existingExitButton = document.getElementById("exit-god-mode");
+        if (existingExitButton) return;
+    
+        const exitButton = document.createElement("button");
+        exitButton.id = "exit-god-mode";
+        exitButton.textContent = "Exit God Mode";
+        Object.assign(exitButton.style, {
+            padding: "6px 14px",
+            fontSize: "16px",
+            fontWeight: "500",
+            color: "#ffffff",
+            background: "rgba(255, 0, 0, 0.8)",
+            border: "none",
+            borderRadius: "10px",
+            cursor: "pointer",
+            transition: "background 0.2s ease",
+        });
+        exitButton.addEventListener("mouseover", () => exitButton.style.background = "rgba(255, 0, 0, 1)");
+        exitButton.addEventListener("mouseout", () => exitButton.style.background = "rgba(255, 0, 0, 0.8)");
+        exitButton.addEventListener("click", () => {
+            languageData = { ...originalLanguageData };
+            isGodMode = false;
+            localStorage.setItem("isGodMode", "false");
+            localStorage.removeItem("draftNote"); // Clear draft on exit
+            const inputWrapper = document.getElementById("public-input"); // Clear input
+            const charCount = document.getElementById("char-count");
+            inputWrapper.value = "";
+            charCount.textContent = (texts.charCount || "{count} characters").replace("{count}", "0");
+            charCount.classList.remove("text-red-500");
+            texts = languageData[selectedLanguage] || languageData["english"];
+            applyLanguage(selectedLanguage);
+            renderPosts();
+            exitButton.remove();
+        });
+    
+        footer.appendChild(exitButton);
+    }
+
+    function showGodModeNotification() {
+        const notificationDiv = document.createElement("div");
+        notificationDiv.textContent = "God Mode Unlocked";
+        Object.assign(notificationDiv.style, {
+            position: "fixed",
+            top: "20px",
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "rgba(255, 215, 0, 0.9)", // Gold color for God Mode
+            color: "#000",
+            padding: "14px 28px",
+            borderRadius: "16px",
+            boxShadow: "0 6px 16px rgba(0, 0, 0, 0.3)",
+            zIndex: "3000",
+            fontSize: "18px",
+            fontWeight: "600",
+            textAlign: "center",
+            maxWidth: "90%",
+            opacity: "0",
+            transition: "opacity 0.3s ease-in-out"
+        });
+    
+        document.body.appendChild(notificationDiv);
+        setTimeout(() => notificationDiv.style.opacity = "1", 10);
+        setTimeout(() => {
+            notificationDiv.style.opacity = "0";
+            setTimeout(() => notificationDiv.remove(), 300);
+        }, 1500);
     }
 
     function renderPosts(filterText = "") {
@@ -441,87 +613,87 @@ document.addEventListener("DOMContentLoaded", async function () {
     if (!localStorage.getItem("appVersion")) localStorage.setItem("appVersion", APP_VERSION);
 
     document.querySelector('#footer').innerHTML += `
-        <div class="backup-actions">
-            <div class="import-export-buttons">
-                <button id="export-notes">${texts.exportButton}</button>
-                <input type="file" id="import-notes" accept=".json" style="display: none;">
-                <button id="import-trigger">${texts.importButton}</button>
-            </div>
-            <button id="language-switch">${texts.name}</button>
+    <div class="backup-actions">
+        <div class="import-export-buttons">
+            <button id="export-notes">${texts.exportButton}</button>
+            <input type="file" id="import-notes" accept=".json" style="display: none;">
+            <button id="import-trigger">${texts.importButton}</button>
         </div>
-        <style>
+        <button id="language-switch">${texts.name}</button>
+    </div>
+    <style>
+        .backup-actions {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            justify-content: center;
+            padding: 12px 0;
+            margin-top: 16px;
+        }
+        .import-export-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            width: 100%;
+        }
+        #export-notes, #import-trigger, #language-switch, #exit-god-mode {
+            padding: 6px 14px;
+            font-size: 13px;
+            font-weight: 500;
+            letter-spacing: 0.02em;
+            color: #ffffff;
+            background: rgba(255, 255, 255, 0.08);
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background 0.2s ease, opacity 0.2s ease;
+            backdrop-filter: blur(6px);
+            -webkit-tap-highlight-color: transparent;
+            flex: 1;
+            min-width: 80px;
+            text-align: center;
+        }
+        #export-notes:hover, #import-trigger:hover, #language-switch:hover, #exit-god-mode:hover {
+            background: rgba(255, 255, 255, 0.18);
+        }
+        #export-notes:active, #import-trigger:active, #language-switch:active, #exit-god-mode:active {
+            opacity: 0.8;
+        }
+        @media (max-width: 768px) {
             .backup-actions {
-                display: flex;
-                flex-direction: column;
-                gap: 10px;
-                justify-content: center;
-                padding: 12px 0;
-                margin-top: 16px;
+                gap: 8px;
+                padding: 10px 0;
             }
             .import-export-buttons {
-                display: flex;
-                gap: 10px;
-                justify-content: center;
+                gap: 8px;
+            }
+            #export-notes, #import-trigger {
+                padding: 5px 12px;
+                font-size: 18px;
+                width: 50%;
+                min-width: 0;
+            }
+            #language-switch, #exit-god-mode {
+                padding: 5px 12px;
+                font-size: 18px;
                 width: 100%;
+                min-width: 0;
             }
-            #export-notes, #import-trigger, #language-switch {
-                padding: 6px 14px;
-                font-size: 13px;
-                font-weight: 500;
-                letter-spacing: 0.02em;
-                color: #ffffff;
-                background: rgba(255, 255, 255, 0.08);
-                border: none;
-                border-radius: 10px;
-                cursor: pointer;
-                transition: background 0.2s ease, opacity 0.2s ease;
-                backdrop-filter: blur(6px);
-                -webkit-tap-highlight-color: transparent;
+        }
+        @media (min-width: 769px) {
+            .backup-actions {
+                flex-direction: row;
+            }
+            .import-export-buttons {
+                width: auto;
+                flex: 2;
+            }
+            #export-notes, #import-trigger, #language-switch, #exit-god-mode {
+                width: auto;
                 flex: 1;
-                min-width: 80px;
-                text-align: center;
             }
-            #export-notes:hover, #import-trigger:hover, #language-switch:hover {
-                background: rgba(255, 255, 255, 0.18);
-            }
-            #export-notes:active, #import-trigger:active, #language-switch:active {
-                opacity: 0.8;
-            }
-            @media (max-width: 768px) {
-                .backup-actions {
-                    gap: 8px;
-                    padding: 10px 0;
-                }
-                .import-export-buttons {
-                    gap: 8px;
-                }
-                #export-notes, #import-trigger {
-                    padding: 5px 12px;
-                    font-size: 18px;
-                    width: 50%;
-                    min-width: 0;
-                }
-                #language-switch {
-                    padding: 5px 12px;
-                    font-size: 18px;
-                    width: 100%;
-                    min-width: 0;
-                }
-            }
-            @media (min-width: 769px) {
-                .backup-actions {
-                    flex-direction: row;
-                }
-                .import-export-buttons {
-                    width: auto;
-                    flex: 2;
-                }
-                #export-notes, #import-trigger, #language-switch {
-                    width: auto;
-                    flex: 1;
-                }
-            }
-        </style>
+        }
+    </style>
     `;
 
     // Import/Export Functions
@@ -1384,7 +1556,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     const savedDraft = localStorage.getItem("draftNote") || "";
     const latestPost = posts.length > 0 ? posts[posts.length - 1] : null;
 
-    if (savedDraft && (!latestPost || savedDraft !== latestPost.text) && editIndex === null) {
+    if (savedDraft && !isGodMode && (!latestPost || savedDraft !== latestPost.text) && editIndex === null) {
         inputWrapper.value = savedDraft;
         adjustHeight();
         charCount.textContent = (texts.charCount || "{count} characters").replace("{count}", savedDraft.length);
@@ -1405,6 +1577,16 @@ document.addEventListener("DOMContentLoaded", async function () {
         adjustHeight();
         charCount.textContent = (texts.charCount || "{count} characters").replace("{count}", text.length);
         charCount.classList.toggle("text-red-500", text.length > 500);
+
+        // Check for secret code hash
+        if (simpleHash(text) === SECRET_CODE_HASH && !isGodMode) {
+            showGodModeConfirmation(() => {
+                activateGodMode();
+                this.value = ""; // Clear input after activation
+                charCount.textContent = (texts.charCount || "{count} characters").replace("{count}", "0");
+                charCount.classList.remove("text-red-500");
+            });
+        }
     });
 
     if (!localStorage.getItem("language")) {
@@ -1414,6 +1596,9 @@ document.addEventListener("DOMContentLoaded", async function () {
         selectedLanguage = localStorage.getItem("language");
         applyLanguage(selectedLanguage);
         renderPosts();
+        if (isGodMode) {
+            addExitButton(); // Add exit button on reload if God Mode is active
+        }
     }
     document.getElementById("footer").classList.remove("hidden");
 
