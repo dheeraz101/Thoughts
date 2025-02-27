@@ -668,6 +668,40 @@ footer hr {
     color: #666;
 }
 
+/* languages ui */
+.language-list-container {
+    max-height: 220px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.language-button {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    padding: 12px;
+    border-radius: 12px;
+    text-align: center;
+    font-weight: bold;
+    width: 100%;
+    transition: all 0.3s ease;
+}
+
+.language-button:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.scrolling-enabled {
+    animation: autoScroll 15s linear infinite;
+}
+
+@keyframes autoScroll {
+    0% { transform: translateY(0); }
+    100% { transform: translateY(-50%); }
+}
+
+
 @media (max-width: 768px) {
     .container {
         max-width: 100%;
@@ -853,8 +887,14 @@ footer hr {
         font-size: 0.9375rem; /* Larger for touch */
         padding: 6px 12px; /* Larger touch target */
     }
+    .language-list-container {
+        scrollbar-width: none; /* Firefox */
+        -ms-overflow-style: none; /* IE/Edge */
+    }
+    .language-list-container::-webkit-scrollbar {
+        display: none; /* Chrome/Safari */
+    }
 }
-
 @media (min-width: 769px) {
     .edit-post,
     .delete-post {
@@ -903,5 +943,20 @@ footer hr {
 
     .hashtag-scroll-arrow.right {
         right: 0; /* Fixed position */
+    }
+    .language-list-container {
+        padding-right: 12px; /* Adds space between text & scrollbar on PC */
+    }
+    .language-list-container::-webkit-scrollbar {
+        width: 6px;
+    }
+    .language-list-container::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.3);
+        border-radius: 10px;
+    }
+    .language-list-container::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+        margin: 5px 0; /* Adds spacing at the top & bottom */
     }
 }

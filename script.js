@@ -112,13 +112,19 @@ document.addEventListener("DOMContentLoaded", async function () {
         const selectionDiv = document.getElementById("language-selection");
         const popupDiv = selectionDiv.querySelector(".twitter-popup");
         const chooseText = texts.chooseLanguage || "Choose Your Language";
+        
         popupDiv.innerHTML = `
             <p class="mb-4 text-[1.375rem] font-bold text-white text-center md:text-[20px]">${chooseText}</p>
+            <div id="language-list" class="language-list-container"></div>
         `;
-
-        Object.keys(languageData).forEach(lang => {
+    
+        const languageListDiv = popupDiv.querySelector("#language-list");
+        const languages = Object.keys(languageData);
+        
+        // Show only 5 languages initially
+        languages.forEach((lang, index) => {
             const button = document.createElement("button");
-            button.className = "bg-white text-black px-4 py-[12px] rounded-full font-bold w-full mb-4 hover:bg-gray-200 transition-colors -webkit-tap-highlight-color-transparent md:text-[16px] text-[1.125rem]";
+            button.className = "language-button";
             button.textContent = languageData[lang].name;
             button.addEventListener("click", () => {
                 selectedLanguage = lang;
@@ -129,12 +135,20 @@ document.addEventListener("DOMContentLoaded", async function () {
                 document.body.style.overflow = "";
                 showLanguageChangeNotification(lang);
             });
-            popupDiv.appendChild(button);
+            languageListDiv.appendChild(button);
         });
-
+    
+        // If more than 5 languages, enable smooth auto-scroll
+        if (languages.length > 5) {
+            languageListDiv.classList.add("scrolling-enabled");
+            setInterval(() => {
+                languageListDiv.scrollBy({ top: 40, behavior: "smooth" });
+            }, 2500);
+        }
+    
         selectionDiv.classList.remove("hidden");
         document.body.style.overflow = "hidden";
-    }
+    }    
 
     function applyLanguage(lang) {
         texts = languageData[lang] || languageData["english"];
