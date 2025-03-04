@@ -1,5 +1,5 @@
 // Version info
-const APP_VERSION = "1.5.5";
+const APP_VERSION = "1.5.5rc1";
 
 const whatsNew = `
     <strong>What's New:</strong><br>
@@ -11,7 +11,7 @@ const whatsNew = `
 
 let languageData = {};
 let selectedLanguage = localStorage.getItem("language") || "english";
-let isGodMode = false;
+let isGodMode = localStorage.getItem("isGodMode") === "true";
 let texts = {};
 let editIndex = null;
 let updateEditState;
@@ -112,18 +112,49 @@ async function fetchLanguages() {
     try {
         const response = await fetch("/languages.json");
         originalLanguageData = await response.json();
-        languageData = { ...originalLanguageData };
+        // Load custom languages first
+        const customLanguages = JSON.parse(localStorage.getItem("customLanguages") || "{}");
+        // Merge original and custom languages
+        languageData = { ...originalLanguageData, ...customLanguages };
+        
+        // Ensure selected language exists, fallback to english if not
+        if (!languageData[selectedLanguage]) {
+            selectedLanguage = "english";
+            localStorage.setItem("language", "english");
+        }
+        
+        texts = languageData[selectedLanguage];
+        currentCharLimit = isGodMode ? (texts.charLimit * 2) : texts.charLimit;
+        texts.charCount = `{count}/${currentCharLimit}`;
+        
+        const splashTitle = document.getElementById("splash-title");
+        splashTitle.textContent = texts.appName;
+        splashTitle.classList.add("scale-110");
+        setTimeout(() => splashTitle.classList.remove("scale-110"), 300);
     } catch (err) {
         console.error("Failed to load languages:", err);
-        originalLanguageData = languageData = { english: { appName: "Thoughts", addButton: "Add", charLimit: DEFAULT_CHAR_LIMIT } };
+        languageData = { english: { appName: "Thoughts", addButton: "Add", charLimit: DEFAULT_CHAR_LIMIT } };
+        selectedLanguage = "english";
+        localStorage.setItem("language", "english");
+        texts = languageData[selectedLanguage];
+        currentCharLimit = isGodMode ? (texts.charLimit * 2) : texts.charLimit;
     }
-    texts = languageData[selectedLanguage] || languageData["english"];
-    currentCharLimit = isGodMode ? (texts.charLimit * 2) : texts.charLimit;
-    texts.charCount = `{count}/${currentCharLimit}`;
-    const splashTitle = document.getElementById("splash-title");
-    splashTitle.textContent = texts.appName;
-    splashTitle.classList.add("scale-110");
-    setTimeout(() => splashTitle.classList.remove("scale-110"), 300);
+}
+
+// Add function to persist language changes
+function persistLanguageData() {
+    const customLanguages = JSON.parse(localStorage.getItem("customLanguages") || "{}");
+    localStorage.setItem("customLanguages", JSON.stringify({
+        ...customLanguages,
+        ...Object.keys(languageData)
+            .filter(key => !originalLanguageData[key]) // Only store custom languages
+            .reduce((obj, key) => {
+                obj[key] = languageData[key];
+                return obj;
+            }, {})
+    }));
+    localStorage.setItem("language", selectedLanguage);
+    localStorage.setItem("isGodMode", isGodMode.toString());
 }
 
 // Main app initialization
@@ -390,22 +421,31 @@ document.addEventListener("DOMContentLoaded", async () => {
                     `${texts.deleteLanguageConfirm || "Are you sure you want to delete"} "${languages[lang].name || lang}"?`,
                     texts.confirmDeleteButton || "Delete",
                     () => {
+                        // Load current custom languages
+                        const customLanguages = JSON.parse(localStorage.getItem("customLanguages") || "{}");
+                        
+                        // Remove the language from both customLanguages and languageData
                         delete customLanguages[lang];
                         delete languageData[lang];
+                        
+                        // Persist the updated custom languages
                         localStorage.setItem("customLanguages", JSON.stringify(customLanguages));
+                        
+                        // If deleted language was selected, switch to English
                         if (selectedLanguage === lang) {
                             selectedLanguage = "english";
                             localStorage.setItem("language", "english");
                             applyLanguage("english");
                         }
+                        
+                        // Refresh UI
                         debouncedRenderPosts();
-                        showLanguageSelection();
+                        showLanguageSelection(); // Refresh language selection UI
                         showSuccess(`"${languages[lang].name || lang}" ${texts.deleted || "deleted"}!`);
                     },
                     true
                 );
-            });
-
+            });                      
             langContainer.appendChild(button);
             if (customLanguages[lang]) langContainer.appendChild(deleteButton);
             languageListDiv.appendChild(langContainer);
@@ -429,7 +469,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         texts = { ...languageData[lang] || languageData["english"], ...JSON.parse(localStorage.getItem("customComponents") || "{}") };
         currentCharLimit = isGodMode ? (texts.charLimit * 2) : texts.charLimit;
         texts.charCount = `{count}/${currentCharLimit}`;
-        console.log("Applying language:", lang, "texts:", texts);
+        selectedLanguage = lang;
     
         const headerTitle = document.querySelector("header h1");
         if (headerTitle) headerTitle.textContent = texts.appName;
@@ -489,6 +529,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const footerRightsReserved = document.getElementById("footer-rights-reserved");
         if (footerRightsReserved) footerRightsReserved.textContent = texts.footerRightsReserved;
     
+        persistLanguageData(); // Persist immediately after applying
         updateDynamicText();
     }
 
@@ -515,11 +556,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     async function activateGodMode() {
         isGodMode = true;
-        localStorage.setItem("isGodMode", "true"); // Persist across sessions
         currentCharLimit = texts.charLimit * 2;
         texts.charCount = `{count}/${currentCharLimit}`;
-        forceClearDraft(); // Clear draft when entering God Mode
-        applyLanguage(selectedLanguage);
+        forceClearDraft();
+        applyLanguage(selectedLanguage); // This will persist isGodMode
         debouncedRenderPosts();
         showGodModeNotification();
     }
@@ -544,17 +584,26 @@ document.addEventListener("DOMContentLoaded", async () => {
         `;
         document.body.appendChild(overlayDiv);
         document.body.appendChild(popupDiv);
+        
+        // Show popup with animation
         setTimeout(() => popupDiv.style.opacity = "1", 10);
-    
+        
+        // Get elements
         const confirmBtn = document.getElementById("god-mode-confirm-btn");
         const cancelBtn = document.getElementById("god-mode-cancel-btn");
         const confirmInput = document.getElementById("god-mode-confirm-input");
-    
+        
+        // Auto-focus the input field
+        setTimeout(() => {
+            confirmInput.focus();
+            confirmInput.select(); // Optional: selects any existing text
+        }, 50); // Small delay to ensure popup is rendered
+        
         confirmBtn.onclick = () => {
             if (confirmInput.value.trim().toLowerCase() === "yes") {
                 popupDiv.style.opacity = "0";
                 setTimeout(() => {
-                    forceClearDraft(); // Clear draft before activating
+                    forceClearDraft();
                     callback();
                     popupDiv.remove();
                     overlayDiv.remove();
@@ -562,16 +611,23 @@ document.addEventListener("DOMContentLoaded", async () => {
                 }, 300);
             }
         };
-    
+        
         cancelBtn.onclick = () => {
             popupDiv.style.opacity = "0";
             setTimeout(() => {
-                forceClearDraft(); // Clear draft on cancel
+                forceClearDraft();
                 popupDiv.remove();
                 overlayDiv.remove();
                 document.body.style.overflow = "";
             }, 300);
         };
+        
+        // Optional: Allow Enter key to confirm
+        confirmInput.addEventListener("keypress", (e) => {
+            if (e.key === "Enter" && confirmInput.value.trim().toLowerCase() === "yes") {
+                confirmBtn.click();
+            }
+        });
     }
 
     function renderPosts(filterText = "") {
@@ -837,7 +893,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             );
             return;
         }
-
+    
         const reader = new FileReader();
         reader.onload = e => {
             try {
@@ -845,40 +901,34 @@ document.addEventListener("DOMContentLoaded", async () => {
                 if (!isThoughtsLanguagePack(customLangData)) {
                     showCustomPopup(
                         texts.errorTitle || "Error",
-                        texts.notThoughtsLanguage || "This is not a Thoughts app language file. Only official Thoughts language packs are allowed.",
+                        texts.notThoughtsLanguage || "This is not a Thoughts app language file.",
                         texts.okButton || "OK",
                         () => {},
                         false
                     );
                     return;
                 }
-
+    
                 const customLanguages = JSON.parse(localStorage.getItem("customLanguages") || "{}");
                 let languagesToAdd = {};
-
-                // Handle single language or multiple languages, excluding appId
+    
                 if (customLangData.name) {
-                    // Single language pack
                     languagesToAdd[customLangData.name || file.name.replace(".json", "")] = { ...customLangData, appId: undefined };
                 } else {
-                    // Multiple language pack
                     languagesToAdd = Object.keys(customLangData)
-                        .filter(key => key !== "appId") // Exclude appId
+                        .filter(key => key !== "appId")
                         .reduce((obj, key) => {
                             obj[key] = customLangData[key];
                             return obj;
                         }, {});
                 }
-
-                Object.keys(languagesToAdd).forEach(lang => {
-                    customLanguages[lang] = languageData[lang] = languagesToAdd[lang];
-                });
-                localStorage.setItem("customLanguages", JSON.stringify(customLanguages));
-
+    
+                // Update languageData and persist
+                Object.assign(languageData, languagesToAdd);
                 const firstLang = Object.keys(languagesToAdd)[0];
                 selectedLanguage = firstLang;
-                localStorage.setItem("language", firstLang);
-                applyLanguage(firstLang);
+                
+                applyLanguage(firstLang); // This will also persist the data
                 renderPosts();
                 showSuccess(
                     `${texts.languageUploaded || "Language"}${Object.keys(languagesToAdd).length > 1 ? "s" : ""} ${texts.uploadedAndApplied || "uploaded and"} "${firstLang}" ${texts.applied || "applied"}!`
@@ -887,7 +937,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             } catch (err) {
                 showCustomPopup(
                     texts.errorTitle || "Error",
-                    texts.invalidJSONMessage || "Could not parse the JSON file. Please ensure it’s valid.",
+                    texts.invalidJSONMessage || "Could not parse the JSON file.",
                     texts.okButton || "OK",
                     () => {},
                     false
@@ -897,7 +947,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         };
         reader.readAsText(file);
     });
-
+    
     // Add this function before the upload-language event listener
     function isThoughtsLanguagePack(data) {
         // Strict verification: Must have "appId": "thoughts-app"

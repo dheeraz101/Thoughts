@@ -1,4 +1,4 @@
-const CACHE_NAME = 'Thoughts-v1.5.5';
+const CACHE_NAME = 'Thoughts-v1.5.5rc1';
 const ASSETS_TO_CACHE = [
     '/',
     '/index.html',
