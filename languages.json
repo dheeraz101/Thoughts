@@ -57,7 +57,14 @@
     "charLimitMessage": "Whoa there! Only {count} characters are allowed. Extra characters? Poof—they’re gone!",
     "webStoreTitle": "Web Store",
     "webStoreLinkText": "Visit Web Store",
-    "webStoreNote": "Download your favorite language from the site and upload it to the app using the Upload Language option."
+    "webStoreNote": "Download your favorite language from the site and upload it to the app using the Upload Language option.",
+    "errorTitle": "Error",
+    "invalidFileMessage": "Please upload a valid JSON file.",
+    "notThoughtsLanguage": "This is not a Thoughts app language file. Only official Thoughts language packs are allowed.",
+    "invalidJSONMessage": "Could not parse the JSON file. Please ensure it’s valid.",
+    "languageUploaded": "Language",
+    "uploadedAndApplied": "uploaded and",
+    "applied": "applied"
   },
     "hinglish": {
       "name": "Hinglish",
@@ -117,7 +124,14 @@
       "charLimitMessage": "Arre bhai! Sirf {count} characters allowed hai. Baaki? Ud gaye!",
       "webStoreTitle": "Web Dukaan",
       "webStoreLinkText": "Web Dukaan Dekho",
-      "webStoreNote": "Apni pasandida bhasha site se download karo aur Upload Language option se app mein daalo."
+      "webStoreNote": "Apni pasandida bhasha site se download karo aur Upload Language option se app mein daalo.",
+      "errorTitle": "Galti",
+      "invalidFileMessage": "Valid JSON file upload karo yaar.",
+      "notThoughtsLanguage": "Yeh Thoughts app ka language file nahi hai. Sirf official Thoughts language packs chahiye.",
+      "invalidJSONMessage": "JSON file parse nahi ho paya. Check karo ki sahi hai.",
+      "languageUploaded": "Bhasha",
+      "uploadedAndApplied": "upload aur",
+      "applied": "lagaya gaya"
     },
     "spanish": {
       "name": "Español",
@@ -177,7 +191,14 @@
       "charLimitMessage": "¡Vaya! Solo se permiten {count} caracteres. ¿Caracteres extra? ¡Puf, desaparecieron!",
       "webStoreTitle": "Tienda Web",
       "webStoreLinkText": "Visitar la Tienda Web",
-      "webStoreNote": "Descarga tu idioma favorito del sitio y súbelo a la aplicación usando la opción Cargar idioma."
+      "webStoreNote": "Descarga tu idioma favorito del sitio y súbelo a la aplicación usando la opción Cargar idioma.",
+      "errorTitle": "Error",
+      "invalidFileMessage": "Por favor, sube un archivo JSON válido.",
+      "notThoughtsLanguage": "Este no es un archivo de idioma de la aplicación Thoughts. Solo se permiten paquetes de idioma oficiales de Thoughts.",
+      "invalidJSONMessage": "No se pudo analizar el archivo JSON. Asegúrate de que sea válido.",
+      "languageUploaded": "Idioma",
+      "uploadedAndApplied": "subido y",
+      "applied": "aplicado"
   },
   "french": {
       "name": "Français",
@@ -237,7 +258,14 @@
       "charLimitMessage": "Oh là là ! Seuls {count} caractères sont autorisés. Des caractères en trop ? Pouf, envolés !",
       "webStoreTitle": "Boutique en ligne",
       "webStoreLinkText": "Visiter la Boutique en ligne",
-      "webStoreNote": "Téléchargez votre langue préférée depuis le site et importez-la dans l'application en utilisant l'option Télécharger une langue."
+      "webStoreNote": "Téléchargez votre langue préférée depuis le site et importez-la dans l'application en utilisant l'option Télécharger une langue.",
+      "errorTitle": "Erreur",
+      "invalidFileMessage": "Veuillez télécharger un fichier JSON valide.",
+      "notThoughtsLanguage": "Ce n'est pas un fichier de langue de l'application Thoughts. Seuls les packs de langue officiels de Thoughts sont autorisés.",
+      "invalidJSONMessage": "Impossible d'analyser le fichier JSON. Veuillez vous assurer qu'il est valide.",
+      "languageUploaded": "Langue",
+      "uploadedAndApplied": "téléchargé et",
+      "applied": "appliqué"
   },
   "hindi": {
       "name": "हिन्दी",
@@ -297,6 +325,13 @@
       "charLimitMessage": "अरे! केवल {count} अक्षर अनुमत हैं। अतिरिक्त अक्षर? धप्प—गायब!",
       "webStoreTitle": "वेब स्टोर",
       "webStoreLinkText": "वेब स्टोर पर जाएं",
-      "webStoreNote": "साइट से अपनी पसंदीदा भाषा डाउनलोड करें और इसे ऐप में 'भाषा अपलोड करें' विकल्प का उपयोग करके अपलोड करें।"
+      "webStoreNote": "साइट से अपनी पसंदीदा भाषा डाउनलोड करें और इसे ऐप में 'भाषा अपलोड करें' विकल्प का उपयोग करके अपलोड करें।",
+      "errorTitle": "त्रुटि",
+      "invalidFileMessage": "कृपया एक वैध JSON फ़ाइल अपलोड करें।",
+      "notThoughtsLanguage": "यह Thoughts ऐप की भाषा फ़ाइल नहीं है। केवल आधिकारिक Thoughts भाषा पैक अनुमत हैं।",
+      "invalidJSONMessage": "JSON फ़ाइल को पार्स नहीं किया जा सका। कृपया सुनिश्चित करें कि यह मान्य है।",
+      "languageUploaded": "भाषा",
+      "uploadedAndApplied": "अपलोड किया गया और",
+      "applied": "लागू किया गया"
   }
 }
