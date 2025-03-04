@@ -7,6 +7,8 @@ let texts = {};
 let editIndex = null;
 let updateEditState; // Define globally for updateDynamicText
 let originalLanguageData = {};
+const DEFAULT_CHAR_LIMIT = 500;
+let currentCharLimit; // Dynamic limit based on God Mode
 
 // Simple hash function (djb2 variant)
 function simpleHash(str) {
@@ -32,23 +34,23 @@ function debounce(func, wait) {
 // Async fetch for languages
 async function fetchLanguages() {
     try {
-        // Always load original languages for fallback
         const originalResponse = await fetch("/languages.json");
         originalLanguageData = await originalResponse.json();
-
-        const filePath = isGodMode ? "/slangs.json" : "/languages.json";
-        const response = await fetch(filePath);
-        languageData = await response.json(); // Load the active language file
+        languageData = { ...originalLanguageData };
         texts = languageData[selectedLanguage] || languageData["english"];
+        currentCharLimit = isGodMode ? (texts.charLimit * 2) : texts.charLimit; // Double in God Mode
+        texts.charCount = `{count}/${currentCharLimit}`; // Update template
         const splashTitle = document.getElementById("splash-title");
         splashTitle.textContent = texts.appName;
         splashTitle.classList.add("scale-110");
         setTimeout(() => splashTitle.classList.remove("scale-110"), 300);
     } catch (err) {
         console.error("Failed to load languages:", err);
-        originalLanguageData = { english: {} }; // Fallback for original
-        languageData = { english: {} }; // Fallback for active
+        originalLanguageData = { english: { appName: "Thoughts", addButton: "Add", charLimit: 500 } };
+        languageData = { english: { appName: "Thoughts", addButton: "Add", charLimit: 500 } };
         texts = languageData["english"];
+        currentCharLimit = isGodMode ? 1000 : 500; // Fallback limits
+        texts.charCount = `{count}/${currentCharLimit}`;
         const splashTitle = document.getElementById("splash-title");
         splashTitle.textContent = texts.appName;
         splashTitle.classList.add("scale-110");
@@ -61,6 +63,9 @@ document.addEventListener("DOMContentLoaded", async function () {
     // Wait for languages to load
     await fetchLanguages();
 
+    // Merge custom languages from localStorage into languageData
+    const customLanguages = JSON.parse(localStorage.getItem("customLanguages")) || {};
+    Object.assign(languageData, customLanguages);
     // Initialize DOM elements
     const postButton = document.getElementById("post-button");
     const postContainer = document.getElementById("post-container");
@@ -114,7 +119,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         const newPost = { text, timestamp: new Date().toLocaleString(), pinned: false };
         posts.push(newPost);
         localStorage.setItem("posts", JSON.stringify(posts));
-        console.log("Post saved:", newPost);
+        console.log("Post saved to localStorage:", newPost, "Total posts:", posts.length);
         renderPosts();
     }
 
@@ -127,25 +132,30 @@ document.addEventListener("DOMContentLoaded", async function () {
         renderPosts();
     }
 
-    // Language Functions
+    // Update showLanguageSelection to include custom languages
     function showLanguageSelection() {
         const selectionDiv = document.getElementById("language-selection");
         const popupDiv = selectionDiv.querySelector(".twitter-popup");
         const chooseText = texts.chooseLanguage || "Choose Your Language";
-        
+    
         popupDiv.innerHTML = `
             <p class="mb-4 text-[1.375rem] font-bold text-white text-center md:text-[20px]">${chooseText}</p>
-            <div id="language-list" class="language-list-container"></div>
+            <div id="language-list" class="language-list-container mb-6"></div>
+            <button id="language-cancel" class="w-full bg-red-500 text-white font-semibold text-base py-2 px-6 rounded-[12px] shadow-lg hover:bg-red-600 transition-colors duration-300">${texts.cancelButton || "Cancel"}</button>
         `;
     
         const languageListDiv = popupDiv.querySelector("#language-list");
-        const languages = Object.keys(languageData);
-        
-        // Show only 5 languages initially
-        languages.forEach((lang, index) => {
+        const customLanguages = JSON.parse(localStorage.getItem("customLanguages")) || {};
+        const languages = { ...languageData, ...customLanguages };
+        const langKeys = Object.keys(languages);
+    
+        langKeys.forEach((lang) => {
+            const langContainer = document.createElement("div");
+            langContainer.className = "flex justify-between items-center mb-2";
+    
             const button = document.createElement("button");
-            button.className = "language-button";
-            button.textContent = languageData[lang].name;
+            button.className = "language-button text-left flex-1";
+            button.textContent = languages[lang].name || lang;
             button.addEventListener("click", () => {
                 selectedLanguage = lang;
                 localStorage.setItem("language", lang);
@@ -155,11 +165,65 @@ document.addEventListener("DOMContentLoaded", async function () {
                 document.body.style.overflow = "";
                 showLanguageChangeNotification(lang);
             });
-            languageListDiv.appendChild(button);
+    
+            const deleteButton = document.createElement("button");
+            deleteButton.innerHTML = `
+                <svg class="w-5 h-5" viewBox="0 0 24 24" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M5 6h14l-1 14H6L5 6z"/>
+                </svg>
+            `;
+            deleteButton.style.cssText = `
+                margin-left: 8px;
+                width: 28px;
+                height: 36px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: transparent;
+                border-radius: 50%;
+                padding: 0;
+                border: none;
+                cursor: pointer;
+                transition: background-color 0.3s ease;
+            `;
+            deleteButton.className = "hover:bg-[rgba(255,0,0,0.2)]";
+            deleteButton.title = texts.deleteButton || "Delete";
+            deleteButton.addEventListener("click", () => {
+                showCustomPopup(
+                    texts.deleteLanguageTitle || "Delete Language?",
+                    `${texts.deleteLanguageConfirm || "Are you sure you want to delete"} "${languages[lang].name || lang}"?`,
+                    texts.confirmDeleteButton || "Delete",
+                    () => {
+                        delete customLanguages[lang];
+                        delete languageData[lang];
+                        localStorage.setItem("customLanguages", JSON.stringify(customLanguages));
+                        if (selectedLanguage === lang) {
+                            selectedLanguage = "english";
+                            localStorage.setItem("language", "english");
+                            applyLanguage("english");
+                        }
+                        renderPosts();
+                        showLanguageSelection();
+                        showSuccess(`"${languages[lang].name || lang}" ${texts.deleted || "deleted"}!`);
+                    },
+                    true
+                );
+            });
+    
+            langContainer.appendChild(button);
+            if (customLanguages[lang]) {
+                langContainer.appendChild(deleteButton);
+            }
+            languageListDiv.appendChild(langContainer);
         });
     
-        // If more than 5 languages, enable smooth auto-scroll
-        if (languages.length > 5) {
+        const cancelButton = document.getElementById("language-cancel");
+        cancelButton.addEventListener("click", () => {
+            selectionDiv.classList.add("hidden");
+            document.body.style.overflow = "";
+        });
+    
+        if (langKeys.length > 5) {
             languageListDiv.classList.add("scrolling-enabled");
             setInterval(() => {
                 languageListDiv.scrollBy({ top: 40, behavior: "smooth" });
@@ -168,11 +232,15 @@ document.addEventListener("DOMContentLoaded", async function () {
     
         selectionDiv.classList.remove("hidden");
         document.body.style.overflow = "hidden";
-    }    
+    }
 
     function applyLanguage(lang) {
         texts = languageData[lang] || languageData["english"];
-        console.log("Applying language:", lang, texts);
+        const customComponents = JSON.parse(localStorage.getItem("customComponents")) || {};
+        texts = { ...texts, ...customComponents }; // Override with custom components
+        currentCharLimit = isGodMode ? (texts.charLimit * 2) : texts.charLimit; // Update limit based on mode
+        texts.charCount = `{count}/${currentCharLimit}`; // Update template
+        console.log("Applying language:", lang, "texts:", texts); // Debug log
 
         document.querySelector("header h1").textContent = texts.appName;
         deleteAllButton.textContent = texts.deleteAllButton;
@@ -184,12 +252,16 @@ document.addEventListener("DOMContentLoaded", async function () {
         document.getElementById("import-trigger").textContent = texts.importButton;
         document.getElementById("export-pdf") && (document.getElementById("export-pdf").textContent = texts.exportPDFButton);
         document.getElementById("language-switch").textContent = texts.name;
-        document.querySelector(".footer-section h3").textContent = texts.footerOfflineTitle;
+        document.getElementById("upload-language-trigger").textContent = texts.uploadLanguage || "Upload Language"; // Add this line
+        document.getElementById("footer-offline-title").textContent = texts.footerOfflineTitle;
         document.getElementById("footer-offline-text").textContent = texts.footerOfflineText;
         document.getElementById("footer-android-guide").textContent = texts.footerAndroidGuide;
         document.getElementById("footer-ios-guide").textContent = texts.footerIOSGuide;
         document.getElementById("footer-title").textContent = texts.appName;
         document.getElementById("crafted-by-text").textContent = texts.footerCraftedBy + " ";
+        document.getElementById("footer-webstore-title").textContent = texts.webStoreTitle || "Web Store"; // New
+        document.getElementById("footer-webstore-link").textContent = texts.webStoreLinkText || "Visit Web Store"; // New
+        document.getElementById("footer-webstore-note").textContent = texts.webStoreNote || "Download your favorite language from the site and upload it to the app using the Upload Language option."; // New
         document.getElementById("footer-privacy").textContent = texts.footerPrivacy;
         document.getElementById("footer-made-with-love").textContent = texts.footerMadeWithLove;
         document.getElementById("footer-rights-reserved").textContent = texts.footerRightsReserved;
@@ -198,24 +270,14 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
 
     async function activateGodMode() {
-        try {
-            const response = await fetch("/slangs.json");
-            const secretLangData = await response.json();
-            languageData = secretLangData; // Switch to secret language
-            isGodMode = true;
-            localStorage.setItem("isGodMode", "true"); // Persist God Mode state
-            texts = languageData[selectedLanguage] || languageData["english"];
-            applyLanguage(selectedLanguage);
-            renderPosts();
-    
-            // Show notification
-            showGodModeNotification();
-    
-            // Add exit button
-            addExitButton();
-        } catch (err) {
-            console.error("Failed to load secret language:", err);
-        }
+        isGodMode = true;
+        localStorage.setItem("isGodMode", "true");
+        currentCharLimit = texts.charLimit * 2; // Double the language-specific limit
+        texts.charCount = `{count}/${currentCharLimit}`;
+        applyLanguage(selectedLanguage);
+        renderPosts();
+        showGodModeNotification();
+        addExitButton();
     }
 
     // Add this new function after `showGodModeNotification`
@@ -301,20 +363,20 @@ document.addEventListener("DOMContentLoaded", async function () {
         exitButton.addEventListener("mouseover", () => exitButton.style.background = "rgba(255, 0, 0, 1)");
         exitButton.addEventListener("mouseout", () => exitButton.style.background = "rgba(255, 0, 0, 0.8)");
         exitButton.addEventListener("click", () => {
-            languageData = { ...originalLanguageData };
             isGodMode = false;
             localStorage.setItem("isGodMode", "false");
-            localStorage.removeItem("draftNote"); // Clear draft on exit
-            const inputWrapper = document.getElementById("public-input"); // Clear input
+            currentCharLimit = texts.charLimit; // Reset to language-specific limit
+            texts.charCount = `{count}/${currentCharLimit}`;
+            localStorage.removeItem("draftNote");
+            const inputWrapper = document.getElementById("public-input");
             const charCount = document.getElementById("char-count");
             inputWrapper.value = "";
-            charCount.textContent = (texts.charCount || "{count} characters").replace("{count}", "0");
+            charCount.textContent = (texts.charCount || "{count} characters").replace("{count}", "0").replace("{count}", currentCharLimit);
             charCount.classList.remove("text-red-500");
-            texts = languageData[selectedLanguage] || languageData["english"];
             applyLanguage(selectedLanguage);
             renderPosts();
             exitButton.remove();
-        });
+        });   
     
         footer.appendChild(exitButton);
     }
@@ -404,8 +466,8 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
 
     function updateDynamicText() {
-        charCount.textContent = (texts.charCount || "{count} characters").replace("{count}", inputWrapper.value.length || "0");
-
+        charCount.textContent = (texts.charCount || "{count} characters").replace("{count}", inputWrapper.value.length || "0").replace("{count}", currentCharLimit);
+    
         updateEditState = function () {
             if (editIndex !== null) {
                 inputWrapper.classList.add("editing");
@@ -619,7 +681,9 @@ document.addEventListener("DOMContentLoaded", async function () {
             <input type="file" id="import-notes" accept=".json" style="display: none;">
             <button id="import-trigger">${texts.importButton}</button>
         </div>
-        <button id="language-switch">${texts.name}</button>
+        <input type="file" id="upload-language" accept=".json" style="display: none;">
+        <button id="upload-language-trigger">${texts.uploadLanguage || "Upload Language"}</button>
+        <button id="language-switch">${texts.selectLanguage || "Select Language"}</button>
     </div>
     <style>
         .backup-actions {
@@ -636,7 +700,7 @@ document.addEventListener("DOMContentLoaded", async function () {
             justify-content: center;
             width: 100%;
         }
-        #export-notes, #import-trigger, #language-switch, #exit-god-mode {
+        #export-notes, #import-trigger, #language-switch, #exit-god-mode, #upload-language-trigger {
             padding: 6px 14px;
             font-size: 13px;
             font-weight: 500;
@@ -653,10 +717,10 @@ document.addEventListener("DOMContentLoaded", async function () {
             min-width: 80px;
             text-align: center;
         }
-        #export-notes:hover, #import-trigger:hover, #language-switch:hover, #exit-god-mode:hover {
+        #export-notes:hover, #import-trigger:hover, #language-switch:hover, #exit-god-mode:hover, upload-language-trigger:hover {
             background: rgba(255, 255, 255, 0.18);
         }
-        #export-notes:active, #import-trigger:active, #language-switch:active, #exit-god-mode:active {
+        #export-notes:active, #import-trigger:active, #language-switch:active, #exit-god-mode:active, upload-language-trigger:active {
             opacity: 0.8;
         }
         @media (max-width: 768px) {
@@ -673,7 +737,7 @@ document.addEventListener("DOMContentLoaded", async function () {
                 width: 50%;
                 min-width: 0;
             }
-            #language-switch, #exit-god-mode {
+            #language-switch, #exit-god-mode, #upload-language-trigger {
                 padding: 5px 12px;
                 font-size: 18px;
                 width: 100%;
@@ -688,13 +752,69 @@ document.addEventListener("DOMContentLoaded", async function () {
                 width: auto;
                 flex: 2;
             }
-            #export-notes, #import-trigger, #language-switch, #exit-god-mode {
+            #export-notes, #import-trigger, #language-switch, #exit-god-mode, #upload-language-trigger {
                 width: auto;
                 flex: 1;
             }
         }
     </style>
     `;
+
+    // Event listener for uploading language
+    document.getElementById("upload-language-trigger").addEventListener("click", () => {
+        document.getElementById("upload-language").click();
+    });
+
+    document.getElementById("upload-language").addEventListener("change", function (event) {
+        const file = event.target.files[0];
+        if (!file || !file.name.endsWith(".json")) {
+            showCustomPopup("Error", "Please upload a valid JSON file.", "OK", () => {}, false);
+            return;
+        }
+    
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const customLangData = JSON.parse(e.target.result);
+                const customLanguages = JSON.parse(localStorage.getItem("customLanguages")) || {};
+    
+                // Check if it's a multi-language object or single language
+                let languagesToAdd = {};
+                if (customLangData.name) {
+                    // Single language: { "name": "Pirate", "appName": "Arr Matey!", ... }
+                    const langName = customLangData.name || file.name.replace(".json", "");
+                    languagesToAdd[langName] = customLangData;
+                } else {
+                    // Multiple languages: { "Pirate": { "appName": "Arr Matey!" }, ... }
+                    languagesToAdd = customLangData;
+                }
+    
+                // Merge into customLanguages and languageData
+                Object.keys(languagesToAdd).forEach(lang => {
+                    customLanguages[lang] = languagesToAdd[lang];
+                    languageData[lang] = languagesToAdd[lang]; // Add directly to top level
+                });
+                localStorage.setItem("customLanguages", JSON.stringify(customLanguages));
+    
+                // Select the first language from the upload
+                const firstLang = Object.keys(languagesToAdd)[0];
+                selectedLanguage = firstLang;
+                localStorage.setItem("language", firstLang);
+    
+                // Apply and render
+                applyLanguage(firstLang);
+                renderPosts();
+                showSuccess(`Language${Object.keys(languagesToAdd).length > 1 ? "s" : ""} uploaded and "${firstLang}" applied!`);
+    
+                // Reset input
+                event.target.value = "";
+            } catch (err) {
+                showCustomPopup("Error", "Invalid language file format.", "OK", () => {}, false);
+                console.error("Upload error:", err);
+            }
+        };
+        reader.readAsText(file);
+    });
 
     // Import/Export Functions
     function exportNotes() {
@@ -859,17 +979,7 @@ document.addEventListener("DOMContentLoaded", async function () {
     document.getElementById("import-notes").addEventListener("change", importNotes);
 
     document.getElementById("language-switch").addEventListener("click", function () {
-        const languages = Object.keys(languageData);
-        const currentIndex = languages.indexOf(selectedLanguage);
-        const nextIndex = (currentIndex + 1) % languages.length;
-        const newLanguage = languages[nextIndex];
-        selectedLanguage = newLanguage;
-        localStorage.setItem("language", newLanguage);
-        texts = languageData[newLanguage] || languageData["english"];
-        applyLanguage(newLanguage);
-        renderPosts();
-        this.textContent = languageData[newLanguage].name;
-        showLanguageChangeNotification(newLanguage);
+        showLanguageSelection(); // Show popup instead of cycling
     });
 
     function showLanguageChangeNotification(language) {
@@ -1019,7 +1129,7 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     postButton.addEventListener("click", function () {
         const text = inputWrapper.value.trim();
-        if (!text || text.length > 500) return;
+        if (!text || text.length > currentCharLimit) return;
     
         if (editIndex !== null) {
             let posts = JSON.parse(localStorage.getItem("posts")) || [];
@@ -1035,8 +1145,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         localStorage.removeItem("draftNote");
         console.log("Draft cleared after post");
         adjustHeight();
-        charCount.textContent = (texts.charCount || "{count} characters").replace("{count}", "0");
-        charCount.classList.remove("text-red-500");
+        charCount.textContent = (texts.charCount || "{count} characters").replace("{count}", "0").replace("{count}", currentCharLimit);
         updateEditState();
         renderPosts();
     });
@@ -1522,10 +1631,10 @@ document.addEventListener("DOMContentLoaded", async function () {
 
     headerTitle.addEventListener("touchstart", (e) => {
         touchTimer = setTimeout(() => triggerNextEffect(), 500);
-    });
+    }, { passive: true });
 
     headerTitle.addEventListener("touchend", () => clearTimeout(touchTimer));
-    headerTitle.addEventListener("touchmove", () => clearTimeout(touchTimer));
+    headerTitle.addEventListener("touchmove", () => clearTimeout(touchTimer), { passive: true });
 
     // Initialize App
     if (!sessionStorage.getItem("justUpdated")) {
@@ -1566,28 +1675,48 @@ document.addEventListener("DOMContentLoaded", async function () {
     }
     console.log("Loaded posts:", posts, "Draft:", savedDraft);
 
-    const saveDraft = debounce(function (text) {
+    function saveDraft(text) {
         localStorage.setItem("draftNote", text);
-        console.log("Draft saved:", text);
-    }, 500);
+        console.log("Draft saved to localStorage:", text);
+    }
+    
+    // Enhance beforeunload to ensure draft saves
+    window.addEventListener("beforeunload", () => {
+        const text = inputWrapper.value.trim();
+        if (text) {
+            localStorage.setItem("draftNote", text);
+            console.log("Draft saved on close:", text);
+        }
+    });
 
     inputWrapper.addEventListener("input", function () {
         const text = this.value.trim();
-        saveDraft(text);
+        if (text.length > currentCharLimit) {
+            this.value = text.slice(0, currentCharLimit);
+            const limitMessage = (texts.charLimitMessage || "Whoa there! Only {count} characters are allowed. Extra characters? Poof—they’re gone!").replace("{count}", currentCharLimit);
+            showCustomPopup(
+                texts.charLimitTitle || "Character Limit Reached",
+                limitMessage,
+                texts.okButton || "OK",
+                () => {},
+                false
+            );
+        }
+        saveDraft(this.value); // Synchronous save
         adjustHeight();
-        charCount.textContent = (texts.charCount || "{count} characters").replace("{count}", text.length);
-        charCount.classList.toggle("text-red-500", text.length > 500);
-
-        // Check for secret code hash
-        if (simpleHash(text) === SECRET_CODE_HASH && !isGodMode) {
+        charCount.textContent = (texts.charCount || "{count} characters").replace("{count}", this.value.length).replace("{count}", currentCharLimit);
+    
+        if (simpleHash(this.value) === SECRET_CODE_HASH && !isGodMode) {
             showGodModeConfirmation(() => {
                 activateGodMode();
-                this.value = ""; // Clear input after activation
-                charCount.textContent = (texts.charCount || "{count} characters").replace("{count}", "0");
-                charCount.classList.remove("text-red-500");
+                this.value = "";
+                charCount.textContent = (texts.charCount || "{count} characters").replace("{count}", "0").replace("{count}", currentCharLimit);
             });
         }
     });
+
+    // Scroll to top on load
+    window.scrollTo(0, 0);
 
     if (!localStorage.getItem("language")) {
         applyLanguage("english");
@@ -1597,7 +1726,7 @@ document.addEventListener("DOMContentLoaded", async function () {
         applyLanguage(selectedLanguage);
         renderPosts();
         if (isGodMode) {
-            addExitButton(); // Add exit button on reload if God Mode is active
+            addExitButton();
         }
     }
     document.getElementById("footer").classList.remove("hidden");
