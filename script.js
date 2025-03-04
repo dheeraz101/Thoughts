@@ -1,5 +1,5 @@
 // Version info
-const APP_VERSION = "1.5.4-beta-final_rf";
+const APP_VERSION = "1.5.5";
 
 const whatsNew = `
     <strong>What's New:</strong><br>

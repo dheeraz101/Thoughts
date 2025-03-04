@@ -1,4 +1,4 @@
-const CACHE_NAME = 'Thoughts-v1.5.4-beta-final_rf';
+const CACHE_NAME = 'Thoughts-v1.5.5';
 const ASSETS_TO_CACHE = [
     '/',
     '/index.html',
