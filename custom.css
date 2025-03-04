@@ -947,7 +947,14 @@ footer hr {
         right: 0; /* Fixed position */
     }
     .language-list-container {
-        padding-right: 12px; /* Adds space between text & scrollbar on PC */
+        align-items: stretch; /* Ensures buttons take full width */
+        padding-right: 6px; /* Default padding */
+    }
+    .language-list-container:has(::-webkit-scrollbar-thumb) {
+        padding-right: 12px;
+    }
+    .language-button {
+        width: 100%; /* Ensure full width */
     }
     .language-list-container::-webkit-scrollbar {
         width: 6px;
@@ -959,6 +966,6 @@ footer hr {
     .language-list-container::-webkit-scrollbar-track {
         background: rgba(255, 255, 255, 0.1);
         border-radius: 10px;
-        margin: 5px 0; /* Adds spacing at the top & bottom */
-    }
+        margin: 5px 0;
+    }    
 }
