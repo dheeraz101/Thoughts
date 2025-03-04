@@ -19,6 +19,7 @@
     "noPostsMessage": "No notes available. Start by adding a new note above.",
     "noResultsMessage": "No matching notes found. Try refining your search or adding a new note.",
     "charCount": "{count}/500",
+    "charLimit": "500",
     "exportButton": "Export",
     "importButton": "Import",
     "exportNotesTitle": "Export Notes",
@@ -48,7 +49,15 @@
     "okButton": "OK",
     "footerCraftedBy": "Crafted by",
     "footerMadeWithLove": "Made with ❤ in India",
-    "footerRightsReserved": "© 2025 Thoughts. All rights reserved."
+    "footerRightsReserved": "© 2025 Thoughts. All rights reserved.",
+    "deleteLanguageTitle": "Delete Language?",
+    "uploadLanguage": "Upload Language",
+    "deleteLanguageConfirm" : "Are you sure you want to delete",
+    "charLimitTitle": "Character Limit Reached",
+    "charLimitMessage": "Whoa there! Only {count} characters are allowed. Extra characters? Poof—they’re gone!",
+    "webStoreTitle": "Web Store",
+    "webStoreLinkText": "Visit Web Store",
+    "webStoreNote": "Download your favorite language from the site and upload it to the app using the Upload Language option."
   },
     "hinglish": {
       "name": "Hinglish",
@@ -60,8 +69,8 @@
       "deleteAllEmptyMessage": "Arre bhai, yeh jagah toh pehle se zyada khaali hai! Delete ka button daba ke AC chalane ka plan hai kya?",
       "deletePostConfirmTitle": "Note Delete Karo?",
       "deletePostConfirmText": "Yeh wapas nahi hoga aur timeline se hat jayega.",
-      "confirmDeleteButton": "Tata",
-      "cancelButton": "Ruko",
+      "confirmDeleteButton": "Haan Bhai Haan!",
+      "cancelButton": "Nahi Bhai",
       "searchPlaceholder": "Notes Dhundo...",
       "addButton": "Daalo",
       "saveButton": "Save Karo",
@@ -70,6 +79,7 @@
       "noPostsMessage": "Koi notes nahi hai. Upar se ek naya note daalo.",
       "noResultsMessage": "Kuch match nahi mila. Search thoda badlo ya naya note daalo.",
       "charCount": "{count}/500",
+      "charLimit": "500",
       "exportButton": "Export Karo",
       "importButton": "Import Karo",
       "exportNotesTitle": "Notes Bahar Bheje",
@@ -99,7 +109,15 @@
       "okButton": "Theek hai",
       "footerCraftedBy": "Banaya",
       "footerMadeWithLove": "भारत में ❤ ke saath banaya gaya",
-      "footerRightsReserved": "© 2025 Vichaar. Sabhi adhikaar surakshit."
+      "footerRightsReserved": "© 2025 Vichaar. Sabhi adhikaar surakshit.",
+      "deleteLanguageTitle": "Bhasha Hatao?",
+      "uploadLanguage": "Bhasha Upload Karo",
+      "deleteLanguageConfirm" : "Aapko Pakaa Yakin hai, aapko hatana hai",
+      "charLimitTitle": "Character Limit Tak Pohoch Gaya",
+      "charLimitMessage": "Arre bhai! Sirf {count} characters allowed hai. Baaki? Ud gaye!",
+      "webStoreTitle": "Web Dukaan",
+      "webStoreLinkText": "Web Dukaan Dekho",
+      "webStoreNote": "Apni pasandida bhasha site se download karo aur Upload Language option se app mein daalo."
     },
     "spanish": {
       "name": "Español",
@@ -114,6 +132,7 @@
       "exportButton": "Exportar",
       "importButton": "Importar",
       "charCount": "{count}/500",
+      "charLimit": "500",
       "footerOfflineTitle": "Ir Sin Conexión",
       "footerOfflineText": "Instala Pensamientos para usar sin conexión:",
       "footerAndroidGuide": "Android: Menú (⋮) > Agregar a pantalla de inicio.",
@@ -150,7 +169,15 @@
       "replaceButton": "Reemplazar",
       "importSuccessFirst": "¡Notas importadas con éxito!",
       "importSuccessMerge": "¡Notas fusionadas con éxito!",
-      "importSuccessReplace": "¡Notas reemplazadas con éxito!"
+      "importSuccessReplace": "¡Notas reemplazadas con éxito!",
+      "deleteLanguageTitle": "Borrar idioma?",
+      "uploadLanguage": "Subir idioma",
+      "deleteLanguageConfirm" : "¿Estás seguro de que quieres eliminar",
+      "charLimitTitle": "Límite de caracteres alcanzado",
+      "charLimitMessage": "¡Vaya! Solo se permiten {count} caracteres. ¿Caracteres extra? ¡Puf, desaparecieron!",
+      "webStoreTitle": "Tienda Web",
+      "webStoreLinkText": "Visitar la Tienda Web",
+      "webStoreNote": "Descarga tu idioma favorito del sitio y súbelo a la aplicación usando la opción Cargar idioma."
   },
   "french": {
       "name": "Français",
@@ -165,6 +192,7 @@
       "exportButton": "Exporter",
       "importButton": "Importer",
       "charCount": "{count}/500",
+      "charLimit": "500",
       "footerOfflineTitle": "Passer Hors Ligne",
       "footerOfflineText": "Installe Pensées pour une utilisation hors ligne:",
       "footerAndroidGuide": "Android: Menu (⋮) > Ajouter à l’écran d’accueil.",
@@ -201,7 +229,15 @@
       "replaceButton": "Remplacer",
       "importSuccessFirst": "Notes importées avec succès!",
       "importSuccessMerge": "Notes fusionnées avec succès!",
-      "importSuccessReplace": "Notes remplacées avec succès!"
+      "importSuccessReplace": "Notes remplacées avec succès!",
+      "deleteLanguageTitle": "Supprimer langue?",
+      "uploadLanguage": "Ajouter langue",
+      "deleteLanguageConfirm" : "Êtes-vous sûr de vouloir supprimer",
+      "charLimitTitle": "Limite de caractères atteinte",
+      "charLimitMessage": "Oh là là ! Seuls {count} caractères sont autorisés. Des caractères en trop ? Pouf, envolés !",
+      "webStoreTitle": "Boutique en ligne",
+      "webStoreLinkText": "Visiter la Boutique en ligne",
+      "webStoreNote": "Téléchargez votre langue préférée depuis le site et importez-la dans l'application en utilisant l'option Télécharger une langue."
   },
   "hindi": {
       "name": "हिन्दी",
@@ -216,6 +252,7 @@
       "exportButton": "निर्यात करो",
       "importButton": "आयात करो",
       "charCount": "{count}/500",
+      "charLimit": "500",
       "footerOfflineTitle": "ऑफलाइन जाओ",
       "footerOfflineText": "विचार को ऑफलाइन उपयोग के लिए स्थापित करें:",
       "footerAndroidGuide": "एंड्रॉयड: मेन्यू (⋮) > होम स्क्रीन पर जोड़ें।",
@@ -252,6 +289,14 @@
       "replaceButton": "बदलें",
       "importSuccessFirst": "नोट्स सफलतापूर्वक आयात हुए!",
       "importSuccessMerge": "नोट्स सफलतापूर्वक मिल गए!",
-      "importSuccessReplace": "नोट्स सफलतापूर्वक बदल गए!"
+      "importSuccessReplace": "नोट्स सफलतापूर्वक बदल गए!",
+      "deleteLanguageTitle": "भाषा हटाएँ?",
+      "uploadLanguage": "भाषा जोड़ें",
+      "deleteLanguageConfirm" : "क्या आप वाकई हटाना चाहते हैं",
+      "charLimitTitle": "अक्षर सीमा पूरी हो गई",
+      "charLimitMessage": "अरे! केवल {count} अक्षर अनुमत हैं। अतिरिक्त अक्षर? धप्प—गायब!",
+      "webStoreTitle": "वेब स्टोर",
+      "webStoreLinkText": "वेब स्टोर पर जाएं",
+      "webStoreNote": "साइट से अपनी पसंदीदा भाषा डाउनलोड करें और इसे ऐप में 'भाषा अपलोड करें' विकल्प का उपयोग करके अपलोड करें।"
   }
 }

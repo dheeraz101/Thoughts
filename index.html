@@ -3,12 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Thoughts</title>
+        <!-- Basic SEO -->
+    <title>WriteThoughts – Secure & Private Notes</title>
+    <meta name="description" content="WriteThoughts is a secure, offline-first notes app. No tracking, no data collection—just your thoughts.">
+    <meta name="keywords" content="notes, privacy, offline, PWA, markdown, secure notes">
+    <meta name="author" content="Dheeraz">
+
+    <!-- Open Graph (Facebook, LinkedIn) -->
+    <meta property="og:title" content="WriteThoughts – Secure & Private Notes">
+    <meta property="og:description" content="A fast, private notes app. Works offline, no tracking.">
+    <meta property="og:image" content="https://writethoughts.netlify.app/icon-512x512.png">
+    <meta property="og:url" content="https://writethoughts.netlify.app">
+    <meta property="og:type" content="website">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="WriteThoughts – Secure & Private Notes">
+    <meta name="twitter:description" content="A fast, private notes app. Works offline, no tracking.">
+    <meta name="twitter:image" content="https://writethoughts.netlify.app/icon-512x512.png">
+
+    <!-- Favicon -->
     <link rel="icon" type="image/png" sizes="512x512" href="icon-512x512.png">
     <link rel="manifest" href="/manifest.json"> <!-- Add manifest for PWA -->
     <meta name="theme-color" content="#000000"> <!-- Theme color for PWA -->
     <link rel="stylesheet" href="/styles.css">
-    <link rel="stylesheet" href="/custom.css"> <!-- Custom CSS -->
+    <link rel="stylesheet" href="/custom.min.css">
 </head>
 <body class="flex justify-center p-4">
 
@@ -79,9 +98,17 @@
                         </p>
                         <p class="text-sm text-[#a6a6a6]" id="footer-version">v1.5.4-beta</p>
                     </div>
+                    <!-- Web Store Section -->
+                    <div class="footer-section">
+                        <h3 class="text-lg text-[#ffffff] font-semibold mb-4" id="footer-webstore-title"></h3>
+                        <p class="text-sm text-[#d9d9d9]" id="footer-webstore-note"></p>
+                        <p class="text-sm text-[#e6e6e6] mb-2">
+                            <a href="https://your-webstore.com" class="text-[#1d9bf0] hover:underline" target="_blank" rel="noopener noreferrer" id="footer-webstore-link"></a>
+                        </p>
+                    </div>
                     <!-- Install Guide -->
                     <div class="footer-section">
-                        <h3 class="text-lg text-[#ffffff] font-semibold mb-4">Go Offline</h3>
+                        <h3 class="text-lg text-[#ffffff] font-semibold mb-4" id="footer-offline-title">Go Offline</h3>
                         <p class="text-sm text-[#e6e6e6] mb-3" id="footer-offline-text">Install Thoughts for offline use:</p>
                         <p class="text-sm text-[#d9d9d9] mb-2" id="footer-android-guide"><strong>Android:</strong> Menu (⋮) > Add to Home screen.</p>
                         <p class="text-sm text-[#d9d9d9]" id="footer-ios-guide"><strong>iOS:</strong> Share (⬆) > Add to Home Screen.</p>
@@ -94,6 +121,7 @@
                     <br>
                     <p class="text-xs text-[#a6a6a6]" id="footer-rights-reserved"></p>
                 </div>
+                <hr class="border-[#333639] my-8 mx-auto w-3/4">
             </div>
         </footer>
     </div>
@@ -146,6 +174,6 @@
     </div>
 
     <script src="/confetti.js"></script>
-    <script src="/script.js"></script>
+    <script src="/script.min.js" defer></script>
 </body>
 </html>
