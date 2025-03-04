@@ -8,6 +8,10 @@ body {
     line-height: 1.5;
 }
 
+* {
+    -webkit-tap-highlight-color: transparent;
+}
+
 /* Ensure hidden class works with footer */
 .hidden {
     display: none;
