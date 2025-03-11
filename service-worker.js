@@ -1,10 +1,15 @@
-const CACHE_NAME = 'Thoughts-v1.5.5rc1';
+// service-worker.js
+const CACHE_VERSION = '1.5.5rc06i27'; // Sync with APP_VERSION in script.js
+const CACHE_NAME = `Thoughts-${CACHE_VERSION}`;
+const DYNAMIC_CACHE_NAME = `${CACHE_NAME}-dynamic`;
+
+// Core assets to cache on install (ensure all are critical and exist)
 const ASSETS_TO_CACHE = [
-    '/',
+    '/', // Root URL (often resolves to index.html)
     '/index.html',
     '/styles.css',
-    '/custom.min.css',
-    '/script.min.js',
+    '/custom.css',
+    '/script.js',
     '/confetti.js',
     '/manifest.json',
     '/languages.json',
@@ -13,20 +18,47 @@ const ASSETS_TO_CACHE = [
     '/icon-144x144.png',
     '/offline.html',
     '/screenshots/desktop-view.png',
-    '/screenshots/mobile-view.png'
+    '/screenshots/mobile-view.png',
+    '/sounds/click.ogg',
+    '/sounds/error.ogg',
+    '/sounds/fireworks.ogg',
+    '/sounds/fireworksschoolprid.ogg',
+    '/sounds/long-touch.ogg',
+    '/sounds/shooting-stars.ogg',
+    '/sounds/single-firework.ogg',
+    '/sounds/snow.ogg',
+    '/sounds/stars.ogg',
+    '/sounds/success.ogg',
+    '/sounds/tone.ogg'
 ];
 
+// Install event: Cache essential assets
 self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME)
-            .then(cache => cache.addAll(ASSETS_TO_CACHE))
-            .then(() => self.skipWaiting())
-            .catch(err => console.error('Cache failed during install:', err))
+            .then(cache => {
+                console.log('Service Worker: Installing and caching assets');
+                return cache.addAll(ASSETS_TO_CACHE)
+                    .then(() => {
+                        console.log('All assets cached successfully');
+                        return cache.add('/index.html'); // Ensure index.html is cached
+                    })
+                    .catch(err => {
+                        console.error('Failed to cache some assets:', err);
+                        return cache.addAll(['/index.html']); // Fallback to cache index.html at minimum
+                    });
+            })
+            .then(() => {
+                console.log('Service Worker: Install complete');
+                self.skipWaiting(); // Ensure new service worker activates immediately
+            })
+            .catch(err => console.error('Install failed:', err))
     );
 });
 
+// Activate event: Clean up old caches
 self.addEventListener('activate', (event) => {
-    const cacheWhitelist = [CACHE_NAME];
+    const cacheWhitelist = [CACHE_NAME, DYNAMIC_CACHE_NAME];
     event.waitUntil(
         caches.keys().then(cacheNames => {
             return Promise.all(
@@ -37,68 +69,121 @@ self.addEventListener('activate', (event) => {
                     }
                 })
             );
-        }).then(() => self.clients.claim())
+        })
+        .then(() => console.log('Service Worker: Activation complete'))
+        .catch(err => console.error('Activation failed:', err))
     );
 });
 
+// Fetch event: Offline-first strategy with robust fallback
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
 
-    // Always fetch manifest.json from network when online
-    if (url.pathname === '/manifest.json' && navigator.onLine) {
+    // Bypass caching for manifest.json to always fetch the latest version
+    if (url.pathname === '/manifest.json') {
         event.respondWith(
-            fetch(event.request, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } })
-                .then(networkResponse => {
-                    if (networkResponse.ok) {
-                        const clone = networkResponse.clone();
-                        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-                    }
-                    return networkResponse;
-                })
-                .catch(() => caches.match(event.request) || new Response('Offline', { status: 503 }))
+            fetch(event.request).catch(() => {
+                // Fallback to cached manifest if network fetch fails
+                return caches.match('/manifest.json');
+            })
         );
-    } else {
+        return;
+    }    
+
+    // Handle dynamic resources (e.g. drafts, posts, languages)
+    if (url.pathname === '/draft' || url.pathname === '/posts' || url.pathname === '/languages') {
         event.respondWith(
-            caches.match(event.request).then(cachedResponse => {
-                const networkFetch = fetch(event.request, { cache: 'no-store' })
+            caches.open(DYNAMIC_CACHE_NAME)
+                .then(cache => cache.match(event.request))
+                .then(response => response || new Response('No cached data', { status: 404 }))
+        );
+        return;
+    }
+
+    // Use cache-first strategy for all other requests
+    event.respondWith(
+        caches.match(event.request)
+            .then(cachedResponse => {
+                if (cachedResponse) {
+                    console.log('Serving cached response for:', url.pathname);
+                    return cachedResponse;
+                }
+                return fetch(event.request)
                     .then(networkResponse => {
-                        if (networkResponse.ok && navigator.onLine) {
-                            const responseToCache = networkResponse.clone();
-                            caches.open(CACHE_NAME)
-                                .then(cache => cache.put(event.request, responseToCache))
-                                .catch(err => console.warn(`Failed to cache ${event.request.url}: ${err}`));
-                        }
-                        if (navigator.onLine && event.request.mode === 'navigate') {
-                            return networkResponse;
+                        if (networkResponse && networkResponse.ok) {
+                            // Clone the response immediately to avoid reusing its body
+                            const responseClone = networkResponse.clone();
+                            caches.open(CACHE_NAME).then(cache => {
+                                cache.put(event.request, responseClone);
+                            });
                         }
                         return networkResponse;
                     })
-                    .catch(err => {
-                        console.warn(`Network fetch failed for ${event.request.url}: ${err}`);
-                        if (cachedResponse) return cachedResponse;
-                        if (event.request.mode === 'navigate') return caches.match('/index.html');
-                        return caches.match('/offline.html') || new Response('Offline', { status: 503 });
+                    .catch(() => {
+                        if (event.request.mode === 'navigate') {
+                            console.log('Network unavailable, serving cached index.html');
+                            return caches.match('/index.html') || new Response('Offline: App unavailable', { status: 503 });
+                        }
+                        return new Response('Resource unavailable offline', { status: 503 });
                     });
-                return cachedResponse || networkFetch;
             })
-        );
-    }
+    );
 });
 
-self.addEventListener("message", event => {
-    if (event.data && event.data.type === "CLEAR_DRAFT") {
-        caches.open("thoughts-app-cache").then(cache => {
-            cache.delete("/draft").then(() => {
-                console.log("Draft cleared from service worker cache");
+// Message event: Handle updates, drafts, posts, and languages
+self.addEventListener('message', (event) => {
+    if (!event.data || !event.data.type) return;
+
+    switch (event.data.type) {
+        case 'SKIP_WAITING':
+            self.skipWaiting().then(() => {
+                self.clients.claim();
+                console.log('Service Worker: Activated via SKIP_WAITING');
             });
-        });
-    } else if (event.data && event.data.type === "SAVE_DRAFT") {
-        caches.open("thoughts-app-cache").then(cache => {
-            cache.put("/draft", new Response(event.data.draft));
-        });
-    } else if (event.data && event.data.type === "SAVE_POSTS") {
-        caches.open("thoughts-app-cache").then(cache => {
-            cache.put("/posts", new Response(event.data.posts));
-        });
+            break;
+        case 'UPDATE_CACHE':
+            event.waitUntil(
+                caches.open(CACHE_NAME)
+                    .then(cache => {
+                        return cache.addAll(ASSETS_TO_CACHE)
+                            .then(() => {
+                                console.log('Cache updated manually');
+                                event.ports[0]?.postMessage({ status: 'success' });
+                            })
+                            .catch(err => {
+                                console.error('Cache update failed:', err);
+                                event.ports[0]?.postMessage({ status: 'error', error: err.message });
+                            });
+                    })
+            );
+            break;
+        case 'SAVE_DRAFT':
+            event.waitUntil(
+                caches.open(DYNAMIC_CACHE_NAME)
+                    .then(cache => cache.put('/draft', new Response(event.data.draft)))
+                    .then(() => console.log('Draft saved to cache'))
+            );
+            break;
+        case 'SAVE_POSTS':
+            event.waitUntil(
+                caches.open(DYNAMIC_CACHE_NAME)
+                    .then(cache => cache.put('/posts', new Response(event.data.posts)))
+                    .then(() => console.log('Posts saved to cache'))
+            );
+            break;
+        case 'SAVE_LANGUAGES':
+            event.waitUntil(
+                caches.open(DYNAMIC_CACHE_NAME)
+                    .then(cache => cache.put('/languages', new Response(event.data.languages)))
+                    .then(() => console.log('Languages saved to cache'))
+            );
+            break;
+        case 'CLEAR_DRAFT':
+            event.waitUntil(
+                caches.open(DYNAMIC_CACHE_NAME)
+                    .then(cache => cache.delete('/draft'))
+                    .then(() => console.log('Draft cleared from cache'))
+            );
+            break;
     }
 });

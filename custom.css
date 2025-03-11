@@ -2,7 +2,7 @@
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     background-color: #000000;
-    color: #ffffff;
+    color: #EAEAEA;
     margin: 0;
     padding: 0;
     line-height: 1.5;
@@ -10,6 +10,21 @@ body {
 
 * {
     -webkit-tap-highlight-color: transparent;
+}
+
+/* Scrollbar styles */
+::-webkit-scrollbar {
+    width: 8px;
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
 }
 
 /* Ensure hidden class works with footer */
@@ -80,10 +95,10 @@ header h1:hover {
     padding: 12px;
     border-radius: 12px;
     outline: none;
-    color: #ffffff;
+    color: #EAEAEA;
     caret-color: #ffffff;
     resize: none;
-    font-size: 1.25rem;
+    font-size: 1.125rem;
     font-weight: 400;
     line-height: 1.5;
     overflow: hidden;
@@ -181,9 +196,9 @@ header h1:hover {
 }
 
 .post-content {
-    font-size: 1.25rem;
+    font-size: 1rem;
     font-weight: 400;
-    line-height: 1.5;
+    line-height: 1.6;
     letter-spacing: -0.01em;
     margin-bottom: 16px;
     word-break: break-word; /* Added to break long words */
@@ -211,9 +226,10 @@ header h1:hover {
 
 /* Post title with @ symbol */
 .post-title {
-    font-size: 1.5rem; /* Slightly larger for hierarchy */
+    font-size: 1.125rem; /* Slightly larger for hierarchy */
+    line-height: 1.4;
     font-weight: 700; /* Bold per Apple design */
-    color: #ffffff;
+    color: #EAEAEA;
     margin-bottom: 8px; /* Whitespace per Apple theory */
     letter-spacing: -0.02em; /* Tightened for elegance */
     line-height: 1.2;
@@ -337,6 +353,47 @@ header h1:hover {
     font-weight: 400;
     color: #ffffff; /* Keeping text white for contrast */
     letter-spacing: -0.01em;
+}
+
+
+/* Custom styles for share-post */
+.meta-badge.share-post {
+    background-color: rgba(139, 92, 246, 0.5); /* Purple shade */
+    border: 1px solid #8b5cf6; /* Matching purple border */
+    color: #ffffff;
+    transition: background-color 0.2s ease, opacity 0.2s ease;
+}
+
+/* Ensure share-post styles persist in pinned state */
+.post.pinned .meta-badge.share-post {
+    background-color: rgba(139, 92, 246, 0.5); /* Same purple */
+    border: 1px solid #8b5cf6;
+}
+
+/* Hover effect */
+.meta-badge.share-post:hover {
+    background-color: rgba(139, 92, 246, 0.8);
+}
+
+/* Active effect */
+.meta-badge.share-post:active {
+    background-color: rgba(124, 58, 237, 0.9);
+}
+
+/* Disabled state */
+.meta-badge.share-post[style*="pointer-events: none"] {
+    background-color: rgba(139, 92, 246, 0.3);
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Ensure pinned state doesn’t override hover/active */
+.post.pinned .meta-badge.share-post:hover {
+    background-color: rgba(139, 92, 246, 0.8);
+}
+
+.post.pinned .meta-badge.share-post:active {
+    background-color: rgba(124, 58, 237, 0.9);
 }
 
 .post-actions {
@@ -728,7 +785,7 @@ footer hr {
     #public-input {
         min-height: 160px;
         padding: 14px;
-        font-size: 1.375rem;
+        font-size: 1rem;
         line-height: 1.45;
         border-radius: 14px;
     }
@@ -754,7 +811,7 @@ footer hr {
     }
 
     .post-content {
-        font-size: 1.375rem;
+        font-size: 1rem;
         line-height: 1.45;
         letter-spacing: -0.01em;
         margin-bottom: 20px;
@@ -867,7 +924,7 @@ footer hr {
     }
 
     .post-title {
-        font-size: 1.75rem; /* Larger for mobile per Apple */
+        font-size: 1.525rem; /* Larger for mobile per Apple */
     }
 
     .hashtag-wrapper {
