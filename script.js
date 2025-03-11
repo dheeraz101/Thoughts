@@ -1,13 +1,166 @@
 // Version info
-const APP_VERSION = "1.5.5rc1";
+const APP_VERSION = "1.5.5rc06i27";
 
 const whatsNew = `
     <strong>What's New:</strong><br>
     - Multi-Language Support<br>
-    - Improved cache handling for drafts and posts.<br>
+    - Sound Effects for User Experience<br>
     - Meet the <a href="thoughtswebstore.netlify.app" target="_blank" rel="noopener noreferrer" style="color: #1d9bf0; text-decoration: underline;">Thoughts Web Store</a>! Download extra language packs<br>
-    - Minor bug fixes and performance tweaks.
+    - UI Enhancements and Bugs Fixed.
 `;
+
+// Initialize the AudioContext
+const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+// Create a GainNode for volume control
+const gainNode = audioContext.createGain();
+gainNode.gain.value = 1.0; // Set to maximum volume (range: 0.0 to 1.0)
+gainNode.connect(audioContext.destination); // Connect to output
+
+// Define all sound files used in the app
+const soundFiles = [
+    '/sounds/click.ogg',
+    '/sounds/error.ogg',
+    '/sounds/success.ogg',
+    '/sounds/stars.ogg',
+    '/sounds/tone.ogg',
+    '/sounds/long-touch.ogg',
+    '/sounds/single-firework.ogg',
+    '/sounds/fireworksschoolprid.ogg',
+    '/sounds/shooting-stars.ogg',
+    '/sounds/snow.ogg',
+    '/sounds/fireworks.ogg'
+];
+
+// Define critical sounds for initial preload
+const criticalSounds = ['/sounds/click.ogg', '/sounds/error.ogg', '/sounds/success.ogg'];
+
+// Store decoded audio buffers
+const soundBuffers = new Map();
+
+// Preload sound files into buffers
+async function preloadSound(src) {
+    if (soundBuffers.has(src)) return; // Already preloaded
+    try {
+        const response = await fetch(src);
+        const arrayBuffer = await response.arrayBuffer();
+        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+        soundBuffers.set(src, audioBuffer);
+        console.log(`Preloaded sound: ${src}`);
+    } catch (err) {
+        console.warn(`Failed to preload sound (${src}):`, err);
+    }
+}
+
+// Unlock audio context and preload critical sounds on page load
+document.addEventListener("DOMContentLoaded", () => {
+    // Unlock audio context on first touch/click for mobile
+    const unlockAudio = () => {
+        if (audioContext.state === "suspended") {
+            audioContext.resume().then(() => {
+                console.log("Audio context resumed");
+                // Preload critical sounds after unlocking
+                criticalSounds.forEach(src => preloadSound(src));
+            }).catch(err => console.warn("Audio resume failed:", err));
+        }
+        document.removeEventListener("touchstart", unlockAudio);
+        document.removeEventListener("click", unlockAudio);
+    };
+    document.addEventListener("touchstart", unlockAudio, { once: true });
+    document.addEventListener("click", unlockAudio, { once: true }); // Fallback for non-touch devices
+});
+
+// Reuse your existing throttle function
+function throttle(func, limit) {
+    let inThrottle;
+    let lastArgs;
+    return function (...args) {
+        lastArgs = args;
+        if (!inThrottle) {
+            func.apply(this, args);
+            inThrottle = true;
+            setTimeout(() => {
+                inThrottle = false;
+                if (lastArgs !== args) func.apply(this, lastArgs);
+            }, limit);
+        }
+    };
+}
+
+// Play sound using Web Audio API with full volume
+const throttledPlaySound = throttle(async (src) => {
+    if (!soundFiles.includes(src)) {
+        console.warn(`Sound file ${src} not found in soundFiles array`);
+        return;
+    }
+
+    // Ensure audio context is running
+    if (audioContext.state === "suspended") {
+        await audioContext.resume();
+    }
+
+    // Lazy-load sound if not preloaded
+    if (!soundBuffers.has(src)) {
+        await preloadSound(src);
+    }
+
+    // If still not loaded (e.g., fetch failed), skip playback
+    if (!soundBuffers.has(src)) {
+        console.warn(`Sound (${src}) not available for playback`);
+        return;
+    }
+
+    // Create and play the sound with full volume
+    const source = audioContext.createBufferSource();
+    source.buffer = soundBuffers.get(src);
+    source.connect(gainNode); // Connect to gainNode instead of directly to destination
+    source.start(0);
+}, 100);
+
+// Attach to button clicks
+document.querySelectorAll("button").forEach(button => {
+    button.addEventListener("click", () => {
+        console.log("Button clicked! Playing sound...");
+        throttledPlaySound('/sounds/click.ogg');
+    });
+});
+
+// Optional: Function to adjust volume dynamically if needed
+function setVolume(level) {
+    gainNode.gain.value = Math.max(0, Math.min(1, level)); // Clamp between 0 and 1
+    console.log(`Volume set to: ${gainNode.gain.value}`);
+}
+
+if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+        navigator.serviceWorker.register("/service-worker.js")
+            .then(registration => {
+                console.log("ServiceWorker registered with scope:", registration.scope);
+                registration.addEventListener('updatefound', () => {
+                    const newWorker = registration.installing;
+                    newWorker.addEventListener('statechange', () => {
+                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            console.log("New service worker waiting");
+                            // Store the pending update state
+                            localStorage.setItem("updatePending", "true");
+                            window.dispatchEvent(new CustomEvent('checkForUpdates'));
+                        }
+                    });
+                });
+            })
+            .catch(err => console.log("ServiceWorker registration failed:", err));
+
+        navigator.serviceWorker.addEventListener('message', (event) => {
+            if (event.data.type === 'CHECK_APPROVAL') {
+                const approved = localStorage.getItem("updateApproved") === "true";
+                navigator.serviceWorker.controller.postMessage({
+                    type: 'APPROVAL_RESPONSE',
+                    approved: approved
+                });
+            }
+        });
+    });
+}
 
 let languageData = {};
 let selectedLanguage = localStorage.getItem("language") || "english";
@@ -18,6 +171,8 @@ let updateEditState;
 let originalLanguageData = {};
 const DEFAULT_CHAR_LIMIT = 500;
 let currentCharLimit;
+let hasSeenVolumeNotification = localStorage.getItem("hasSeenVolumeNotification") === "true";
+let isZoomEnabled = localStorage.getItem("isZoomEnabled") === "true" || false;
 
 // Simple hash function (djb2 variant)
 function simpleHash(str) {
@@ -98,68 +253,181 @@ function createNotification(message, options = {}) {
 
 // Specific notification types
 function showGodModeNotification() {
+    throttledPlaySound('/sounds/stars.ogg');
     createNotification("God Mode Unlocked", { background: "rgba(255, 215, 0, 0.9)", color: "#000", duration: 1500 });
 }
 function showSuccess(message) {
+    throttledPlaySound('/sounds/success.ogg');
     createNotification(message, { duration: 4500 });
 }
-function showLanguageChangeNotification(language) {
-    createNotification(`Language Changed to ${languageData[language].name}`, { duration: 1500 });
+function showLanguageChangeNotification(language, showWelcome = false) {
+    const langName = languageData[language].name || language;
+    let message;
+    
+    if (showWelcome) {
+        message = (texts.welcomeMessage || "Welcome! Language set to \"{name}\".").replace("{name}", langName);
+    } else {
+        message = (texts.applyingLanguageMessage || "Language switched to \"{name}\".").replace("{name}", langName);
+    }
+    
+    createNotification(message, { duration: 1500 });
+}
+
+function toRoman(num) {
+    if (num === 0) return "";
+    const romanValues = [
+        { value: 1000, numeral: "M" },
+        { value: 900, numeral: "CM" },
+        { value: 500, numeral: "D" },
+        { value: 400, numeral: "CD" },
+        { value: 100, numeral: "C" },
+        { value: 90, numeral: "XC" },
+        { value: 50, numeral: "L" },
+        { value: 40, numeral: "XL" },
+        { value: 10, numeral: "X" },
+        { value: 9, numeral: "IX" },
+        { value: 5, numeral: "V" },
+        { value: 4, numeral: "IV" },
+        { value: 1, numeral: "I" }
+    ];
+    let result = "";
+    for (const { value, numeral } of romanValues) {
+        while (num >= value) {
+            result += numeral;
+            num -= value;
+        }
+    }
+    return result;
+}
+
+function updateHeaderTitle() {
+    const headerTitle = document.querySelector("header h1");
+    if (headerTitle) {
+        const posts = JSON.parse(localStorage.getItem("posts") || "[]");
+        const postCount = posts.length;
+        headerTitle.textContent = `${texts.appName} ${toRoman(postCount)}`;
+    }
 }
 
 // Async fetch for languages
 async function fetchLanguages() {
     try {
+        // Load from localStorage first (instant)
+        const storedLanguages = JSON.parse(localStorage.getItem("customLanguages") || "{}");
+        const storedOriginal = JSON.parse(localStorage.getItem("originalLanguageData") || "{}");
+        
+        // Fetch from server as a fallback or initial setup
         const response = await fetch("/languages.json");
         originalLanguageData = await response.json();
-        // Load custom languages first
-        const customLanguages = JSON.parse(localStorage.getItem("customLanguages") || "{}");
-        // Merge original and custom languages
-        languageData = { ...originalLanguageData, ...customLanguages };
-        
-        // Ensure selected language exists, fallback to english if not
+        localStorage.setItem("originalLanguageData", JSON.stringify(originalLanguageData)); // Save instantly
+
+        // Merge with custom languages
+        languageData = { ...originalLanguageData, ...storedLanguages };
+
+        // Check cache for newer custom languages
+        const cachedLanguages = await caches.match("/languages");
+        if (cachedLanguages) {
+            const cachedData = JSON.parse(await cachedLanguages.text());
+            if (cachedData.timestamp > (localStorage.getItem("languageTimestamp") || 0)) {
+                Object.assign(languageData, cachedData.data);
+                localStorage.setItem("customLanguages", JSON.stringify(cachedData.data));
+                localStorage.setItem("languageTimestamp", cachedData.timestamp);
+            }
+        }
+
+        // Ensure selected language exists, fallback to english
         if (!languageData[selectedLanguage]) {
             selectedLanguage = "english";
             localStorage.setItem("language", "english");
         }
-        
+
         texts = languageData[selectedLanguage];
-        currentCharLimit = isGodMode ? (texts.charLimit * 2) : texts.charLimit;
+        currentCharLimit = isGodMode ? (texts.charLimit * 2 - 1) : texts.charLimit;
         texts.charCount = `{count}/${currentCharLimit}`;
-        
+
         const splashTitle = document.getElementById("splash-title");
         splashTitle.textContent = texts.appName;
         splashTitle.classList.add("scale-110");
         setTimeout(() => splashTitle.classList.remove("scale-110"), 300);
     } catch (err) {
         console.error("Failed to load languages:", err);
-        languageData = { english: { appName: "Thoughts", addButton: "Add", charLimit: DEFAULT_CHAR_LIMIT } };
+        languageData = JSON.parse(localStorage.getItem("customLanguages") || "{}") || { english: { appName: "Thoughts", addButton: "Add", charLimit: DEFAULT_CHAR_LIMIT } };
         selectedLanguage = "english";
         localStorage.setItem("language", "english");
         texts = languageData[selectedLanguage];
-        currentCharLimit = isGodMode ? (texts.charLimit * 2) : texts.charLimit;
+        currentCharLimit = isGodMode ? (texts.charLimit * 2 - 1) : texts.charLimit;
     }
+    // Backup to service worker cache asynchronously
+    saveLanguagesToCache();
 }
 
-// Add function to persist language changes
-function persistLanguageData() {
-    const customLanguages = JSON.parse(localStorage.getItem("customLanguages") || "{}");
-    localStorage.setItem("customLanguages", JSON.stringify({
-        ...customLanguages,
-        ...Object.keys(languageData)
-            .filter(key => !originalLanguageData[key]) // Only store custom languages
+function saveLanguagesToCache() {
+    const languagePayload = {
+        data: Object.keys(languageData)
+            .filter(key => !originalLanguageData[key]) // Only custom languages
             .reduce((obj, key) => {
                 obj[key] = languageData[key];
                 return obj;
-            }, {})
-    }));
-    localStorage.setItem("language", selectedLanguage);
-    localStorage.setItem("isGodMode", isGodMode.toString());
+            }, {}),
+        timestamp: Date.now()
+    };
+    localStorage.setItem("customLanguages", JSON.stringify(languagePayload.data));
+    localStorage.setItem("languageTimestamp", languagePayload.timestamp);
+    if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.ready.then(reg => {
+            reg.active?.postMessage({
+                type: "SAVE_LANGUAGES",
+                languages: JSON.stringify(languagePayload)
+            });
+        }).catch(err => console.warn("Failed to save languages to cache:", err));
+    }
 }
+
+// Add this new function to apply zoom state silently
+function applyZoomStateSilently() {
+    const metaViewport = document.querySelector('meta[name="viewport"]');
+    if (!metaViewport) {
+        const newMeta = document.createElement("meta");
+        newMeta.name = "viewport";
+        newMeta.content = isZoomEnabled 
+            ? "width=device-width, initial-scale=1.0" 
+            : "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no";
+        document.head.appendChild(newMeta);
+    } else {
+        metaViewport.content = isZoomEnabled 
+            ? "width=device-width, initial-scale=1.0" 
+            : "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no";
+    }
+    const zoomToggleBtn = document.getElementById("zoom-toggle");
+    if (zoomToggleBtn) {
+        zoomToggleBtn.textContent = isZoomEnabled 
+            ? (texts.zoomEnabledText || "Zoom: On") 
+            : (texts.zoomDisabledText || "Zoom: Off");
+    }
+}
+
+// Update toggleZoom to only handle user interaction
+function toggleZoom() {
+    isZoomEnabled = !isZoomEnabled;
+    localStorage.setItem("isZoomEnabled", isZoomEnabled);
+    applyZoomStateSilently(); // Apply the state
+    createNotification(
+        isZoomEnabled 
+            ? (texts.zoomEnabledNotification || "Zoom Enabled") 
+            : (texts.zoomDisabledNotification || "Zoom Disabled"), 
+        { duration: 1500 }
+    );
+}
+
+// Modify the initial zoom application in DOMContentLoaded
+document.addEventListener("DOMContentLoaded", () => {
+    applyZoomStateSilently(); // Apply initial state silently
+});
 
 // Main app initialization
 document.addEventListener("DOMContentLoaded", async () => {
     await fetchLanguages();
+
     const customLanguages = JSON.parse(localStorage.getItem("customLanguages") || "{}");
     Object.assign(languageData, customLanguages);
 
@@ -194,6 +462,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     let isSavingOnClose = false;
 
     await loadInitialData();
+    applyZoomStateSilently();
 
     // Ensure God Mode state is applied correctly on init
     isGodMode = localStorage.getItem("isGodMode") === "true";
@@ -201,12 +470,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         currentCharLimit = texts.charLimit * 2;
         texts.charCount = `{count}/${currentCharLimit}`;
         applyLanguage(selectedLanguage);
-        renderPosts(); // Immediate render to reflect God Mode
+        renderPosts();
     } else {
         currentCharLimit = texts.charLimit;
         texts.charCount = `{count}/${currentCharLimit}`;
         applyLanguage(selectedLanguage);
-        renderPosts(); // Immediate render for normal mode
+        renderPosts();
     }
 
     // Utility Functions
@@ -246,6 +515,21 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     }
 
+    function showVolumeNotification() {
+        if (hasSeenVolumeNotification) return; // Skip if already shown
+    
+        showCustomPopup(
+            texts.volumeNotificationTitle || "Enhance Your Experience",
+            texts.volumeNotificationMessage || "For the best experience with sound effects, please turn your device volume to maximum.",
+            texts.okButton || "OK",
+            () => {
+                localStorage.setItem("hasSeenVolumeNotification", "true");
+                hasSeenVolumeNotification = true;
+            },
+            false // No cancel button
+        );
+    }
+
     // Save post function
     function savePost(text) {
         try {
@@ -257,6 +541,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 localStorage.setItem("posts", postsString);
             } catch (e) {
                 if (e.name === "QuotaExceededError") {
+                    throttledPlaySound('/sounds/error.ogg')
                     showCustomPopup("Storage Full", "Cannot save post: storage limit reached. Delete some posts to free space.", "OK", () => {}, false);
                     return;
                 }
@@ -270,6 +555,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             debouncedRenderPosts();
         } catch (err) {
             console.error("Failed to save post:", err);
+            throttledPlaySound('/sounds/error.ogg')
             showCustomPopup("Error", "Failed to save post. Try again.", "OK", () => {}, false);
         }
     }
@@ -278,8 +564,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         try {
             const posts = JSON.parse(localStorage.getItem("posts") || "[]");
             const isPinned = posts[index].pinned;
-            posts.forEach(post => (post.pinned = false));
-            if (!isPinned) posts[index].pinned = true;
+            posts.forEach(post => (post.pinned = false)); // Unpin all
+            if (!isPinned) posts[index].pinned = true;    // Pin the selected one
             const postsString = JSON.stringify(posts);
             localStorage.setItem("posts", postsString);
             if ("serviceWorker" in navigator) {
@@ -287,7 +573,9 @@ document.addEventListener("DOMContentLoaded", async () => {
                     reg.active?.postMessage({ type: "SAVE_POSTS", posts: postsString });
                 });
             }
-            renderPosts(); // Immediate render instead of debounced
+            // Pass the current search filter to renderPosts
+            const searchText = elements.searchInput.value.trim();
+            renderPosts(searchText); // Preserve search filter
         } catch (err) {
             console.error("Failed to toggle pin:", err);
         }
@@ -296,29 +584,37 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Load initial data
     async function loadInitialData() {
         try {
+            // Load draft
+            let draft = localStorage.getItem("draftNote") || "";
             const cachedDraft = await caches.match("/draft");
-            const localDraft = localStorage.getItem("draftNote") || "";
-            let draft = cachedDraft ? await cachedDraft.text() : localDraft;
-    
-            // Discard secret key draft on load if not in God Mode
+            if (cachedDraft) {
+                const cachedText = await cachedDraft.text();
+                if (cachedText && (!draft || new Date().getTime() - Date.parse(localStorage.getItem("draftTimestamp") || "0") < 0)) {
+                    draft = cachedText;
+                    localStorage.setItem("draftNote", draft);
+                }
+            }
             if (simpleHash(draft) === SECRET_CODE_HASH && !isGodMode) {
                 draft = "";
                 forceClearDraft();
             }
-    
-            if (draft !== localDraft) localStorage.setItem("draftNote", draft);
             lastSavedDraft = draft;
             elements.inputWrapper.value = draft;
             adjustHeight();
             elements.charCount.textContent = (texts.charCount || "{count} characters").replace("{count}", draft.length).replace("{count}", currentCharLimit);
     
+            // Load posts
+            const postsString = localStorage.getItem("posts") || "[]";
             const cachedPosts = await caches.match("/posts");
             if (cachedPosts) {
-                const postsString = await cachedPosts.text();
-                if (postsString !== localStorage.getItem("posts")) {
-                    localStorage.setItem("posts", postsString);
+                const cachedPostsString = await cachedPosts.text();
+                if (cachedPostsString && cachedPostsString !== postsString) {
+                    localStorage.setItem("posts", cachedPostsString);
                 }
             }
+    
+            // Load languages (already handled by fetchLanguages, just apply)
+            applyLanguage(selectedLanguage);
         } catch (err) {
             console.error("Failed to load initial data:", err);
             const draft = localStorage.getItem("draftNote") || "";
@@ -356,42 +652,46 @@ document.addEventListener("DOMContentLoaded", async () => {
     const throttledSaveDraft = throttle(saveDraft, 200); // Save every 200ms max
     const debouncedRenderPosts = debounce(renderPosts, 100); // Reduce DOM thrashing
 
-    function showLanguageSelection() {
+    function showLanguageSelection(isNewUser = false) {
         const selectionDiv = document.getElementById("language-selection");
+        if (!selectionDiv) {
+            console.error("Language selection element not found in DOM");
+            return;
+        }
         const popupDiv = selectionDiv.querySelector(".twitter-popup");
         const chooseText = texts.chooseLanguage || "Choose Your Language";
-
+    
         popupDiv.innerHTML = `
             <p class="mb-4 text-[1.375rem] font-bold text-white text-center md:text-[20px]">${chooseText}</p>
             <div id="language-list" class="language-list-container mb-6"></div>
             <button id="language-cancel" class="w-full bg-red-500 text-white font-semibold text-base py-2 px-6 rounded-[12px] shadow-lg hover:bg-red-600 transition-colors duration-300">${texts.cancelButton || "Cancel"}</button>
         `;
-
+    
         const languageListDiv = popupDiv.querySelector("#language-list");
-        const customLanguages = JSON.parse(localStorage.getItem("customLanguages") || "{}");
-        const languages = { ...languageData, ...customLanguages };
+        const languages = { ...languageData };
         const langKeys = Object.keys(languages);
-
+    
         langKeys.forEach(lang => {
             const langContainer = document.createElement("div");
             langContainer.className = "flex justify-between items-center mb-2";
-
+    
             const button = document.createElement("button");
             button.className = "language-button text-left flex-1";
             button.textContent = languages[lang].name || lang;
-            Object.assign(button.style, {
-                "-webkit-tap-highlight-color": "transparent" // Suppress blue highlight
-            });
+            Object.assign(button.style, { "-webkit-tap-highlight-color": "transparent" });
             button.addEventListener("click", () => {
+                throttledPlaySound('/sounds/click.ogg');
                 selectedLanguage = lang;
                 localStorage.setItem("language", lang);
+                localStorage.setItem("hasSeenLanguagePrompt", "true");
                 applyLanguage(lang);
-                debouncedRenderPosts();
                 selectionDiv.classList.add("hidden");
                 document.body.style.overflow = "";
-                showLanguageChangeNotification(lang);
+                // Show welcome message only for new users, switch message for returning users
+                showLanguageChangeNotification(lang, isNewUser && !hasSeenLanguagePrompt);
+                showVolumeNotification(lang, isNewUser && !hasSeenVolumeNotification);
             });
-
+    
             const deleteButton = document.createElement("button");
             deleteButton.innerHTML = `
                 <svg class="w-5 h-5" viewBox="0 0 24 24" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -416,64 +716,97 @@ document.addEventListener("DOMContentLoaded", async () => {
             deleteButton.className = "hover:bg-[rgba(255,0,0,0.2)]";
             deleteButton.title = texts.deleteButton || "Delete";
             deleteButton.addEventListener("click", () => {
+                throttledPlaySound('/sounds/tone.ogg');
                 showCustomPopup(
                     texts.deleteLanguageTitle || "Delete Language?",
-                    `${texts.deleteLanguageConfirm || "Are you sure you want to delete"} "${languages[lang].name || lang}"?`,
+                    `${texts.deleteLanguageConfirm || "Are you sure you want to delete"} "${languages[lang].name || lang}"? ${texts.refreshMessage || "The app will refresh to apply changes."}`,
                     texts.confirmDeleteButton || "Delete",
                     () => {
-                        // Load current custom languages
-                        const customLanguages = JSON.parse(localStorage.getItem("customLanguages") || "{}");
-                        
-                        // Remove the language from both customLanguages and languageData
-                        delete customLanguages[lang];
                         delete languageData[lang];
-                        
-                        // Persist the updated custom languages
-                        localStorage.setItem("customLanguages", JSON.stringify(customLanguages));
-                        
-                        // If deleted language was selected, switch to English
                         if (selectedLanguage === lang) {
                             selectedLanguage = "english";
                             localStorage.setItem("language", "english");
                             applyLanguage("english");
+                        } else {
+                            applyLanguage(selectedLanguage);
                         }
-                        
-                        // Refresh UI
-                        debouncedRenderPosts();
-                        showLanguageSelection(); // Refresh language selection UI
-                        showSuccess(`"${languages[lang].name || lang}" ${texts.deleted || "deleted"}!`);
+                        if ("serviceWorker" in navigator) {
+                            navigator.serviceWorker.ready.then(reg => {
+                                reg.active?.postMessage({ type: "SAVE_LANGUAGES", languages: JSON.stringify({
+                                    data: Object.keys(languageData)
+                                        .filter(key => !originalLanguageData[key])
+                                        .reduce((obj, key) => {
+                                            obj[key] = languageData[key];
+                                            return obj;
+                                        }, {}),
+                                    timestamp: Date.now()
+                                }) });
+                            });
+                        }
+                        selectionDiv.classList.add("hidden");
+                        document.body.style.overflow = "";
+                        window.location.reload();
                     },
                     true
                 );
-            });                      
+            });
+    
             langContainer.appendChild(button);
-            if (customLanguages[lang]) langContainer.appendChild(deleteButton);
+            if (!originalLanguageData[lang]) langContainer.appendChild(deleteButton);
             languageListDiv.appendChild(langContainer);
         });
-
+    
         document.getElementById("language-cancel").addEventListener("click", () => {
+            throttledPlaySound('/sounds/click.ogg');
             selectionDiv.classList.add("hidden");
             document.body.style.overflow = "";
         });
-
+    
         if (langKeys.length > 5) {
             languageListDiv.classList.add("scrolling-enabled");
             setInterval(() => languageListDiv.scrollBy({ top: 40, behavior: "smooth" }), 2500);
         }
-
+    
         selectionDiv.classList.remove("hidden");
         document.body.style.overflow = "hidden";
     }
 
     function applyLanguage(lang) {
         texts = { ...languageData[lang] || languageData["english"], ...JSON.parse(localStorage.getItem("customComponents") || "{}") };
-        currentCharLimit = isGodMode ? (texts.charLimit * 2) : texts.charLimit;
+        currentCharLimit = isGodMode ? (texts.charLimit * 2 - 1) : texts.charLimit;
         texts.charCount = `{count}/${currentCharLimit}`;
         selectedLanguage = lang;
     
         const headerTitle = document.querySelector("header h1");
-        if (headerTitle) headerTitle.textContent = texts.appName;
-        else console.warn("Header title element not found; skipping text update.");
+        if (headerTitle) {
+            const posts = JSON.parse(localStorage.getItem("posts") || "[]");
+            const postCount = posts.length;
+            headerTitle.textContent = `${texts.appName} ${toRoman(postCount)}`;
+        } else {
+            console.warn("Header title element not found; skipping text update.");
+        }
+
+        // Update zoom toggle button text without notification
+        const zoomToggleBtn = document.getElementById("zoom-toggle");
+        if (zoomToggleBtn) {
+            zoomToggleBtn.textContent = isZoomEnabled 
+                ? (texts.zoomEnabledText || "Zoom: On") 
+                : (texts.zoomDisabledText || "Zoom: Off");
+        }
+
+        // Update notification texts
+        if (texts.zoomEnabledNotification) {
+            toggleZoom.notificationEnabledText = texts.zoomEnabledNotification;
+        }
+        if (texts.zoomDisabledNotification) {
+            toggleZoom.notificationDisabledText = texts.zoomDisabledNotification;
+        }
+
+        // Add footer description
+        const footerDescription = document.getElementById("footer-description");
+        if (footerDescription) {
+            footerDescription.textContent = texts.footerDescription || "Efficiently crafted: Entire app under 1MB, including all assets.";
+        }
     
         if (elements.deleteAllButton) elements.deleteAllButton.textContent = texts.deleteAllButton;
         if (elements.searchInput) elements.searchInput.placeholder = texts.searchPlaceholder;
@@ -529,8 +862,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         const footerRightsReserved = document.getElementById("footer-rights-reserved");
         if (footerRightsReserved) footerRightsReserved.textContent = texts.footerRightsReserved;
     
-        persistLanguageData(); // Persist immediately after applying
+        // Persist immediately
+        localStorage.setItem("language", lang);
+        localStorage.setItem("isGodMode", isGodMode.toString());
+        saveLanguagesToCache(); // Asynchronous cache backup
         updateDynamicText();
+        // Removed: showLanguageChangeNotification(lang); // No automatic notification here
     }
 
     // Utility to force-clear draft across all storage mechanisms
@@ -600,6 +937,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         }, 50); // Small delay to ensure popup is rendered
         
         confirmBtn.onclick = () => {
+            throttledPlaySound('/sounds/click.ogg');
             if (confirmInput.value.trim().toLowerCase() === "yes") {
                 popupDiv.style.opacity = "0";
                 setTimeout(() => {
@@ -613,6 +951,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         };
         
         cancelBtn.onclick = () => {
+            throttledPlaySound('/sounds/click.ogg');
             popupDiv.style.opacity = "0";
             setTimeout(() => {
                 forceClearDraft();
@@ -635,7 +974,13 @@ document.addEventListener("DOMContentLoaded", async () => {
             const posts = JSON.parse(localStorage.getItem("posts") || "[]");
             elements.postContainer.innerHTML = "";
             console.log("Rendering posts:", posts);
-
+    
+            // Update header title with post count
+            const headerTitle = document.querySelector("header h1");
+            if (headerTitle) {
+                headerTitle.textContent = `${texts.appName} ${toRoman(posts.length)}`;
+            }
+    
             if (posts.length === 0) {
                 elements.postContainer.innerHTML = `<div class="no-posts">${texts.noPostsMessage}</div>`;
             } else {
@@ -686,44 +1031,79 @@ document.addEventListener("DOMContentLoaded", async () => {
         };
     }
 
+    // In script.js
+    function checkForUpdates() {
+        if (!navigator.onLine) return;
+        fetch(`/manifest.json?cb=${Date.now()}`, { cache: "no-store" }) // Cache-bust
+            .then(response => response.json())
+            .then(manifest => {
+                const cachedVersion = localStorage.getItem("appVersion");
+                const isPending = localStorage.getItem("updatePending") === "true";
+                if (isPending) {
+                    showUpdateNotification(manifest.version, manifest.updated); // Show immediately
+                    return;
+                }
+                if (cachedVersion && manifest.version !== cachedVersion) {
+                    showUpdateNotification(manifest.version, manifest.updated);
+                } else if (!cachedVersion) {
+                    localStorage.setItem("appVersion", manifest.version);
+                    localStorage.setItem("appUpdated", manifest.updated);
+                }
+            })
+            .catch(err => console.error("Update check failed:", err));
+    }
+
+    // Debounce the check
+    const debouncedCheckForUpdates = debounce(checkForUpdates, 500);
+    window.addEventListener('checkForUpdates', debouncedCheckForUpdates);
+    setInterval(debouncedCheckForUpdates, 5 * 60 * 1000);
+
+    function showApplyPopup(title, message) {
+        const popupDiv = document.getElementById("custom-popup");
+        const titleEl = document.getElementById("custom-popup-title");
+        const messageEl = document.getElementById("custom-popup-message");
+        const confirmBtn = document.getElementById("custom-popup-confirm");
+        const cancelBtn = document.getElementById("custom-popup-cancel");
+    
+        titleEl.textContent = title;
+        messageEl.innerHTML = message;
+        confirmBtn.textContent = texts.applyButton || "Apply";
+        cancelBtn.style.display = "none"; // Always hide cancel for Apply popup
+    
+        popupDiv.classList.remove("hidden");
+        document.body.style.overflow = "hidden";
+    
+        confirmBtn.onclick = () => {
+            throttledPlaySound('/sounds/click.ogg');
+            popupDiv.classList.add("hidden");
+            document.body.style.overflow = "";
+            window.location.reload(); // Refresh the app
+        };
+    }   
+
     function updateDynamicText() {
         elements.charCount.textContent = (texts.charCount || "{count} characters").replace("{count}", elements.inputWrapper.value.length || "0").replace("{count}", currentCharLimit);
         updateEditState = function () {
             if (editIndex !== null) {
                 elements.inputWrapper.classList.add("editing");
                 elements.cancelEditButton.style.display = "inline-block";
-                elements.postButton.textContent = texts.saveButton;
+                elements.postButton.textContent = texts.saveButton || "Save";
+                elements.cancelEditButton.textContent = texts.cancelEditButton || "Cancel";
             } else {
                 elements.inputWrapper.classList.remove("editing");
-                elements.cancelEditButton.style.display = "none";
-                elements.postButton.textContent = texts.addButton;
+                elements.cancelEditButton.style.display = elements.inputWrapper.value ? "inline-block" : "none";
+                elements.postButton.textContent = texts.addButton || "Add";
+                elements.cancelEditButton.textContent = texts.clearButton || "Clear";
             }
         };
         updateEditState();
-    }
+    }    
 
-    function checkForUpdates(forceReload = false) {
-        if (!navigator.onLine) return;
-        fetch("/manifest.json", { cache: "no-store", headers: { "Cache-Control": "no-cache" } })
-            .then(response => {
-                if (!response.ok) throw new Error("Manifest fetch failed");
-                return response.json();
-            })
-            .then(manifest => {
-                const cachedVersion = localStorage.getItem("appVersion") || APP_VERSION;
-                if (manifest.version && manifest.version !== cachedVersion) {
-                    if (forceReload) {
-                        performUpdate(manifest.version);
-                    } else {
-                        showUpdateNotification(manifest.version);
-                    }
-                }
-            })
-            .catch(err => console.error("Update check failed:", err));
-    }
 
-    function showUpdateNotification(newVersion) {
+    function showUpdateNotification(newVersion, newUpdated) {
+        if (document.querySelector(".update-notification")) return;
         const notification = document.createElement("div");
+        notification.className = "update-notification";
         const isMobile = window.innerWidth <= 768;
         Object.assign(notification.style, {
             position: "fixed",
@@ -749,13 +1129,13 @@ document.addEventListener("DOMContentLoaded", async () => {
             zIndex: "100009"
         });
         const title = document.createElement("p");
-        title.textContent = "New Update Available";
+        title.textContent = texts.newUpdateTitle || "New Update Available";
         Object.assign(title.style, { fontSize: isMobile ? "20px" : "18px", fontWeight: "700", marginBottom: "4px", lineHeight: "1.3" });
         const versionText = document.createElement("p");
         versionText.textContent = `Version ${newVersion}`;
         Object.assign(versionText.style, { fontSize: "16px", fontWeight: "400", color: "#b0b3b8", marginBottom: "12px", lineHeight: "1.4" });
         const updateButton = document.createElement("button");
-        updateButton.textContent = "Update Now";
+        updateButton.textContent = texts.updateNowButton || "Update Now";
         Object.assign(updateButton.style, {
             background: "#28a745",
             color: "#ffffff",
@@ -770,32 +1150,85 @@ document.addEventListener("DOMContentLoaded", async () => {
             textAlign: "center",
             marginTop: "8px"
         });
-        updateButton.addEventListener("click", () => performUpdate(newVersion));
+        updateButton.addEventListener("click", () => {
+            const currentDraft = elements.inputWrapper.value.trim();
+            throttledPlaySound('/sounds/click.ogg');
+            showCustomPopup(
+                texts.updateTitle,
+                texts.updateMessage,
+                texts.updateConfirm,
+                () => performUpdate(newVersion, newUpdated, currentDraft),
+                true
+            );
+        });
         notification.appendChild(title);
         notification.appendChild(versionText);
         notification.appendChild(updateButton);
         document.body.appendChild(notification);
     }
 
-    function performUpdate(newVersion) {
+    function performUpdate(newVersion, newUpdated, currentDraft) {
         localStorage.setItem("appVersion", newVersion);
+        localStorage.setItem("appUpdated", newUpdated);
+        localStorage.setItem("updateApproved", "true");
         sessionStorage.setItem("updateVersion", newVersion);
+
+        if (currentDraft) saveDraft(currentDraft);
+
         caches.keys()
             .then(keys => Promise.all(keys.map(key => caches.delete(key))))
             .then(() => {
-                fetch("/index.html", { cache: "no-store" });
-                fetch("/script.js", { cache: "no-store" });
-                fetch("/styles.css", { cache: "no-store" });
-                fetch("/custom.css", { cache: "no-store" });
-                fetch("/languages.json", { cache: "no-store" });
                 if (navigator.serviceWorker.controller) {
-                    navigator.serviceWorker.controller.postMessage({ type: "SKIP_WAITING" });
+                    return new Promise((resolve, reject) => {
+                        const messageChannel = new MessageChannel();
+                        messageChannel.port1.onmessage = (event) => {
+                            if (event.data.status === 'success') resolve();
+                            else reject(new Error(event.data.error));
+                        };
+                        navigator.serviceWorker.controller.postMessage(
+                            { type: 'UPDATE_CACHE' },
+                            [messageChannel.port2]
+                        );
+                    }).then(() => {
+                        navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
+                    });
                 }
-                sessionStorage.setItem("justUpdated", "true");
-                window.location.reload(true);
             })
-            .catch(err => console.error("Update failed:", err));
+            .then(() => {
+                sessionStorage.setItem("justUpdated", "true");
+                localStorage.removeItem("updateApproved");
+                localStorage.removeItem("updatePending");
+                window.location.reload();
+            })
+            .catch(err => {
+                console.error("Update failed:", err);
+                throttledPlaySound('/sounds/error.ogg');
+                showCustomPopup(
+                    texts.updateFailedTitle,
+                    texts.updateFailedMessage,
+                    texts.updateFailedConfirm,
+                    () => {},
+                    false
+                );
+            });
     }
+
+    // Initial update check and interval
+    if (!sessionStorage.getItem("justUpdated")) {
+        checkForUpdates();
+    } else {
+        showUpdateConfirmation();
+        sessionStorage.removeItem("justUpdated");
+    }
+    setInterval(() => {
+        if (!sessionStorage.getItem("justUpdated")) checkForUpdates();
+    }, 5 * 60 * 1000);
+
+    // Listen for service worker update trigger
+    window.addEventListener('checkForUpdates', () => {
+        console.log("Custom event 'checkForUpdates' triggered");
+        checkForUpdates();
+    });
 
     function showUpdateConfirmation() {
         const updatedVersion = sessionStorage.getItem("updateVersion");
@@ -807,6 +1240,9 @@ document.addEventListener("DOMContentLoaded", async () => {
             texts.okButton || "OK",
             () => {
                 sessionStorage.removeItem("updateVersion");
+                if (!hasSeenVolumeNotification) {
+                    setTimeout(() => showVolumeNotification(), 5000);
+                }
             },
             false // No cancel button
         );
@@ -853,37 +1289,49 @@ document.addEventListener("DOMContentLoaded", async () => {
             </div>
             <input type="file" id="upload-language" accept=".json" style="display: none;">
             <button id="upload-language-trigger">${texts.uploadLanguage || "Upload Language"}</button>
-            <button id="language-switch">${texts.selectLanguage || "Select Language"}</button>
+            <div class="language-zoom-container">
+                <button id="language-switch">${texts.selectLanguage || "Select Language"}</button>
+                <button id="zoom-toggle">${isZoomEnabled ? "Zoom: On" : "Zoom: Off"}</button>
+            </div>
         </div>
         <style>
             .backup-actions { display: flex; flex-direction: column; gap: 10px; justify-content: center; padding: 12px 0; margin-top: 16px; }
             .import-export-buttons { display: flex; gap: 10px; justify-content: center; width: 100%; }
-            #export-notes, #import-trigger, #language-switch, #upload-language-trigger {
+            .language-zoom-container { display: flex; gap: 10px; justify-content: center; width: 100%; }
+            #export-notes, #import-trigger, #language-switch, #upload-language-trigger, #zoom-toggle {
                 padding: 6px 14px; font-size: 13px; font-weight: 500; letter-spacing: 0.02em; color: #ffffff; background: rgba(255, 255, 255, 0.08);
                 border: none; border-radius: 10px; cursor: pointer; transition: background 0.2s ease, opacity 0.2s ease; backdrop-filter: blur(6px);
                 -webkit-tap-highlight-color: transparent; flex: 1; min-width: 80px; text-align: center;
             }
-            #export-notes:hover, #import-trigger:hover, #language-switch:hover, #upload-language-trigger:hover { background: rgba(255, 255, 255, 0.18); }
-            #export-notes:active, #import-trigger:active, #language-switch:active, #upload-language-trigger:active { opacity: 0.8; }
+            #export-notes:hover, #import-trigger:hover, #language-switch:hover, #upload-language-trigger:hover, #zoom-toggle:hover { background: rgba(255, 255, 255, 0.18); }
+            #export-notes:active, #import-trigger:active, #language-switch:active, #upload-language-trigger:active, #zoom-toggle:active { opacity: 0.8; }
             @media (max-width: 768px) {
                 .backup-actions { gap: 8px; padding: 10px 0; }
                 .import-export-buttons { gap: 8px; }
+                .language-zoom-container { gap: 8px; }
                 #export-notes, #import-trigger { padding: 5px 12px; font-size: 18px; width: 50%; min-width: 0; }
-                #language-switch, #upload-language-trigger { padding: 5px 12px; font-size: 18px; width: 100%; min-width: 0; }
+                #language-switch, #zoom-toggle { padding: 5px 12px; font-size: 18px; width: 50%; min-width: 0; }
+                #upload-language-trigger { padding: 5px 12px; font-size: 18px; width: 100%; min-width: 0; }
             }
             @media (min-width: 769px) {
-                .backup-actions { flex-direction: row; }
+                .backup-actions { flex-direction: row; flex-wrap: wrap; }
                 .import-export-buttons { width: auto; flex: 2; }
-                #export-notes, #import-trigger, #language-switch, #upload-language-trigger { width: auto; flex: 1; }
+                .language-zoom-container { width: auto; flex: 2; }
+                #export-notes, #import-trigger, #language-switch, #upload-language-trigger, #zoom-toggle { width: auto; flex: 1; }
             }
         </style>
     `;
 
+    function isThoughtsLanguagePack(data) {
+        return data && typeof data === "object" && data.appId === "thoughts-app-langs";
+    }
+
     // Event listener for uploading language
-    document.getElementById("upload-language-trigger").addEventListener("click", () => document.getElementById("upload-language").click());
+    document.getElementById("upload-language-trigger").addEventListener("click", () => document.getElementById("upload-language").click(throttledPlaySound('/sounds/click.ogg')));
     document.getElementById("upload-language").addEventListener("change", event => {
         const file = event.target.files[0];
         if (!file || !file.name.endsWith(".json")) {
+            throttledPlaySound('/sounds/error.ogg');
             showCustomPopup(
                 texts.errorTitle || "Error",
                 texts.invalidFileMessage || "Please upload a valid JSON file.",
@@ -899,6 +1347,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             try {
                 const customLangData = JSON.parse(e.target.result);
                 if (!isThoughtsLanguagePack(customLangData)) {
+                    throttledPlaySound('/sounds/error.ogg');
                     showCustomPopup(
                         texts.errorTitle || "Error",
                         texts.notThoughtsLanguage || "This is not a Thoughts app language file.",
@@ -909,9 +1358,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     return;
                 }
     
-                const customLanguages = JSON.parse(localStorage.getItem("customLanguages") || "{}");
                 let languagesToAdd = {};
-    
                 if (customLangData.name) {
                     languagesToAdd[customLangData.name || file.name.replace(".json", "")] = { ...customLangData, appId: undefined };
                 } else {
@@ -923,18 +1370,22 @@ document.addEventListener("DOMContentLoaded", async () => {
                         }, {});
                 }
     
-                // Update languageData and persist
                 Object.assign(languageData, languagesToAdd);
                 const firstLang = Object.keys(languagesToAdd)[0];
                 selectedLanguage = firstLang;
+                applyLanguage(firstLang); // Apply without notification
                 
-                applyLanguage(firstLang); // This will also persist the data
-                renderPosts();
-                showSuccess(
-                    `${texts.languageUploaded || "Language"}${Object.keys(languagesToAdd).length > 1 ? "s" : ""} ${texts.uploadedAndApplied || "uploaded and"} "${firstLang}" ${texts.applied || "applied"}!`
+                // Fixed string construction
+                const baseMessage = texts.addingLanguageMessage || "Language uploaded: \"{name}\".";
+                const refreshMessage = texts.refreshMessage || "The app will refresh to apply changes.";
+                const fullMessage = baseMessage.replace("{name}", firstLang) + " " + refreshMessage;
+                showApplyPopup(
+                    texts.addingLanguageTitle || "Language Added",
+                    fullMessage
                 );
                 event.target.value = "";
             } catch (err) {
+                throttledPlaySound('/sounds/error.ogg');
                 showCustomPopup(
                     texts.errorTitle || "Error",
                     texts.invalidJSONMessage || "Could not parse the JSON file.",
@@ -947,17 +1398,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         };
         reader.readAsText(file);
     });
-    
-    // Add this function before the upload-language event listener
-    function isThoughtsLanguagePack(data) {
-        // Strict verification: Must have "appId": "thoughts-app"
-        return data && typeof data === "object" && data.appId === "thoughts-app-langs";
-    }
 
     // Import/Export Functions
     function exportNotes() {
         const posts = JSON.parse(localStorage.getItem("posts") || "[]");
         if (posts.length === 0) {
+            throttledPlaySound('/sounds/error.ogg');
             showCustomPopup(texts.exportNotesTitle, texts.exportEmptyMessage, texts.okButton, () => {}, false);
             return;
         }
@@ -975,6 +1421,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const file = event.target.files[0];
         if (!file) return;
         if (!file.name.endsWith(".json")) {
+            throttledPlaySound('/sounds/error.ogg');
             showCustomPopup(texts.importErrorTitle, texts.importErrorInvalidFile, texts.okButton, () => {}, false);
             return;
         }
@@ -983,6 +1430,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             try {
                 const data = JSON.parse(e.target.result);
                 if (!data.appId || data.appId !== "thoughts-app" || !Array.isArray(data.posts) || !data.posts.every(post => typeof post.text === "string" && typeof post.timestamp === "string" && typeof post.pinned === "boolean")) {
+                    throttledPlaySound('/sounds/error.ogg');
                     showCustomPopup(texts.importErrorTitle, data.appId !== "thoughts-app" ? texts.importErrorNotThoughts : texts.importErrorInvalidFormat, texts.okButton, () => {}, false);
                     return;
                 }
@@ -995,6 +1443,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     showSuccess(texts.importSuccessFirst);
                 }
             } catch (err) {
+                throttledPlaySound('/sounds/error.ogg');
                 showCustomPopup(texts.importErrorTitle, texts.importErrorInvalidJSON, texts.okButton, () => {}, false);
             }
             event.target.value = "";
@@ -1020,6 +1469,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         document.body.style.overflow = "hidden";
 
         mergeBtn.onclick = () => {
+            throttledPlaySound('/sounds/click.ogg')
             const mergedPosts = mergePosts(existingPosts, newPosts);
             localStorage.setItem("posts", JSON.stringify(mergedPosts));
             debouncedRenderPosts();
@@ -1029,6 +1479,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         };
 
         replaceBtn.onclick = () => {
+            throttledPlaySound('/sounds/click.ogg')
             localStorage.setItem("posts", JSON.stringify(newPosts));
             debouncedRenderPosts();
             showSuccess(texts.importSuccessReplace);
@@ -1037,6 +1488,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         };
 
         cancelBtn.onclick = () => {
+            throttledPlaySound('/sounds/click.ogg')
             popupDiv.classList.add("hidden");
             document.body.style.overflow = "";
         };
@@ -1049,14 +1501,26 @@ document.addEventListener("DOMContentLoaded", async () => {
                 combined.push(newPost);
             }
         });
+        const pinnedPosts = combined.filter(post => post.pinned);
+        if (pinnedPosts.length > 1) {
+            const latestPinned = pinnedPosts.reduce((latest, current) =>
+                new Date(current.timestamp) > new Date(latest.timestamp) ? current : latest
+            );
+            combined.forEach(post => post.pinned = post === latestPinned);
+        }
         return combined;
     }
 
     // Footer Event Listeners
-    document.getElementById("export-notes").addEventListener("click", exportNotes);
-    document.getElementById("import-trigger").addEventListener("click", () => document.getElementById("import-notes").click());
-    document.getElementById("import-notes").addEventListener("change", importNotes);
-    document.getElementById("language-switch").addEventListener("click", showLanguageSelection);
+    document.getElementById("export-notes").addEventListener("click", () => { throttledPlaySound('/sounds/click.ogg'); exportNotes(); });
+    document.getElementById("import-trigger").addEventListener("click", () => { throttledPlaySound('/sounds/click.ogg'); document.getElementById("import-notes").click(); });
+    document.getElementById("import-notes").addEventListener("change", (event) => { throttledPlaySound('/sounds/click.ogg'); importNotes(event); });
+    document.getElementById("language-switch").addEventListener("click", () => { throttledPlaySound('/sounds/click.ogg'); showLanguageSelection(false); });
+    document.getElementById("zoom-toggle").addEventListener("click", () => {
+        throttledPlaySound('/sounds/click.ogg');
+        toggleZoom();
+        document.getElementById("zoom-toggle").textContent = isZoomEnabled ? "Zoom: On" : "Zoom: Off";
+    });
 
     function renderPost(post, index, isPinned) {
         const [date, time] = post.timestamp.split(", ");
@@ -1071,6 +1535,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 <span class="meta-badge">${time}</span>
                 <span class="meta-badge">${post.text.length} chars</span>
                 ${isPinned ? '<span class="meta-badge">Pinned</span>' : ''}
+                <span class="meta-badge share-post" data-index="${index}" style="cursor: pointer; ${editIndex === index ? 'opacity: 0.5; pointer-events: none;' : ''}">${texts.shareButton || "Share"}</span>
             </div>
             <div class="post-actions">
                 <button class="edit-post" data-index="${index}" ${editIndex === index ? "disabled" : ""} style="-webkit-tap-highlight-color: transparent;">
@@ -1095,6 +1560,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         elements.postContainer.appendChild(postElement);
 
         postElement.querySelector(".delete-post").addEventListener("click", function () {
+            throttledPlaySound('/sounds/tone.ogg')
             if (!this.disabled) {
                 actionContext = { type: "delete", index: this.getAttribute("data-index") };
                 elements.deleteConfirmation.classList.remove("hidden");
@@ -1112,6 +1578,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
 
         postElement.querySelector(".edit-post").addEventListener("click", function () {
+            throttledPlaySound('/sounds/click.ogg')
             if (!this.disabled) {
                 const newEditIndex = parseInt(this.getAttribute("data-index"));
                 const posts = JSON.parse(localStorage.getItem("posts") || "[]");
@@ -1137,15 +1604,77 @@ document.addEventListener("DOMContentLoaded", async () => {
                 elements.charCount.textContent = (texts.charCount || "{count} characters").replace("{count}", elements.inputWrapper.value.length);
                 elements.charCount.classList.toggle("text-red-500", elements.inputWrapper.value.length > currentCharLimit);
                 updateEditState();
-                renderPosts(); // Immediate render instead of debounced
+                renderPosts(elements.searchInput.value.trim());
                 elements.inputWrapper.focus();
             }
         });
 
         postElement.querySelector(".pin-post").addEventListener("click", function () {
+            throttledPlaySound('/sounds/click.ogg')
             const index = parseInt(this.getAttribute("data-index"));
             togglePin(index);
         });
+
+        // Updated share button event listener
+        postElement.querySelector(".share-post").addEventListener("click", function () {
+            throttledPlaySound('/sounds/click.ogg')
+            if (!this.disabled) {
+                const posts = JSON.parse(localStorage.getItem("posts") || "[]");
+                const postToShare = posts[index];
+                const { title, content } = extractTitleAndContent(postToShare.text);
+                // Remove '@' from title if present
+                const cleanTitle = title ? title.replace(/^@/, "") : "";
+                // Construct share text with title (if any) and content
+                const shareTextContent = cleanTitle ? `*${cleanTitle}*\n${content}` : content;
+                const shareText = `${shareTextContent}\n\nPosted on: ${postToShare.timestamp} - Written in Thoughts`;
+    
+                const shareData = {
+                    title: texts.appName || "Thoughts",
+                    text: shareText
+                };
+    
+                console.log("Sharing data:", shareData); // Debug log
+    
+                if (navigator.share) {
+                    navigator.share(shareData)
+                        .then(() => {
+                            console.log("Post shared successfully");
+                            createNotification(texts.shareSuccessMessage || "Post shared!", {
+                                background: "rgba(34, 197, 94, 0.9)",
+                                color: "#fff",
+                                duration: 1500
+                            });
+                        })
+                        .catch(err => {
+                            console.warn("Share failed:", err.message);
+                            if (err.name !== "AbortError") { // Ignore user cancellation
+                                fallbackShare(shareText);
+                            }
+                        });
+                } else {
+                    fallbackShare(shareText);
+                }
+            }
+        });
+    }
+
+    function fallbackShare(text) {
+        navigator.clipboard.writeText(text)
+            .then(() => {
+                createNotification(texts.shareFallbackMessage || "Post copied to clipboard!", {
+                    background: "rgba(34, 197, 94, 0.9)",
+                    color: "#fff",
+                    duration: 2000
+                });
+            })
+            .catch(err => {
+                throttledPlaySound('/sounds/error.ogg');
+                console.error("Clipboard copy failed:", err);
+                createNotification(texts.shareErrorMessage || "Failed to copy post.", {
+                    background: "#ef4444",
+                    duration: 2000
+                });
+            });
     }
 
     // Event Listeners
@@ -1155,6 +1684,19 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     elements.postButton.addEventListener("click", () => {
         const text = elements.inputWrapper.value.trim();
+        if (!text) {
+            throttledPlaySound('/sounds/error.ogg');
+            showCustomPopup(
+                texts.emptyPostTitle || "Empty Note?",
+                texts.emptyPostMessage || "You haven’t written anything yet! Add some text before posting.",
+                texts.okButton || "OK",
+                () => {
+                    elements.inputWrapper.focus(); // Focus input after dismissing popup
+                },
+                false // No cancel button
+            );
+            return;
+        }
         if (!text || text.length > currentCharLimit) return;
         if (editIndex !== null) {
             const posts = JSON.parse(localStorage.getItem("posts") || "[]");
@@ -1178,21 +1720,31 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     elements.cancelEditButton.addEventListener("click", () => {
-        elements.inputWrapper.value = "";
-        saveDraft("");
-        editIndex = null;
+        if (editIndex !== null) {
+            // Cancel edit mode (revert changes)
+            const posts = JSON.parse(localStorage.getItem("posts") || "[]");
+            elements.inputWrapper.value = "";
+            saveDraft("");
+            editIndex = null;
+        } else {
+            // Clear input in normal mode
+            elements.inputWrapper.value = "";
+            saveDraft("");
+        }
         adjustHeight();
         elements.charCount.textContent = (texts.charCount || "{count} characters").replace("{count}", "0");
         elements.charCount.classList.remove("text-red-500");
         updateEditState();
-        renderPosts(); // Immediate render instead of debounced
+        renderPosts();
     });
 
     elements.deleteAllButton.addEventListener("click", () => {
         const posts = JSON.parse(localStorage.getItem("posts") || "[]");
         if (posts.length === 0) {
+            throttledPlaySound('/sounds/error.ogg');
             showCustomPopup(texts.deleteAllConfirmTitle, texts.deleteAllEmptyMessage, texts.okButton, () => {}, false);
         } else {
+            throttledPlaySound('/sounds/tone.ogg');
             showCustomPopup(
                 texts.deleteAllConfirmTitle,
                 texts.deleteAllConfirmText,
@@ -1253,6 +1805,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     elements.clearSearch.addEventListener("click", () => {
+        throttledPlaySound('/sounds/click.ogg');
         elements.searchInput.value = "";
         const inputSection = document.querySelector(".input-section");
         debouncedRenderPosts();
@@ -1311,6 +1864,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     function createEmojiConfettiEffect(emoji) {
         console.log(`🎉 Easter Egg: Emoji - ${emoji}! 🎉`);
+        throttledPlaySound('/sounds/long-touch.ogg');
         const scalar = 2;
         const shape = confetti.shapeFromText({ text: emoji, scalar });
         const defaults = { spread: 360, ticks: 120, gravity: 0, decay: 0.94, startVelocity: 15, shapes: [shape], scalar };
@@ -1327,6 +1881,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const effects = [
         () => {
             console.log("🎉 Easter Egg: Realistic! 🎉");
+            throttledPlaySound('/sounds/single-firework.ogg');
             const count = 200;
             const defaults = { origin: { y: 0.7 } };
             function fire(particleRatio, opts) {
@@ -1340,6 +1895,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         },
         () => {
             console.log("🎉 Easter Egg: Fireworks! 🎉");
+            throttledPlaySound('/sounds/fireworksschoolprid.ogg');
             const duration = 5 * 1000;
             const end = Date.now() + duration;
             const interval = setInterval(() => {
@@ -1353,6 +1909,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         },
         () => {
             console.log("🎉 Easter Egg: Starfield Effect! 🎉");
+            throttledPlaySound('/sounds/shooting-stars.ogg');
             function randomInRange(min, max) {
                 return Math.random() * (max - min) + min;
             }
@@ -1410,6 +1967,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         },
         () => {
             console.log("🎉 Easter Egg: Snow! 🎉");
+            throttledPlaySound('/sounds/snow.ogg');
             const duration = 5 * 1000;
             const animationEnd = Date.now() + duration;
             let skew = 1;
@@ -1440,6 +1998,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         },
         () => {
             console.log("🎉 Easter Egg: School Pride! 🎉");
+            throttledPlaySound('/sounds/fireworks.ogg');
             const duration = 5 * 1000;
             const end = Date.now() + duration;
             const interval = setInterval(() => {
@@ -1454,6 +2013,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         },
         () => {
             console.log("🎉 Easter Egg: Custom Shapes! 🎉");
+            throttledPlaySound('/sounds/stars.ogg');
             const pumpkin = confetti.shapeFromPath({
                 path: "M449.4 142c-5 0-10 .3-15 1a183 183 0 0 0-66.9-19.1V87.5a17.5 17.5 0 1 0-35 0v36.4a183 183 0 0 0-67 19c-4.9-.6-9.9-1-14.8-1C170.3 142 105 219.6 105 315s65.3 173 145.7 173c5 0 10-.3 14.8-1a184.7 184.7 0 0 0 169 0c4.9.7 9.9 1 14.9 1 80.3 0 145.6-77.6 145.6-173s-65.3-173-145.7-173zm-220 138 27.4-40.4a11.6 11.6 0 0 1 16.4-2.7l54.7 40.3a11.3 11.3 0 0 1-7 20.3H239a11.3 11.3 0 0 1-9.6-17.5zM444 383.8l-43.7 17.5a17.7 17.7 0 0 1-13 0l-37.3-15-37.2 15a17.8 17.8 0 0 1-13 0L256 383.8a17.5 17.5 0 0 1 13-32.6l37.3 15 37.2-15c4.2-1.6 8.8-1.6 13 0l37.3 15 37.2-15a17.5 17.5 0 0 1 13 32.6zm17-86.3h-82a11.3 11.3 0 0 1-6.9-20.4l54.7-40.3a11.6 11.6 0 0 1 16.4 2.8l27.4 40.4a11.3 11.3 0 0 1-9.6 17.5z",
                 matrix: [0.020491803278688523, 0, 0, 0.020491803278688523, -7.172131147540983, -5.9016393442622945]
@@ -1498,22 +2058,15 @@ document.addEventListener("DOMContentLoaded", async () => {
         e.preventDefault();
         triggerNextEffect();
     });
+    headerTitle.addEventListener("click", () => {
+        throttledPlaySound('/sounds/click.ogg'); // Sound for single tap
+    });
     headerTitle.addEventListener("touchstart", e => {
         touchTimer = setTimeout(() => triggerNextEffect(), 500);
     }, { passive: true });
     headerTitle.addEventListener("touchend", () => clearTimeout(touchTimer));
     headerTitle.addEventListener("touchmove", () => clearTimeout(touchTimer), { passive: true });
 
-    // Initialize App
-    if (!sessionStorage.getItem("justUpdated")) {
-        checkForUpdates(false);
-    } else {
-        showUpdateConfirmation();
-        sessionStorage.removeItem("justUpdated");
-    }
-    setInterval(() => {
-        if (!sessionStorage.getItem("justUpdated")) checkForUpdates(false);
-    }, 5 * 60 * 1000);
 
     window.addEventListener("online", () => {
         updateOnlineStatus();
@@ -1530,32 +2083,59 @@ document.addEventListener("DOMContentLoaded", async () => {
     elements.inputWrapper.addEventListener("input", function () {
         const text = this.value.trim();
         if (text.length > currentCharLimit) {
+            throttledPlaySound('/sounds/error.ogg');
             this.value = text.slice(0, currentCharLimit);
             const limitMessage = (texts.charLimitMessage || "Whoa there! Only {count} characters are allowed. Extra characters? Poof—they’re gone!").replace("{count}", currentCharLimit);
             showCustomPopup(texts.charLimitTitle || "Character Limit Reached", limitMessage, texts.okButton || "OK", () => {}, false);
         }
-        throttledSaveDraft(this.value); // Save draft normally unless God Mode is triggered
+        throttledSaveDraft(this.value);
         adjustHeight();
         elements.charCount.textContent = (texts.charCount || "{count} characters").replace("{count}", this.value.length).replace("{count}", currentCharLimit);
-    
+        updateEditState(); // Update button visibility based on input content
+        
         if (simpleHash(this.value) === SECRET_CODE_HASH && !isGodMode) {
             showGodModeConfirmation(() => {
-                activateGodMode(); // Draft is cleared within activateGodMode
+                activateGodMode();
             });
         }
     });
 
+    if (navigator.share || window.location.search) {
+        const urlParams = new URLSearchParams(window.location.search);
+        const sharedText = urlParams.get("text") || urlParams.get("title") || urlParams.get("url");
+        if (sharedText) {
+            elements.inputWrapper.value = sharedText;
+            adjustHeight();
+            elements.charCount.textContent = (texts.charCount || "{count} characters").replace("{count}", sharedText.length).replace("{count}", currentCharLimit);
+            saveDraft(sharedText);
+            updateEditState();
+            // Clear URL params to prevent re-processing on refresh
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    }
+
+    // Replace the existing initialization logic with this:
     window.scrollTo(0, 0);
-    if (!localStorage.getItem("language")) {
-        applyLanguage("english");
-        showLanguageSelection();
+    console.log("Checking new user status:", {
+        language: localStorage.getItem("language"),
+        isNewUser: localStorage.getItem("hasSeenLanguagePrompt")
+    });
+    
+    const hasSeenLanguagePrompt = localStorage.getItem("hasSeenLanguagePrompt") === "true";
+    const storedLanguage = localStorage.getItem("language");
+    
+    if (!hasSeenLanguagePrompt || !storedLanguage || !languageData[storedLanguage]) {
+        console.log("New user detected or invalid language, showing selection");
+        showLanguageSelection(true); // Show selection for new users, welcome message after
+        localStorage.setItem("hasSeenLanguagePrompt", "true");
     } else {
-        selectedLanguage = localStorage.getItem("language");
-        applyLanguage(selectedLanguage);
-        debouncedRenderPosts();
+        console.log("Returning user, applying stored language");
+        selectedLanguage = storedLanguage;
+        applyLanguage(selectedLanguage); // No notification on load
+        renderPosts();
     }
     elements.footer.classList.remove("hidden");
-
+    
     const splashScreen = document.getElementById("splash-screen");
     splashScreen.style.opacity = "0";
     setTimeout(() => (splashScreen.style.display = "none"), 700);
@@ -1616,6 +2196,7 @@ window.addEventListener("beforeinstallprompt", e => {
                 installButton.style.transform = "scale(1)";
             });
             installButton.addEventListener("click", () => {
+                throttledPlaySound('/sounds/click.ogg');
                 if (deferredPrompt) {
                     deferredPrompt.prompt();
                     deferredPrompt.userChoice.then(choiceResult => {
@@ -1666,6 +2247,7 @@ window.addEventListener("beforeinstallprompt", e => {
                 dismissButton.style.transform = "scale(1)";
             });
             dismissButton.addEventListener("click", () => {
+                throttledPlaySound('/sounds/click.ogg');
                 localStorage.setItem("installPromptDismissed", "true");
                 installContainer.remove();
             });
@@ -1680,12 +2262,3 @@ window.addEventListener("beforeinstallprompt", e => {
         console.log("Install prompt skipped due to previous dismissal");
     }
 });
-
-if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => {
-        navigator.serviceWorker
-            .register("/service-worker.js")
-            .then(registration => console.log("ServiceWorker registered with scope:", registration.scope))
-            .catch(err => console.log("ServiceWorker registration failed:", err));
-    });
-}

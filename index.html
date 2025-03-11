@@ -27,7 +27,8 @@
     <link rel="manifest" href="/manifest.json"> <!-- Add manifest for PWA -->
     <meta name="theme-color" content="#000000"> <!-- Theme color for PWA -->
     <link rel="stylesheet" href="/styles.css">
-    <link rel="stylesheet" href="/custom.min.css">
+    <link rel="stylesheet" href="/custom.css">
+    <audio id="soundEffect" preload="auto"></audio>
 </head>
 <body class="flex justify-center p-4">
 
@@ -95,6 +96,7 @@
                         <p class="text-base text-[#e6e6e6] mb-2" id="footer-crafted-by">
                             <span id="crafted-by-text"></span>
                             <a href="https://dheeraz.netlify.app" class="text-[#1d9bf0] hover:underline" target="_blank">Dheeraz</a>
+                            <span id="footer-description" class="block text-sm text-[#d9d9d9] mt-1"></span>
                         </p>
                         <p class="text-sm text-[#a6a6a6]" id="footer-version">v1.5.4-beta</p>
                     </div>
@@ -174,6 +176,6 @@
     </div>
 
     <script src="/confetti.js"></script>
-    <script src="/script.min.js" defer></script>
+    <script src="/script.js" defer></script>
 </body>
 </html>

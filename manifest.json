@@ -24,7 +24,8 @@
   "display": "standalone",
   "scope": "/",
   "theme_color": "#000000",
-  "version": "1.5.5rc1",
+  "version": "1.5.5rc06i27",
+  "updated": "2025-03-11T13:08:00Z",
   "screenshots": [
     {
       "src": "/screenshots/desktop-view.png",
@@ -40,5 +41,14 @@
       "form_factor": "narrow",
       "label": "Thoughts on Mobile"
     }
-  ]
+  ],
+  "share_target": {
+    "action": "/",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  }
 }
