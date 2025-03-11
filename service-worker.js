@@ -8,8 +8,8 @@ const ASSETS_TO_CACHE = [
     '/', // Root URL (often resolves to index.html)
     '/index.html',
     '/styles.css',
-    '/custom.css',
-    '/script.js',
+    '/custom.min.css',
+    '/script.min.js',
     '/confetti.js',
     '/manifest.json',
     '/languages.json',
