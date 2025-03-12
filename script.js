@@ -1,13 +1,13 @@
 // Version info
-const APP_VERSION = "1.5.5.3+12032025";
+const APP_VERSION = "1.5.5.4+12032025";
 
 const whatsNew = `
     <strong>Thoughts</strong><br>
     - Multi-Language Support<br>
     - Sound Effects for User Experience<br>
     - Meet the <a href="thoughtswebstore.netlify.app" target="_blank" rel="noopener noreferrer" style="color: #1d9bf0; text-decoration: underline;">Thoughts Web Store</a>! Download extra language packs<br>
-    - UI Enhancements and Bugs Fixed.
-    <italic>Refresh, if any issues!</italic>
+    - UI Enhancements and Bugs Fixed.<br><br>
+    <small>Note: If you face UI/UX issues, refresh the app or clear the cache. Always back up your notes via the export option at the bottom.</small>
 `;
 
 // Initialize the AudioContext
@@ -1247,16 +1247,19 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     function performUpdate(newVersion, newUpdated, currentDraft) {
+        console.log(`Performing update to version: ${newVersion}`);
         localStorage.setItem("appVersion", newVersion);
         localStorage.setItem("appUpdated", newUpdated);
         localStorage.setItem("updateApproved", "true");
         sessionStorage.setItem("updateVersion", newVersion);
-
+    
         if (currentDraft) saveDraft(currentDraft);
-
+    
+        // Clear all caches
         caches.keys()
             .then(keys => Promise.all(keys.map(key => caches.delete(key))))
             .then(() => {
+                // Notify service worker to update cache
                 if (navigator.serviceWorker.controller) {
                     return new Promise((resolve, reject) => {
                         const messageChannel = new MessageChannel();
@@ -1269,11 +1272,13 @@ document.addEventListener("DOMContentLoaded", async () => {
                             [messageChannel.port2]
                         );
                     }).then(() => {
-                        navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
+                        console.log("Cache update triggered successfully");
+                        // No SKIP_WAITING here, let the user trigger the reload
                     });
                 }
             })
             .then(() => {
+                // Set flag and reload only after cache is updated
                 sessionStorage.setItem("justUpdated", "true");
                 localStorage.removeItem("updateApproved");
                 localStorage.removeItem("updatePending");
@@ -1292,6 +1297,24 @@ document.addEventListener("DOMContentLoaded", async () => {
             });
     }
 
+    function showUpdateConfirmation() {
+        const updatedVersion = sessionStorage.getItem("updateVersion");
+        if (!updatedVersion || updatedVersion !== APP_VERSION) return;
+    
+        showCustomPopup(
+            texts.whatsNewTitle ? texts.whatsNewTitle.replace("{version}", APP_VERSION) : `What's New in v${APP_VERSION}`,
+            whatsNew,
+            texts.okButton || "OK",
+            () => {
+                sessionStorage.removeItem("updateVersion");
+                if (!hasSeenVolumeNotification) {
+                    setTimeout(() => showVolumeNotification(), 5000);
+                }
+            },
+            false // No cancel button
+        );
+    }
+
     // Initial update check and interval
     if (!sessionStorage.getItem("justUpdated")) {
         checkForUpdates();
@@ -1308,24 +1331,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         console.log("Custom event 'checkForUpdates' triggered");
         checkForUpdates();
     });
-
-    function showUpdateConfirmation() {
-        const updatedVersion = sessionStorage.getItem("updateVersion");
-        if (!updatedVersion || updatedVersion !== APP_VERSION) return;
-    
-        showCustomPopup(
-            updatedVersion,
-            whatsNew,
-            texts.okButton || "OK",
-            () => {
-                sessionStorage.removeItem("updateVersion");
-                if (!hasSeenVolumeNotification) {
-                    setTimeout(() => showVolumeNotification(), 5000);
-                }
-            },
-            false // No cancel button
-        );
-    }
 
     function updateOnlineStatus() {
         const existingStatus = document.querySelector(".online-status");
