@@ -24,8 +24,8 @@
   "display": "standalone",
   "scope": "/",
   "theme_color": "#000000",
-  "version": "1.5.5.2+12032025",
-  "updated": "2025-03-12T05:17:00Z",
+  "version": "1.5.5.3+12032025",
+  "updated": "2025-03-12T05:20:00Z",
   "screenshots": [
     {
       "src": "/screenshots/desktop-view.png",

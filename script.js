@@ -1,5 +1,5 @@
 // Version info
-const APP_VERSION = "1.5.5.2+12032025";
+const APP_VERSION = "1.5.5.3+12032025";
 
 const whatsNew = `
     <strong>Thoughts</strong><br>
@@ -7,6 +7,7 @@ const whatsNew = `
     - Sound Effects for User Experience<br>
     - Meet the <a href="thoughtswebstore.netlify.app" target="_blank" rel="noopener noreferrer" style="color: #1d9bf0; text-decoration: underline;">Thoughts Web Store</a>! Download extra language packs<br>
     - UI Enhancements and Bugs Fixed.
+    <italic>Refresh, if any issues!</italic>
 `;
 
 // Initialize the AudioContext
@@ -210,6 +211,17 @@ function debounce(func, wait) {
         clearTimeout(timeout);
         timeout = setTimeout(() => func.apply(this, args), wait);
     };
+}
+
+// Function to detect if the user is on a PC
+function isPC() {
+    const userAgent = navigator.userAgent.toLowerCase();
+    // Common PC identifiers: Windows, Mac, Linux (excluding mobile versions)
+    const pcPatterns = /(windows nt|macintosh|linux (?!.*android))/i;
+    const mobilePatterns = /(android|iphone|ipad|mobile|tablet)/i;
+    
+    // If it matches a PC pattern and does NOT match a mobile pattern, it's a PC
+    return pcPatterns.test(userAgent) && !mobilePatterns.test(userAgent);
 }
 
 // Notification creation function (consolidated)
@@ -1352,7 +1364,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             <input type="file" id="upload-language" accept=".json" style="display: none;">
             <button id="upload-language-trigger">${texts.uploadLanguage || "Upload Language"}</button>
             <div class="language-zoom-container">
-                <button id="language-switch">${texts.selectLanguage || "Select Language"}</button>
+                <button id="language-switch" style="text-wrap: nowrap; text-overflow: ellipsis;">${texts.selectLanguage || "Select Language"}</button>
                 <button id="zoom-toggle">${isZoomEnabled ? (texts.zoomEnabledText || "Zoom Enabled") : (texts.zoomDisabledText || "Zoom Disabled")}</button>
             </div>
         </div>
@@ -1374,15 +1386,26 @@ document.addEventListener("DOMContentLoaded", async () => {
                 #export-notes, #import-trigger { padding: 5px 12px; font-size: 18px; width: 50%; min-width: 0; }
                 #language-switch, #zoom-toggle { padding: 5px 12px; font-size: 18px; width: 50%; min-width: 0; }
                 #upload-language-trigger { padding: 5px 12px; font-size: 18px; width: 100%; min-width: 0; }
+                .language-zoom-container:has(#zoom-toggle[style*="display: none"]) #language-switch { width: 100%; } /* Full width if zoom-toggle is hidden */
             }
             @media (min-width: 769px) {
                 .backup-actions { flex-direction: row; flex-wrap: wrap; }
                 .import-export-buttons { width: auto; flex: 2; }
-                .language-zoom-container { width: auto; flex: 2; }
+                .language-zoom-container { display: flex; gap: 10px; justify-content: center; width: auto; flex: 1; }
                 #export-notes, #import-trigger, #language-switch, #upload-language-trigger, #zoom-toggle { width: auto; flex: 1; }
+                .language-zoom-container:has(#zoom-toggle[style*="display: none"]) #language-switch { flex: 2; } /* Adjust flex if zoom-toggle is hidden */
             }
         </style>
     `;
+
+    // Hide zoom toggle for PC users
+    const zoomToggleBtn = document.getElementById("zoom-toggle");
+    if (zoomToggleBtn && isPC()) {
+        zoomToggleBtn.style.display = "none"; // Hide the button entirely
+        console.log("Zoom toggle hidden for PC users");
+    } else if (zoomToggleBtn) {
+        console.log("Zoom toggle shown for non-PC users");
+    }
 
     const versionElement = document.querySelector("#footer-version");
     if (versionElement) {
@@ -2353,3 +2376,6 @@ window.addEventListener("beforeinstallprompt", e => {
         console.log("Install prompt skipped due to previous dismissal");
     }
 });
+
+const isDev = window.location.hostname === "localhost";
+console.log = isDev ? console.log.bind(console) : () => {};
