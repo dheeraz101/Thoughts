@@ -1,5 +1,5 @@
 // Version info
-const APP_VERSION = "1.5.5+12032025";
+const APP_VERSION = "1.5.6+12032025";
 
 const whatsNew = `
     <strong>Thoughts</strong><br>
@@ -381,6 +381,29 @@ function saveLanguagesToCache() {
             });
         }).catch(err => console.warn("Failed to save languages to cache:", err));
     }
+}
+
+function getLocalizedDateString() {
+    const today = new Date();
+    const dayIndex = today.getDay();
+    const date = today.getDate();
+    const monthIndex = today.getMonth();
+    const year = today.getFullYear();
+  
+    const currentTexts = languageData[selectedLanguage] || languageData["english"];
+    let dayName, monthName;
+  
+    if (currentTexts.days && currentTexts.months) {
+      dayName = currentTexts.days[dayIndex];
+      monthName = currentTexts.months[monthIndex];
+    } else {
+      // Fallback to browser's locale formatting
+      const locale = selectedLanguage === "english" ? "en-US" : selectedLanguage;
+      dayName = today.toLocaleDateString(locale, { weekday: "long" });
+      monthName = today.toLocaleDateString(locale, { month: "long" });
+    }
+  
+    return `${dayName}, ${monthName} ${date}, ${year}`;
 }
 
 // Add this new function to apply zoom state silently
@@ -775,6 +798,17 @@ document.addEventListener("DOMContentLoaded", async () => {
         document.body.style.overflow = "hidden";
     }
 
+    function updateFooterCopyright() {
+        const footerRightsReserved = document.getElementById("footer-rights-reserved");
+        if (footerRightsReserved) {
+          const dateString = getLocalizedDateString();
+          footerRightsReserved.innerHTML = `© ${dateString}. ${texts.footerRightsReserved || "All Rights Reserved"}`;
+        }
+    }
+    
+      // Initial call to set footer
+      updateFooterCopyright();
+
     function applyLanguage(lang) {
         texts = { ...languageData[lang] || languageData["english"], ...JSON.parse(localStorage.getItem("customComponents") || "{}") };
         currentCharLimit = isGodMode ? (texts.charLimit * 2 - 1) : texts.charLimit;
@@ -865,9 +899,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const footerMadeWithLove = document.getElementById("footer-made-with-love");
         if (footerMadeWithLove) footerMadeWithLove.textContent = texts.footerMadeWithLove;
     
-        const footerRightsReserved = document.getElementById("footer-rights-reserved");
-        if (footerRightsReserved) footerRightsReserved.textContent = texts.footerRightsReserved;
-    
+        updateFooterCopyright();
         // Persist immediately
         localStorage.setItem("language", lang);
         localStorage.setItem("isGodMode", isGodMode.toString());
@@ -1040,15 +1072,27 @@ document.addEventListener("DOMContentLoaded", async () => {
     // In script.js
     function checkForUpdates() {
         if (!navigator.onLine) return;
+
+        // Check if an update is already in progress
+        if (localStorage.getItem("updateInProgress") === "true") {
+            console.log("Update check skipped: Update already in progress");
+            return;
+        }
+
+        // Set the update in progress flag
+        localStorage.setItem("updateInProgress", "true");
+
         fetch(`/manifest.json?cb=${Date.now()}`, { cache: "no-store" }) // Cache-bust
             .then(response => response.json())
             .then(manifest => {
                 const cachedVersion = localStorage.getItem("appVersion");
                 const isPending = localStorage.getItem("updatePending") === "true";
+
                 if (isPending) {
                     showUpdateNotification(manifest.version, manifest.updated); // Show immediately
                     return;
                 }
+
                 if (cachedVersion && manifest.version !== cachedVersion) {
                     showUpdateNotification(manifest.version, manifest.updated);
                 } else if (!cachedVersion) {
@@ -1056,7 +1100,11 @@ document.addEventListener("DOMContentLoaded", async () => {
                     localStorage.setItem("appUpdated", manifest.updated);
                 }
             })
-            .catch(err => console.error("Update check failed:", err));
+            .catch(err => console.error("Update check failed:", err))
+            .finally(() => {
+                // Clear the update in progress flag
+                localStorage.removeItem("updateInProgress");
+            });
     }
 
     // Debounce the check
@@ -2180,7 +2228,6 @@ window.addEventListener("beforeinstallprompt", e => {
     deferredPrompt = e;
 
     if (!localStorage.getItem("installPromptDismissed")) {
-        setTimeout(() => {
             // Container for install button and dismiss cross
             const installContainer = document.createElement("div");
             Object.assign(installContainer.style, {
@@ -2289,7 +2336,6 @@ window.addEventListener("beforeinstallprompt", e => {
             installContainer.appendChild(dismissButton);
             document.body.appendChild(installContainer);
             console.log("Install button and dismiss cross added to DOM");
-        }, 5000); // 5-second delay
     } else {
         console.log("Install prompt skipped due to previous dismissal");
     }

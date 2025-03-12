@@ -1,5 +1,5 @@
 // service-worker.js
-const CACHE_VERSION = '1.5.5+12032025'; // Sync with APP_VERSION in script.js
+const CACHE_VERSION = '1.5.6+12032025'; // Sync with APP_VERSION in script.js
 const CACHE_NAME = `Thoughts-${CACHE_VERSION}`;
 const DYNAMIC_CACHE_NAME = `${CACHE_NAME}-dynamic`;
 
@@ -70,7 +70,10 @@ self.addEventListener('activate', (event) => {
                 })
             );
         })
-        .then(() => console.log('Service Worker: Activation complete'))
+        .then(() => {
+            console.log('Service Worker: Activation complete');
+            return self.clients.claim(); // Claim clients immediately after activation
+        })
         .catch(err => console.error('Activation failed:', err))
     );
 });
@@ -145,15 +148,30 @@ self.addEventListener('message', (event) => {
             event.waitUntil(
                 caches.open(CACHE_NAME)
                     .then(cache => {
-                        return cache.addAll(ASSETS_TO_CACHE)
-                            .then(() => {
-                                console.log('Cache updated manually');
+                        // Update cache in smaller chunks
+                        const chunkSize = 5;
+                        const assetsToUpdate = [...ASSETS_TO_CACHE]; // Copy the array
+                        
+                        function updateChunk(index) {
+                            const chunk = assetsToUpdate.slice(index, index + chunkSize);
+                            if (chunk.length === 0) {
+                                console.log('Cache update complete');
                                 event.ports[0]?.postMessage({ status: 'success' });
-                            })
-                            .catch(err => {
-                                console.error('Cache update failed:', err);
-                                event.ports[0]?.postMessage({ status: 'error', error: err.message });
-                            });
+                                return;
+                            }
+                            
+                            Promise.all(chunk.map(asset => cache.add(asset)))
+                                .then(() => {
+                                    console.log(`Chunk updated: ${chunk.join(', ')}`);
+                                    updateChunk(index + chunkSize); // Recursive call for next chunk
+                                })
+                                .catch(err => {
+                                    console.error('Cache update failed for chunk:', chunk, err);
+                                    event.ports[0]?.postMessage({ status: 'error', error: err.message });
+                                });
+                        }
+                        
+                        updateChunk(0); // Start updating in chunks
                     })
             );
             break;
