@@ -1,5 +1,5 @@
 // Version info
-const APP_VERSION = "1.5.6+12032025";
+const APP_VERSION = "1.5.5.1+12032025";
 
 const whatsNew = `
     <strong>Thoughts</strong><br>
@@ -430,16 +430,25 @@ function applyZoomStateSilently() {
 }
 
 // Update toggleZoom to only handle user interaction
+function saveAppSettings(lang, zoomEnabled) {
+    if (lang) localStorage.setItem("language", lang);
+    if (zoomEnabled !== undefined) localStorage.setItem("isZoomEnabled", zoomEnabled.toString());
+}
+
+// Update toggleZoom to only handle user interaction
 function toggleZoom() {
     isZoomEnabled = !isZoomEnabled;
-    localStorage.setItem("isZoomEnabled", isZoomEnabled.toString());
-    applyZoomStateSilently(); // Apply the state
-    createNotification(
-        isZoomEnabled 
-            ? (texts.zoomEnabledNotification || "Zoom Enabled") 
-            : (texts.zoomDisabledNotification || "Zoom Disabled"), 
-        { duration: 1500 }
-    );
+    saveAppSettings(null, isZoomEnabled); // Save immediately
+
+    setTimeout(() => {
+        applyZoomStateSilently(); // Apply the state
+        createNotification(
+            isZoomEnabled
+                ? (texts.zoomEnabledNotification || "Zoom Enabled")
+                : (texts.zoomDisabledNotification || "Zoom Disabled"),
+            { duration: 1500 }
+        );
+    }, 0);
 }
 
 // Modify the initial zoom application in DOMContentLoaded
@@ -810,101 +819,104 @@ document.addEventListener("DOMContentLoaded", async () => {
       updateFooterCopyright();
 
     function applyLanguage(lang) {
-        texts = { ...languageData[lang] || languageData["english"], ...JSON.parse(localStorage.getItem("customComponents") || "{}") };
-        currentCharLimit = isGodMode ? (texts.charLimit * 2 - 1) : texts.charLimit;
-        texts.charCount = `{count}/${currentCharLimit}`;
-        selectedLanguage = lang;
+        saveAppSettings(lang, undefined);
+        setTimeout(() => { 
+            texts = { ...languageData[lang] || languageData["english"], ...JSON.parse(localStorage.getItem("customComponents") || "{}") };
+            currentCharLimit = isGodMode ? (texts.charLimit * 2 - 1) : texts.charLimit;
+            texts.charCount = `{count}/${currentCharLimit}`;
+            selectedLanguage = lang;
 
-        localStorage.setItem("language", lang);
-    
-        const headerTitle = document.querySelector("header h1");
-        if (headerTitle) {
-            const posts = JSON.parse(localStorage.getItem("posts") || "[]");
-            const postCount = posts.length;
-            headerTitle.textContent = `${texts.appName} ${toRoman(postCount)}`;
-        } else {
-            console.warn("Header title element not found; skipping text update.");
-        }
+            localStorage.setItem("language", lang);
+        
+            const headerTitle = document.querySelector("header h1");
+            if (headerTitle) {
+                const posts = JSON.parse(localStorage.getItem("posts") || "[]");
+                const postCount = posts.length;
+                headerTitle.textContent = `${texts.appName} ${toRoman(postCount)}`;
+            } else {
+                console.warn("Header title element not found; skipping text update.");
+            }
 
-        // Update zoom toggle button text without notification
-        const zoomToggleBtn = document.getElementById("zoom-toggle");
-        if (zoomToggleBtn) {
-            zoomToggleBtn.textContent = isZoomEnabled 
-                ? (texts.zoomEnabledText || "Zoom: On") 
-                : (texts.zoomDisabledText || "Zoom: Off");
-        }
+            // Update zoom toggle button text without notification
+            const zoomToggleBtn = document.getElementById("zoom-toggle");
+            if (zoomToggleBtn) {
+                zoomToggleBtn.textContent = isZoomEnabled 
+                    ? (texts.zoomEnabledText || "Zoom: On") 
+                    : (texts.zoomDisabledText || "Zoom: Off");
+            }
 
-        // Update notification texts
-        if (texts.zoomEnabledNotification) {
-            toggleZoom.notificationEnabledText = texts.zoomEnabledNotification;
-        }
-        if (texts.zoomDisabledNotification) {
-            toggleZoom.notificationDisabledText = texts.zoomDisabledNotification;
-        }
+            // Update notification texts
+            if (texts.zoomEnabledNotification) {
+                toggleZoom.notificationEnabledText = texts.zoomEnabledNotification;
+            }
+            if (texts.zoomDisabledNotification) {
+                toggleZoom.notificationDisabledText = texts.zoomDisabledNotification;
+            }
 
-        // Add footer description
-        const footerDescription = document.getElementById("footer-description");
-        if (footerDescription) {
-            footerDescription.textContent = texts.footerDescription || "Efficiently crafted: Entire app under 1MB, including all assets.";
-        }
-    
-        if (elements.deleteAllButton) elements.deleteAllButton.textContent = texts.deleteAllButton;
-        if (elements.searchInput) elements.searchInput.placeholder = texts.searchPlaceholder;
-        if (elements.inputWrapper) elements.inputWrapper.placeholder = texts.inputPlaceholder;
-        if (elements.postButton) elements.postButton.textContent = texts.addButton;
-        if (elements.cancelEditButton) elements.cancelEditButton.textContent = texts.cancelEditButton;
-    
-        const exportNotesBtn = document.getElementById("export-notes");
-        if (exportNotesBtn) exportNotesBtn.textContent = texts.exportButton;
-    
-        const importTriggerBtn = document.getElementById("import-trigger");
-        if (importTriggerBtn) importTriggerBtn.textContent = texts.importButton;
-    
-        const languageSwitchBtn = document.getElementById("language-switch");
-        if (languageSwitchBtn) languageSwitchBtn.textContent = texts.name;
-    
-        const uploadLanguageTriggerBtn = document.getElementById("upload-language-trigger");
-        if (uploadLanguageTriggerBtn) uploadLanguageTriggerBtn.textContent = texts.uploadLanguage || "Upload Language";
-    
-        const footerOfflineTitle = document.getElementById("footer-offline-title");
-        if (footerOfflineTitle) footerOfflineTitle.textContent = texts.footerOfflineTitle;
-    
-        const footerOfflineText = document.getElementById("footer-offline-text");
-        if (footerOfflineText) footerOfflineText.textContent = texts.footerOfflineText;
-    
-        const footerAndroidGuide = document.getElementById("footer-android-guide");
-        if (footerAndroidGuide) footerAndroidGuide.textContent = texts.footerAndroidGuide;
-    
-        const footerIosGuide = document.getElementById("footer-ios-guide");
-        if (footerIosGuide) footerIosGuide.textContent = texts.footerIOSGuide;
-    
-        const footerTitle = document.getElementById("footer-title");
-        if (footerTitle) footerTitle.textContent = texts.appName;
-    
-        const craftedByText = document.getElementById("crafted-by-text");
-        if (craftedByText) craftedByText.textContent = texts.footerCraftedBy + " ";
-    
-        const footerWebstoreTitle = document.getElementById("footer-webstore-title");
-        if (footerWebstoreTitle) footerWebstoreTitle.textContent = texts.webStoreTitle || "Web Store";
-    
-        const footerWebstoreLink = document.getElementById("footer-webstore-link");
-        if (footerWebstoreLink) footerWebstoreLink.textContent = texts.webStoreLinkText || "Visit Web Store";
-    
-        const footerWebstoreNote = document.getElementById("footer-webstore-note");
-        if (footerWebstoreNote) footerWebstoreNote.textContent = texts.webStoreNote || "Download your favorite language from the site and upload it to the app using the Upload Language option.";
-    
-        const footerPrivacy = document.getElementById("footer-privacy");
-        if (footerPrivacy) footerPrivacy.textContent = texts.footerPrivacy;
-    
-        const footerMadeWithLove = document.getElementById("footer-made-with-love");
-        if (footerMadeWithLove) footerMadeWithLove.textContent = texts.footerMadeWithLove;
-    
-        updateFooterCopyright();
-        // Persist immediately
-        localStorage.setItem("language", lang);
-        localStorage.setItem("isGodMode", isGodMode.toString());
-        saveLanguagesToCache(); // Asynchronous cache backup
-        updateDynamicText();
+            // Add footer description
+            const footerDescription = document.getElementById("footer-description");
+            if (footerDescription) {
+                footerDescription.textContent = texts.footerDescription || "Efficiently crafted: Entire app under 1MB, including all assets.";
+            }
+        
+            if (elements.deleteAllButton) elements.deleteAllButton.textContent = texts.deleteAllButton;
+            if (elements.searchInput) elements.searchInput.placeholder = texts.searchPlaceholder;
+            if (elements.inputWrapper) elements.inputWrapper.placeholder = texts.inputPlaceholder;
+            if (elements.postButton) elements.postButton.textContent = texts.addButton;
+            if (elements.cancelEditButton) elements.cancelEditButton.textContent = texts.cancelEditButton;
+        
+            const exportNotesBtn = document.getElementById("export-notes");
+            if (exportNotesBtn) exportNotesBtn.textContent = texts.exportButton;
+        
+            const importTriggerBtn = document.getElementById("import-trigger");
+            if (importTriggerBtn) importTriggerBtn.textContent = texts.importButton;
+        
+            const languageSwitchBtn = document.getElementById("language-switch");
+            if (languageSwitchBtn) languageSwitchBtn.textContent = texts.name;
+        
+            const uploadLanguageTriggerBtn = document.getElementById("upload-language-trigger");
+            if (uploadLanguageTriggerBtn) uploadLanguageTriggerBtn.textContent = texts.uploadLanguage || "Upload Language";
+        
+            const footerOfflineTitle = document.getElementById("footer-offline-title");
+            if (footerOfflineTitle) footerOfflineTitle.textContent = texts.footerOfflineTitle;
+        
+            const footerOfflineText = document.getElementById("footer-offline-text");
+            if (footerOfflineText) footerOfflineText.textContent = texts.footerOfflineText;
+        
+            const footerAndroidGuide = document.getElementById("footer-android-guide");
+            if (footerAndroidGuide) footerAndroidGuide.textContent = texts.footerAndroidGuide;
+        
+            const footerIosGuide = document.getElementById("footer-ios-guide");
+            if (footerIosGuide) footerIosGuide.textContent = texts.footerIOSGuide;
+        
+            const footerTitle = document.getElementById("footer-title");
+            if (footerTitle) footerTitle.textContent = texts.appName;
+        
+            const craftedByText = document.getElementById("crafted-by-text");
+            if (craftedByText) craftedByText.textContent = texts.footerCraftedBy + " ";
+        
+            const footerWebstoreTitle = document.getElementById("footer-webstore-title");
+            if (footerWebstoreTitle) footerWebstoreTitle.textContent = texts.webStoreTitle || "Web Store";
+        
+            const footerWebstoreLink = document.getElementById("footer-webstore-link");
+            if (footerWebstoreLink) footerWebstoreLink.textContent = texts.webStoreLinkText || "Visit Web Store";
+        
+            const footerWebstoreNote = document.getElementById("footer-webstore-note");
+            if (footerWebstoreNote) footerWebstoreNote.textContent = texts.webStoreNote || "Download your favorite language from the site and upload it to the app using the Upload Language option.";
+        
+            const footerPrivacy = document.getElementById("footer-privacy");
+            if (footerPrivacy) footerPrivacy.textContent = texts.footerPrivacy;
+        
+            const footerMadeWithLove = document.getElementById("footer-made-with-love");
+            if (footerMadeWithLove) footerMadeWithLove.textContent = texts.footerMadeWithLove;
+        
+            updateFooterCopyright();
+            // Persist immediately
+            localStorage.setItem("language", lang);
+            localStorage.setItem("isGodMode", isGodMode.toString());
+            saveLanguagesToCache(); // Asynchronous cache backup
+            updateDynamicText();
+        }, 0);
         // Removed: showLanguageChangeNotification(lang); // No automatic notification here
     }
 
