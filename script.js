@@ -2,7 +2,7 @@
 const APP_VERSION = "1.5.5rc06i27";
 
 const whatsNew = `
-    <strong>What's New:</strong><br>
+    <strong>Thoughts</strong><br>
     - Multi-Language Support<br>
     - Sound Effects for User Experience<br>
     - Meet the <a href="thoughtswebstore.netlify.app" target="_blank" rel="noopener noreferrer" style="color: #1d9bf0; text-decoration: underline;">Thoughts Web Store</a>! Download extra language packs<br>
@@ -409,7 +409,7 @@ function applyZoomStateSilently() {
 // Update toggleZoom to only handle user interaction
 function toggleZoom() {
     isZoomEnabled = !isZoomEnabled;
-    localStorage.setItem("isZoomEnabled", isZoomEnabled);
+    localStorage.setItem("isZoomEnabled", isZoomEnabled.toString());
     applyZoomStateSilently(); // Apply the state
     createNotification(
         isZoomEnabled 
@@ -638,6 +638,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         } else if (simpleHash(text) === SECRET_CODE_HASH) {
             forceClearDraft(); // Clear secret key if detected during close
         }
+
+            // Persist language and zoom state immediately
+        localStorage.setItem("language", selectedLanguage);
+        localStorage.setItem("isZoomEnabled", isZoomEnabled.toString());
         setTimeout(() => (isSavingOnClose = false), 100);
     }
 
@@ -776,6 +780,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         currentCharLimit = isGodMode ? (texts.charLimit * 2 - 1) : texts.charLimit;
         texts.charCount = `{count}/${currentCharLimit}`;
         selectedLanguage = lang;
+
+        localStorage.setItem("language", lang);
     
         const headerTitle = document.querySelector("header h1");
         if (headerTitle) {
@@ -1273,12 +1279,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
         document.body.appendChild(status);
         setTimeout(() => status.remove(), 1500);
-    }
-
-    // Footer Setup
-    const versionElement = document.querySelector("#footer-version");
-    if (versionElement) versionElement.textContent = `v${APP_VERSION}`;
-    if (!localStorage.getItem("appVersion")) localStorage.setItem("appVersion", APP_VERSION);
+    }  
 
     elements.footer.innerHTML += `
         <div class="backup-actions">
@@ -1291,7 +1292,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             <button id="upload-language-trigger">${texts.uploadLanguage || "Upload Language"}</button>
             <div class="language-zoom-container">
                 <button id="language-switch">${texts.selectLanguage || "Select Language"}</button>
-                <button id="zoom-toggle">${isZoomEnabled ? "Zoom: On" : "Zoom: Off"}</button>
+                <button id="zoom-toggle">${isZoomEnabled ? (texts.zoomEnabledText || "Zoom Enabled") : (texts.zoomDisabledText || "Zoom Disabled")}</button>
             </div>
         </div>
         <style>
@@ -1321,6 +1322,38 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
         </style>
     `;
+
+    const versionElement = document.querySelector("#footer-version");
+    if (versionElement) {
+        versionElement.textContent = `v${APP_VERSION}`;
+        versionElement.style.cursor = "pointer";
+        versionElement.style.color = "#1d9bf0"; // Twitter blue
+        versionElement.style.transition = "color 0.2s ease";
+        versionElement.style.zIndex = "1";
+        versionElement.style.position = "relative";
+        
+        // Add click event listener
+        versionElement.addEventListener("click", () => {
+            throttledPlaySound('/sounds/click.ogg');
+            showCustomPopup(
+                texts.whatsNewTitle ? texts.whatsNewTitle.replace("{version}", APP_VERSION) : `What's New in v${APP_VERSION}`, // Ensure version is substituted
+                whatsNew,
+                texts.okButton || "OK",
+                () => {}, // No action needed on confirm
+                false // No cancel button
+            );
+        });
+
+        // Add hover effects
+        versionElement.addEventListener("mouseover", () => {
+            versionElement.style.color = "#1a8cd8"; // Darker blue on hover
+        });
+
+        versionElement.addEventListener("mouseout", () => {
+            versionElement.style.color = "#1d9bf0"; // Return to original color
+        });
+    }
+    if (!localStorage.getItem("appVersion")) localStorage.setItem("appVersion", APP_VERSION);
 
     function isThoughtsLanguagePack(data) {
         return data && typeof data === "object" && data.appId === "thoughts-app-langs";
@@ -1519,7 +1552,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.getElementById("zoom-toggle").addEventListener("click", () => {
         throttledPlaySound('/sounds/click.ogg');
         toggleZoom();
-        document.getElementById("zoom-toggle").textContent = isZoomEnabled ? "Zoom: On" : "Zoom: Off";
     });
 
     function renderPost(post, index, isPinned) {
