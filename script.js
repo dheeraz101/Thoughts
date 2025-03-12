@@ -1,5 +1,5 @@
 // Version info
-const APP_VERSION = "1.5.5.1+12032025";
+const APP_VERSION = "1.5.5.2+12032025";
 
 const whatsNew = `
     <strong>Thoughts</strong><br>
@@ -440,6 +440,7 @@ function toggleZoom() {
     isZoomEnabled = !isZoomEnabled;
     saveAppSettings(null, isZoomEnabled); // Save immediately
 
+    // Add a small delay to ensure data is persisted
     setTimeout(() => {
         applyZoomStateSilently(); // Apply the state
         createNotification(
@@ -448,7 +449,7 @@ function toggleZoom() {
                 : (texts.zoomDisabledNotification || "Zoom Disabled"),
             { duration: 1500 }
         );
-    }, 0);
+    }, 50); // Small delay
 }
 
 // Modify the initial zoom application in DOMContentLoaded
@@ -916,7 +917,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             localStorage.setItem("isGodMode", isGodMode.toString());
             saveLanguagesToCache(); // Asynchronous cache backup
             updateDynamicText();
-        }, 0);
+        }, 50);
         // Removed: showLanguageChangeNotification(lang); // No automatic notification here
     }
 

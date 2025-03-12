@@ -1,5 +1,5 @@
 // service-worker.js
-const CACHE_VERSION = '1.5.5.1+12032025'; // Sync with APP_VERSION in script.js
+const CACHE_VERSION = '1.5.5.2+12032025'; // Sync with APP_VERSION in script.js
 const CACHE_NAME = `Thoughts-${CACHE_VERSION}`;
 const DYNAMIC_CACHE_NAME = `${CACHE_NAME}-dynamic`;
 
@@ -50,7 +50,7 @@ self.addEventListener('install', (event) => {
             })
             .then(() => {
                 console.log('Service Worker: Install complete');
-                self.skipWaiting(); // Ensure new service worker activates immediately
+                return self.skipWaiting(); // Ensure new service worker activates immediately
             })
             .catch(err => console.error('Install failed:', err))
     );
