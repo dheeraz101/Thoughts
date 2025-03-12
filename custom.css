@@ -139,6 +139,8 @@ header h1:hover {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     transition: background-color 0.2s ease, box-shadow 0.2s ease;
     display: none;
+    text-wrap: nowrap;
+    text-overflow: ellipsis;
 }
 
 #cancel-edit:hover {
@@ -179,6 +181,8 @@ header h1:hover {
     color: #ffffff;
     border: none;
     cursor: pointer;
+    text-wrap: nowrap;
+    text-overflow: ellipsis;
     transition: background-color 0.2s ease;
     -webkit-tap-highlight-color: transparent; /* Remove mobile tap highlight */
 }

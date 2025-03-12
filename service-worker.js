@@ -1,5 +1,5 @@
 // service-worker.js
-const CACHE_VERSION = '1.5.5.2+12032025'; // Sync with APP_VERSION in script.js
+const CACHE_VERSION = '1.5.5.3+12032025'; // Sync with APP_VERSION in script.js
 const CACHE_NAME = `Thoughts-${CACHE_VERSION}`;
 const DYNAMIC_CACHE_NAME = `${CACHE_NAME}-dynamic`;
 
@@ -205,3 +205,6 @@ self.addEventListener('message', (event) => {
             break;
     }
 });
+
+const isDev = self.location.hostname === "localhost";
+console.log = isDev ? console.log.bind(console) : () => {};
