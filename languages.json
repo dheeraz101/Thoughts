@@ -92,7 +92,8 @@
     "zoomDisabledNotification": "Zoom Disabled",
     "footerDescription": "Efficiently crafted: Entire app under 1MB, including all assets.",
     "volumeNotificationTitle": "Enhance Your Experience",
-    "volumeNotificationMessage": "For the best experience with sound effects, please turn your device volume to maximum."
+    "volumeNotificationMessage": "For the best experience with sound effects, please turn your device volume to maximum.",
+    "whatsNewTitle": "What's New in v{version}"
   },
     "hinglish": {
       "name": "Hinglish",
@@ -187,6 +188,7 @@
       "zoomDisabledNotification": "Zoom Band Ho Gaya",
       "footerDescription": "Kya Aapko Pata hai? Poora app 1MB se kam me banaya hai.",
       "volumeNotificationTitle": "Experience Ko Behtar Karo",
-      "volumeNotificationMessage": "Sound effects ke liye best experience ke liye, apne device ki volume full kar do."
+      "volumeNotificationMessage": "Sound effects ke liye best experience ke liye, apne device ki volume full kar do.",
+      "whatsNewTitle": "Kya naya hai v{version} me?"
     }
 }
