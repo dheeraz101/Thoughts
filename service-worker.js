@@ -1,5 +1,5 @@
 // service-worker.js
-const CACHE_VERSION = '1.5.5rc06i27'; // Sync with APP_VERSION in script.js
+const CACHE_VERSION = '1.5.5+12032025'; // Sync with APP_VERSION in script.js
 const CACHE_NAME = `Thoughts-${CACHE_VERSION}`;
 const DYNAMIC_CACHE_NAME = `${CACHE_NAME}-dynamic`;
 
