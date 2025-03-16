@@ -1,5 +1,5 @@
 // Version info
-const APP_VERSION = "1.5.5.4+12032025";
+const APP_VERSION = "1.5.5.5+16032025";
 
 const whatsNew = `
     <strong>Thoughts</strong><br>
@@ -1381,6 +1381,9 @@ document.addEventListener("DOMContentLoaded", async () => {
                 padding: 6px 14px; font-size: 13px; font-weight: 500; letter-spacing: 0.02em; color: #ffffff; background: rgba(255, 255, 255, 0.08);
                 border: none; border-radius: 10px; cursor: pointer; transition: background 0.2s ease, opacity 0.2s ease; backdrop-filter: blur(6px);
                 -webkit-tap-highlight-color: transparent; flex: 1; min-width: 80px; text-align: center;
+                text-wrap: nowrap; /* Prevent wrapping */
+                overflow: hidden; /* Hide overflowing text */
+                text-overflow: ellipsis; /* Show ellipsis */
             }
             #export-notes:hover, #import-trigger:hover, #language-switch:hover, #upload-language-trigger:hover, #zoom-toggle:hover { background: rgba(255, 255, 255, 0.18); }
             #export-notes:active, #import-trigger:active, #language-switch:active, #upload-language-trigger:active, #zoom-toggle:active { opacity: 0.8; }
@@ -1807,37 +1810,42 @@ document.addEventListener("DOMContentLoaded", async () => {
         const text = elements.inputWrapper.value.trim();
         if (!text) {
             throttledPlaySound('/sounds/error.ogg');
-            showCustomPopup(
-                texts.emptyPostTitle || "Empty Note?",
-                texts.emptyPostMessage || "You haven’t written anything yet! Add some text before posting.",
-                texts.okButton || "OK",
-                () => {
-                    elements.inputWrapper.focus(); // Focus input after dismissing popup
-                },
-                false // No cancel button
-            );
+            showCustomPopup(texts.emptyNoteTitle, texts.emptyNoteMessage, texts.okButton, () => { }, false);
             return;
         }
-        if (!text || text.length > currentCharLimit) return;
+        if (!text || text.length > currentCharLimit) {
+            throttledPlaySound('/sounds/error.ogg');
+            showCustomPopup(texts.charLimitTitle, texts.charLimitMessage, texts.okButton, () => { }, false);
+            return;
+        }
         if (editIndex !== null) {
+            // Edit existing post
             const posts = JSON.parse(localStorage.getItem("posts") || "[]");
             posts[editIndex].text = text;
             posts[editIndex].timestamp = new Date().toLocaleString();
             localStorage.setItem("posts", JSON.stringify(posts));
             if ("serviceWorker" in navigator) {
-                navigator.serviceWorker.ready.then(reg => reg.active?.postMessage({ type: "SAVE_POSTS", posts: JSON.stringify(posts) }));
+                navigator.serviceWorker.ready.then(reg => {
+                    reg.active?.postMessage({ type: "SAVE_POSTS", posts: JSON.stringify(posts) });
+                });
             }
             editIndex = null;
-            updateEditState(); // Ensure state resets immediately
+            elements.cancelEditButton.style.display = "none";
+            elements.postButton.textContent = texts.addButton;
         } else {
+            // Save new post
             savePost(text);
         }
-        elements.inputWrapper.value = "";
-        saveDraft("");
-        adjustHeight();
-        elements.charCount.textContent = (texts.charCount || "{count} characters").replace("{count}", "0").replace("{count}", currentCharLimit);
-        updateEditState();
-        renderPosts(); // Immediate render instead of debounced
+    
+        // Clear the input and draft *after* saving the post
+        setTimeout(() => {
+            elements.inputWrapper.value = "";
+            forceClearDraft();
+            adjustHeight();
+            elements.charCount.textContent = (texts.charCount || "{count} characters").replace("{count}", "0").replace("{count}", currentCharLimit);
+            updateEditState();
+            renderPosts(); // Immediate render instead of debounced
+        }, 50); // Small delay
     });
 
     elements.cancelEditButton.addEventListener("click", () => {
