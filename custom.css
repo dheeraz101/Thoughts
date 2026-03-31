@@ -1028,5 +1028,328 @@ footer hr {
         background: rgba(255, 255, 255, 0.1);
         border-radius: 10px;
         margin: 5px 0;
-    }    
+    }
+}
+
+/* ═══════════════════════════════════════════════
+   iOS 26 Liquid Glass Effects
+   ═══════════════════════════════════════════════ */
+
+/* ── Header: floating glass bar ── */
+header {
+    background: rgba(255, 255, 255, 0.04) !important;
+    backdrop-filter: blur(30px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(30px) saturate(180%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-bottom: none !important;
+    border-radius: 20px !important;
+    padding: 16px 20px !important;
+    margin: 12px 0 !important;
+    box-shadow:
+        0 0 0 0.5px rgba(255, 255, 255, 0.04) inset,
+        0 4px 24px rgba(0, 0, 0, 0.2);
+    transition: background 0.3s ease, box-shadow 0.3s ease;
+}
+
+header:hover {
+    background: rgba(255, 255, 255, 0.07) !important;
+    box-shadow:
+        0 0 0 0.5px rgba(255, 255, 255, 0.08) inset,
+        0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+/* ── Search bar: glass pill ── */
+.search-bar {
+    background: rgba(255, 255, 255, 0.05) !important;
+    backdrop-filter: blur(24px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow:
+        0 0 0 0.5px rgba(255, 255, 255, 0.04) inset,
+        0 2px 12px rgba(0, 0, 0, 0.15);
+    transition: all 0.2s ease;
+}
+
+.search-bar:focus-within {
+    background: rgba(255, 255, 255, 0.08) !important;
+    border-color: rgba(255, 255, 255, 0.2) !important;
+    box-shadow:
+        0 0 0 0.5px rgba(255, 255, 255, 0.08) inset,
+        0 4px 20px rgba(0, 0, 0, 0.2),
+        0 0 0 3px rgba(255, 255, 255, 0.05);
+}
+
+/* ── Input area: glass card ── */
+.input-section {
+    background: rgba(255, 255, 255, 0.03) !important;
+    backdrop-filter: blur(20px) saturate(160%) !important;
+    -webkit-backdrop-filter: blur(20px) saturate(160%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: 20px !important;
+    padding: 20px !important;
+    margin: 16px 0 !important;
+    box-shadow:
+        0 0 0 0.5px rgba(255, 255, 255, 0.03) inset,
+        0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+#public-input {
+    background: rgba(0, 0, 0, 0.3) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: 14px !important;
+    box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.03) inset;
+    transition: all 0.2s ease;
+}
+
+#public-input:focus {
+    border-color: rgba(255, 255, 255, 0.2) !important;
+    background: rgba(0, 0, 0, 0.4) !important;
+    box-shadow:
+        0 0 0 0.5px rgba(255, 255, 255, 0.06) inset,
+        0 0 0 3px rgba(255, 255, 255, 0.05);
+}
+
+/* ── Post cards: glass material ── */
+.post {
+    background: rgba(255, 255, 255, 0.03) !important;
+    backdrop-filter: blur(16px) saturate(150%) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(150%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.06) !important;
+    border-bottom: none !important;
+    border-radius: 20px !important;
+    padding: 20px !important;
+    margin: 12px 0 !important;
+    box-shadow:
+        0 0 0 0.5px rgba(255, 255, 255, 0.03) inset,
+        0 2px 12px rgba(0, 0, 0, 0.12);
+    transition: all 0.2s ease;
+}
+
+.post:hover {
+    background: rgba(255, 255, 255, 0.06) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+    box-shadow:
+        0 0 0 0.5px rgba(255, 255, 255, 0.06) inset,
+        0 4px 20px rgba(0, 0, 0, 0.2);
+    transform: translateY(-1px);
+}
+
+/* ── Pinned posts: elevated glass ── */
+.post.pinned {
+    background: rgba(255, 255, 255, 0.06) !important;
+    border: 1px solid rgba(255, 255, 255, 0.14) !important;
+    box-shadow:
+        0 0 0 0.5px rgba(255, 255, 255, 0.06) inset,
+        0 8px 32px rgba(0, 0, 0, 0.25),
+        0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+/* ── Buttons: glass tinted ── */
+#post-button {
+    background: rgba(29, 155, 240, 0.85) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    box-shadow:
+        0 0 0 0.5px rgba(255, 255, 255, 0.1) inset,
+        0 2px 8px rgba(29, 155, 240, 0.3);
+    transition: all 0.2s ease;
+}
+
+#post-button:hover {
+    background: rgba(29, 155, 240, 0.95) !important;
+    box-shadow:
+        0 0 0 0.5px rgba(255, 255, 255, 0.15) inset,
+        0 4px 16px rgba(29, 155, 240, 0.4);
+}
+
+.edit-post {
+    background: rgba(255, 255, 255, 0.12) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    color: #fff !important;
+    box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.06) inset;
+    transition: all 0.2s ease;
+}
+
+.edit-post:hover {
+    background: rgba(255, 255, 255, 0.2) !important;
+}
+
+.delete-post {
+    background: rgba(239, 68, 68, 0.7) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.06) inset;
+    transition: all 0.2s ease;
+}
+
+.delete-post:hover {
+    background: rgba(239, 68, 68, 0.85) !important;
+}
+
+/* ── Pin button: glass circle ── */
+.pin-post {
+    background: rgba(255, 255, 255, 0.1) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.05) inset;
+}
+
+.pin-post.pinned {
+    background: rgba(255, 255, 255, 0.9) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+}
+
+/* ── Meta badges: frosted chips ── */
+.meta-badge {
+    background: rgba(255, 255, 255, 0.06) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.03) inset;
+}
+
+.meta-badge.share-post {
+    background: rgba(139, 92, 246, 0.4) !important;
+    border: 1px solid rgba(139, 92, 246, 0.5) !important;
+}
+
+/* ── Hashtag badges: tinted glass pills ── */
+.hashtag-badge {
+    background: rgba(239, 68, 68, 0.6) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.05) inset;
+}
+
+.hashtag-badge.active {
+    background: rgba(255, 255, 255, 0.9) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+}
+
+/* ── Footer buttons: glass tiles ── */
+#export-notes, #import-trigger, #language-switch,
+#upload-language-trigger, #zoom-toggle {
+    background: rgba(255, 255, 255, 0.06) !important;
+    backdrop-filter: blur(16px) saturate(160%) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(160%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 14px !important;
+    box-shadow:
+        0 0 0 0.5px rgba(255, 255, 255, 0.04) inset,
+        0 2px 8px rgba(0, 0, 0, 0.12);
+    transition: all 0.2s ease;
+}
+
+#export-notes:hover, #import-trigger:hover, #language-switch:hover,
+#upload-language-trigger:hover, #zoom-toggle:hover {
+    background: rgba(255, 255, 255, 0.12) !important;
+    border-color: rgba(255, 255, 255, 0.18) !important;
+}
+
+/* ── Scroll-to-top: glass orb ── */
+#scroll-to-top {
+    background: rgba(255, 255, 255, 0.08) !important;
+    backdrop-filter: blur(24px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    box-shadow:
+        0 0 0 0.5px rgba(255, 255, 255, 0.06) inset,
+        0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+#scroll-to-top:hover {
+    background: rgba(255, 255, 255, 0.15) !important;
+}
+
+/* ── All popups: glass modals ── */
+.twitter-popup {
+    background: rgba(20, 23, 26, 0.6) !important;
+    backdrop-filter: blur(40px) saturate(200%) !important;
+    -webkit-backdrop-filter: blur(40px) saturate(200%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    box-shadow:
+        0 0 0 0.5px rgba(255, 255, 255, 0.05) inset,
+        0 16px 64px rgba(0, 0, 0, 0.5);
+    border-radius: 24px !important;
+}
+
+.twitter-popup button {
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.05) inset;
+}
+
+/* ── Language buttons: glass rows ── */
+.language-button {
+    background: rgba(255, 255, 255, 0.06) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.04) inset;
+}
+
+.language-button:hover {
+    background: rgba(255, 255, 255, 0.12) !important;
+}
+
+/* ── Splash screen: deep glass ── */
+#splash-screen {
+    background: rgba(0, 0, 0, 0.85) !important;
+    backdrop-filter: blur(60px) saturate(200%) !important;
+    -webkit-backdrop-filter: blur(60px) saturate(200%) !important;
+}
+
+/* ── Hashtag scroll arrows: glass circles ── */
+.hashtag-scroll-arrow {
+    background: rgba(255, 255, 255, 0.12) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* ── Refraction shimmer on hover (the "liquid" part) ── */
+@keyframes glass-shimmer {
+    0% { background-position: -200% center; }
+    100% { background-position: 200% center; }
+}
+
+.post::before,
+.input-section::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(
+        105deg,
+        transparent 40%,
+        rgba(255, 255, 255, 0.03) 45%,
+        rgba(255, 255, 255, 0.06) 50%,
+        rgba(255, 255, 255, 0.03) 55%,
+        transparent 60%
+    );
+    background-size: 200% 100%;
+    pointer-events: none;
+    z-index: 1;
+    animation: glass-shimmer 6s ease-in-out infinite;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+}
+
+.post:hover::before,
+.input-section:hover::before {
+    opacity: 1;
+}
+
+.post,
+.input-section {
+    position: relative;
+    overflow: hidden;
 }
