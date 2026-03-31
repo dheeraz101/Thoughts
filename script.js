@@ -1,15 +1,16 @@
 // Version info
-const APP_VERSION = "2.0.0";
+const APP_VERSION = "2.1.0";
 
 const whatsNew = `
-    <strong>Thoughts v2.0.0</strong><br>
-    - iOS Liquid Glass UI effects<br>
-    - Fixed update system (reliable, no more stuck caches)<br>
-    - Multi-Language Support<br>
-    - Sound Effects for User Experience<br>
-    - Meet the <a href="thoughtswebstore.netlify.app" target="_blank" rel="noopener noreferrer" style="color: #1d9bf0; text-decoration: underline;">Thoughts Web Store</a>! Download extra language packs<br>
-    - UI Enhancements and Bugs Fixed.<br><br>
-    <small>Note: If you face UI/UX issues, refresh the app or clear the cache. Always back up your notes via the export option at the bottom.</small>
+    <strong>Thoughts v2.1.0</strong><br>
+    🖼️ <strong>Share as Image</strong> — turn any note into a beautiful shareable card<br>
+    ⏰ Smart dates — "2h ago", "yesterday" instead of raw timestamps<br>
+    📖 Reading time & word count on every note<br>
+    🔥 Writing streak tracker<br>
+    📊 Live stats as you type<br>
+    ✨ Smooth animations & glass effects<br>
+    🔧 Fixed update system & PWA reliability<br><br>
+    <small>Always back up your notes via Export at the bottom.</small>
 `;
 
 // Initialize the AudioContext
