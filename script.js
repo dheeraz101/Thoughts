@@ -1,8 +1,10 @@
 // Version info
-const APP_VERSION = "1.5.5.5+16032025";
+const APP_VERSION = "2.0.0";
 
 const whatsNew = `
-    <strong>Thoughts</strong><br>
+    <strong>Thoughts v2.0.0</strong><br>
+    - iOS Liquid Glass UI effects<br>
+    - Fixed update system (reliable, no more stuck caches)<br>
     - Multi-Language Support<br>
     - Sound Effects for User Experience<br>
     - Meet the <a href="thoughtswebstore.netlify.app" target="_blank" rel="noopener noreferrer" style="color: #1d9bf0; text-decoration: underline;">Thoughts Web Store</a>! Download extra language packs<br>
@@ -71,23 +73,6 @@ document.addEventListener("DOMContentLoaded", () => {
     document.addEventListener("click", unlockAudio, { once: true }); // Fallback for non-touch devices
 });
 
-// Reuse your existing throttle function
-function throttle(func, limit) {
-    let inThrottle;
-    let lastArgs;
-    return function (...args) {
-        lastArgs = args;
-        if (!inThrottle) {
-            func.apply(this, args);
-            inThrottle = true;
-            setTimeout(() => {
-                inThrottle = false;
-                if (lastArgs !== args) func.apply(this, lastArgs);
-            }, limit);
-        }
-    };
-}
-
 // Play sound using Web Audio API with full volume
 const throttledPlaySound = throttle(async (src) => {
     if (!soundFiles.includes(src)) {
@@ -132,36 +117,158 @@ function setVolume(level) {
     console.log(`Volume set to: ${gainNode.gain.value}`);
 }
 
+// ── Service Worker Registration ──
 if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
         navigator.serviceWorker.register("/service-worker.js")
             .then(registration => {
-                console.log("ServiceWorker registered with scope:", registration.scope);
+                console.log("ServiceWorker registered:", registration.scope);
+
+                // When a new SW is found, it will install and go to 'waiting' state
                 registration.addEventListener('updatefound', () => {
                     const newWorker = registration.installing;
                     newWorker.addEventListener('statechange', () => {
                         if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                            console.log("New service worker waiting");
-                            // Store the pending update state
-                            localStorage.setItem("updatePending", "true");
-                            window.dispatchEvent(new CustomEvent('checkForUpdates'));
+                            console.log("New version available (SW waiting)");
+                            checkForUpdates();
                         }
                     });
                 });
             })
-            .catch(err => console.log("ServiceWorker registration failed:", err));
+            .catch(err => console.warn("ServiceWorker registration failed:", err));
+    });
 
-        navigator.serviceWorker.addEventListener('message', (event) => {
-            if (event.data.type === 'CHECK_APPROVAL') {
-                const approved = localStorage.getItem("updateApproved") === "true";
-                navigator.serviceWorker.controller.postMessage({
-                    type: 'APPROVAL_RESPONSE',
-                    approved: approved
-                });
-            }
-        });
+    // When the SW takes over, reload once to get fresh assets
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!sessionStorage.getItem('sw-reloaded')) {
+            sessionStorage.setItem('sw-reloaded', '1');
+            window.location.reload();
+        }
     });
 }
+
+// ── Clean Update System ──
+
+function checkForUpdates() {
+    if (!navigator.onLine) return;
+
+    fetch(`/manifest.json?t=${Date.now()}`, { cache: 'no-store' })
+        .then(res => res.json())
+        .then(manifest => {
+            const currentVersion = localStorage.getItem('appVersion') || APP_VERSION;
+            if (manifest.version !== currentVersion) {
+                showUpdateNotification(manifest.version);
+            }
+        })
+        .catch(() => {});
+}
+
+function showUpdateNotification(newVersion) {
+    if (document.querySelector('.update-notification')) return;
+
+    const isMobile = window.innerWidth <= 768;
+    const notification = document.createElement('div');
+    notification.className = 'update-notification';
+    Object.assign(notification.style, {
+        position: 'fixed',
+        bottom: '20px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        background: 'rgba(20, 23, 26, 0.85)',
+        backdropFilter: 'blur(16px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(16px) saturate(180%)',
+        borderRadius: '20px',
+        padding: isMobile ? '20px' : '24px',
+        maxWidth: isMobile ? '90vw' : '340px',
+        width: '100%',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+        color: '#ffffff',
+        textAlign: 'center',
+        border: '1px solid rgba(255, 255, 255, 0.12)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '10px',
+        zIndex: '99999'
+    });
+
+    const title = document.createElement('p');
+    title.textContent = texts.newUpdateTitle || 'Update Available';
+    Object.assign(title.style, { fontSize: '17px', fontWeight: '700', margin: '0', lineHeight: '1.3' });
+
+    const versionText = document.createElement('p');
+    versionText.textContent = `Version ${newVersion}`;
+    Object.assign(versionText.style, { fontSize: '14px', color: '#aaa', margin: '0' });
+
+    const updateButton = document.createElement('button');
+    updateButton.textContent = texts.updateNowButton || 'Update Now';
+    Object.assign(updateButton.style, {
+        background: '#34c759',
+        color: '#fff',
+        border: 'none',
+        padding: '12px 0',
+        borderRadius: '14px',
+        fontSize: '16px',
+        fontWeight: '600',
+        cursor: 'pointer',
+        width: '100%',
+        transition: 'background 0.2s ease'
+    });
+    updateButton.onmouseover = () => updateButton.style.background = '#2db84d';
+    updateButton.onmouseout = () => updateButton.style.background = '#34c759';
+
+    updateButton.addEventListener('click', () => {
+        throttledPlaySound('/sounds/click.ogg');
+        const currentDraft = elements.inputWrapper.value.trim();
+        if (currentDraft) saveDraft(currentDraft);
+        performUpdate(newVersion);
+    });
+
+    notification.appendChild(title);
+    notification.appendChild(versionText);
+    notification.appendChild(updateButton);
+    document.body.appendChild(notification);
+}
+
+async function performUpdate(newVersion) {
+    console.log(`Updating to version ${newVersion}...`);
+
+    // 1. Save new version
+    localStorage.setItem('appVersion', newVersion);
+
+    // 2. Tell SW to skip waiting (takes over immediately)
+    try {
+        const reg = await navigator.serviceWorker.ready;
+        if (reg.waiting) {
+            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+        }
+    } catch (e) {
+        console.warn('SW skipWaiting failed:', e);
+    }
+
+    // 3. Delete old caches (but NOT the new one)
+    try {
+        const keys = await caches.keys();
+        await Promise.all(
+            keys
+                .filter(k => k !== `thoughts-v${newVersion}` && k.startsWith('thoughts-v'))
+                .map(k => caches.delete(k))
+        );
+    } catch (e) {
+        console.warn('Cache cleanup failed:', e);
+    }
+
+    // 4. Reload — the new SW will serve fresh assets
+    window.location.reload();
+}
+
+// Check for updates on load + every 30 minutes
+checkForUpdates();
+setInterval(checkForUpdates, 30 * 60 * 1000);
+
+// Check when coming back online
+window.addEventListener('online', () => setTimeout(checkForUpdates, 2000));
 
 let languageData = {};
 let selectedLanguage = localStorage.getItem("language") || "english";
@@ -1094,48 +1201,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         };
     }
 
-    // In script.js
-    function checkForUpdates() {
-        if (!navigator.onLine) return;
-
-        // Check if an update is already in progress
-        if (localStorage.getItem("updateInProgress") === "true") {
-            console.log("Update check skipped: Update already in progress");
-            return;
-        }
-
-        // Set the update in progress flag
-        localStorage.setItem("updateInProgress", "true");
-
-        fetch(`/manifest.json?cb=${Date.now()}`, { cache: "no-store" }) // Cache-bust
-            .then(response => response.json())
-            .then(manifest => {
-                const cachedVersion = localStorage.getItem("appVersion");
-                const isPending = localStorage.getItem("updatePending") === "true";
-
-                if (isPending) {
-                    showUpdateNotification(manifest.version, manifest.updated); // Show immediately
-                    return;
-                }
-
-                if (cachedVersion && manifest.version !== cachedVersion) {
-                    showUpdateNotification(manifest.version, manifest.updated);
-                } else if (!cachedVersion) {
-                    localStorage.setItem("appVersion", manifest.version);
-                    localStorage.setItem("appUpdated", manifest.updated);
-                }
-            })
-            .catch(err => console.error("Update check failed:", err))
-            .finally(() => {
-                // Clear the update in progress flag
-                localStorage.removeItem("updateInProgress");
-            });
-    }
-
-    // Debounce the check
-    const debouncedCheckForUpdates = debounce(checkForUpdates, 500);
-    window.addEventListener('checkForUpdates', debouncedCheckForUpdates);
-    setInterval(debouncedCheckForUpdates, 5 * 60 * 1000);
+    // Update system is now handled above (clean version)
 
     function showApplyPopup(title, message) {
         const popupDiv = document.getElementById("custom-popup");
@@ -1143,22 +1209,22 @@ document.addEventListener("DOMContentLoaded", async () => {
         const messageEl = document.getElementById("custom-popup-message");
         const confirmBtn = document.getElementById("custom-popup-confirm");
         const cancelBtn = document.getElementById("custom-popup-cancel");
-    
+
         titleEl.textContent = title;
         messageEl.innerHTML = message;
         confirmBtn.textContent = texts.applyButton || "Apply";
         cancelBtn.style.display = "none"; // Always hide cancel for Apply popup
-    
+
         popupDiv.classList.remove("hidden");
         document.body.style.overflow = "hidden";
-    
+
         confirmBtn.onclick = () => {
             throttledPlaySound('/sounds/click.ogg');
             popupDiv.classList.add("hidden");
             document.body.style.overflow = "";
             window.location.reload(); // Refresh the app
         };
-    }   
+    }
 
     function updateDynamicText() {
         elements.charCount.textContent = (texts.charCount || "{count} characters").replace("{count}", elements.inputWrapper.value.length || "0").replace("{count}", currentCharLimit);
@@ -1178,159 +1244,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         updateEditState();
     }    
 
-
-    function showUpdateNotification(newVersion, newUpdated) {
-        if (document.querySelector(".update-notification")) return;
-        const notification = document.createElement("div");
-        notification.className = "update-notification";
-        const isMobile = window.innerWidth <= 768;
-        Object.assign(notification.style, {
-            position: "fixed",
-            bottom: "20px",
-            left: "50%",
-            transform: "translateX(-50%)",
-            background: "rgba(20, 23, 26, 0.7)",
-            borderRadius: "16px",
-            padding: isMobile ? "20px" : "24px",
-            maxWidth: isMobile ? "90vw" : "320px",
-            width: "100%",
-            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.3)",
-            color: "#ffffff",
-            textAlign: "center",
-            border: "1px solid rgba(255, 255, 255, 0.1)",
-            backdropFilter: "blur(8px)",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "12px",
-            minHeight: isMobile ? "100px" : "auto",
-            zIndex: "100009"
-        });
-        const title = document.createElement("p");
-        title.textContent = texts.newUpdateTitle || "New Update Available";
-        Object.assign(title.style, { fontSize: isMobile ? "20px" : "18px", fontWeight: "700", marginBottom: "4px", lineHeight: "1.3" });
-        const versionText = document.createElement("p");
-        versionText.textContent = `Version ${newVersion}`;
-        Object.assign(versionText.style, { fontSize: "16px", fontWeight: "400", color: "#b0b3b8", marginBottom: "12px", lineHeight: "1.4" });
-        const updateButton = document.createElement("button");
-        updateButton.textContent = texts.updateNowButton || "Update Now";
-        Object.assign(updateButton.style, {
-            background: "#28a745",
-            color: "#ffffff",
-            border: "none",
-            padding: isMobile ? "14px 0" : "12px 16px",
-            borderRadius: "9999px",
-            fontSize: "16px",
-            fontWeight: "600",
-            cursor: "pointer",
-            transition: "all 0.2s ease-in-out",
-            width: "100%",
-            textAlign: "center",
-            marginTop: "8px"
-        });
-        updateButton.addEventListener("click", () => {
-            const currentDraft = elements.inputWrapper.value.trim();
-            throttledPlaySound('/sounds/click.ogg');
-            showCustomPopup(
-                texts.updateTitle,
-                texts.updateMessage,
-                texts.updateConfirm,
-                () => performUpdate(newVersion, newUpdated, currentDraft),
-                true
-            );
-        });
-        notification.appendChild(title);
-        notification.appendChild(versionText);
-        notification.appendChild(updateButton);
-        document.body.appendChild(notification);
-    }
-
-    function performUpdate(newVersion, newUpdated, currentDraft) {
-        console.log(`Performing update to version: ${newVersion}`);
-        localStorage.setItem("appVersion", newVersion);
-        localStorage.setItem("appUpdated", newUpdated);
-        localStorage.setItem("updateApproved", "true");
-        sessionStorage.setItem("updateVersion", newVersion);
-    
-        if (currentDraft) saveDraft(currentDraft);
-    
-        // Clear all caches
-        caches.keys()
-            .then(keys => Promise.all(keys.map(key => caches.delete(key))))
-            .then(() => {
-                // Notify service worker to update cache
-                if (navigator.serviceWorker.controller) {
-                    return new Promise((resolve, reject) => {
-                        const messageChannel = new MessageChannel();
-                        messageChannel.port1.onmessage = (event) => {
-                            if (event.data.status === 'success') resolve();
-                            else reject(new Error(event.data.error));
-                        };
-                        navigator.serviceWorker.controller.postMessage(
-                            { type: 'UPDATE_CACHE' },
-                            [messageChannel.port2]
-                        );
-                    }).then(() => {
-                        console.log("Cache update triggered successfully");
-                        // No SKIP_WAITING here, let the user trigger the reload
-                    });
-                }
-            })
-            .then(() => {
-                // Set flag and reload only after cache is updated
-                sessionStorage.setItem("justUpdated", "true");
-                localStorage.removeItem("updateApproved");
-                localStorage.removeItem("updatePending");
-                window.location.reload();
-            })
-            .catch(err => {
-                console.error("Update failed:", err);
-                throttledPlaySound('/sounds/error.ogg');
-                showCustomPopup(
-                    texts.updateFailedTitle,
-                    texts.updateFailedMessage,
-                    texts.updateFailedConfirm,
-                    () => {},
-                    false
-                );
-            });
-    }
-
-    function showUpdateConfirmation() {
-        const updatedVersion = sessionStorage.getItem("updateVersion");
-        if (!updatedVersion || updatedVersion !== APP_VERSION) return;
-    
-        showCustomPopup(
-            texts.whatsNewTitle ? texts.whatsNewTitle.replace("{version}", APP_VERSION) : `What's New in v${APP_VERSION}`,
-            whatsNew,
-            texts.okButton || "OK",
-            () => {
-                sessionStorage.removeItem("updateVersion");
-                if (!hasSeenVolumeNotification) {
-                    setTimeout(() => showVolumeNotification(), 5000);
-                }
-            },
-            false // No cancel button
-        );
-    }
-
-    // Initial update check and interval
-    if (!sessionStorage.getItem("justUpdated")) {
-        checkForUpdates();
-    } else {
-        showUpdateConfirmation();
-        sessionStorage.removeItem("justUpdated");
-    }
-    setInterval(() => {
-        if (!sessionStorage.getItem("justUpdated")) checkForUpdates();
-    }, 5 * 60 * 1000);
-
-    // Listen for service worker update trigger
-    window.addEventListener('checkForUpdates', () => {
-        console.log("Custom event 'checkForUpdates' triggered");
-        checkForUpdates();
-    });
 
     function updateOnlineStatus() {
         const existingStatus = document.querySelector(".online-status");
@@ -2199,10 +2112,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     window.addEventListener("online", () => {
         updateOnlineStatus();
-        setTimeout(() => {
-            if (!sessionStorage.getItem("justUpdated")) checkForUpdates(false);
-            debouncedRenderPosts();
-        }, 1000);
+        setTimeout(debouncedRenderPosts, 1000);
     });
     window.addEventListener("offline", () => {
         updateOnlineStatus();

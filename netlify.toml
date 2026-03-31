@@ -1,54 +1,61 @@
-# Default: Cache everything for a long time
+# HTML — always fresh
 [[headers]]
-  for = "/*"
+  for = "/*.html"
   [headers.values]
-    Cache-Control = "public, max-age=31536000, immutable"
+    Cache-Control = "no-cache, no-store, must-revalidate"
 
-# Cache OGG files for a longer duration
-[[headers]]
-  for = "*.ogg"
-  [headers.values]
-    Cache-Control = "public, max-age=31536000, immutable"
-    Content-Type = "audio/ogg"
-
-# No caching for service worker
+# Service worker — always fresh
 [[headers]]
   for = "/service-worker.js"
   [headers.values]
     Cache-Control = "no-cache, no-store, must-revalidate"
 
-# Fresh manifest for update checks
+# Manifest — always fresh (for update detection)
 [[headers]]
   for = "/manifest.json"
   [headers.values]
     Cache-Control = "no-cache, no-store, must-revalidate"
     Content-Type = "application/manifest+json; charset=utf-8"
 
-# Fresh index.html to ensure latest script.js loads
+# JS — revalidate
 [[headers]]
-  for = "/index.html"
-  [headers.values]
-    Cache-Control = "no-cache, no-store, must-revalidate"
-
-# Revalidate scripts & styles
-[[headers]]
-  for = "/script.js"
+  for = "*.js"
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
 
+# CSS — revalidate
 [[headers]]
-  for = "/styles.css"
+  for = "*.css"
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
 
-[[headers]]
-  for = "/custom.css"
-  [headers.values]
-    Cache-Control = "public, max-age=0, must-revalidate"
-
-# Fresh languages.json
+# Languages — revalidate
 [[headers]]
   for = "/languages.json"
   [headers.values]
     Cache-Control = "public, max-age=0, must-revalidate"
 
+# Sound files — cache long-term (immutable assets)
+[[headers]]
+  for = "/sounds/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+    Content-Type = "audio/ogg"
+
+# Icons — cache long-term
+[[headers]]
+  for = "/icon-*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Screenshots — cache long-term
+[[headers]]
+  for = "/screenshots/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Confetti library — cache long-term (vendor code)
+[[headers]]
+  for = "/confetti.js"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
