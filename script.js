@@ -630,6 +630,429 @@ document.addEventListener("DOMContentLoaded", async () => {
         renderPosts();
     }
 
+    // ═══════════════════════════════════════════════
+    // TIER 1 + TIER 3: Power Features
+    // ═══════════════════════════════════════════════
+
+    // ── Smart relative date ("2h ago", "yesterday") ──
+    function timeAgo(timestamp) {
+        const now = new Date();
+        const then = new Date(timestamp);
+        const seconds = Math.floor((now - then) / 1000);
+
+        if (seconds < 60) return 'just now';
+        if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+        if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+        if (seconds < 172800) return 'yesterday';
+        if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
+        if (seconds < 2592000) return `${Math.floor(seconds / 604800)}w ago`;
+
+        // Fallback to formatted date
+        return then.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    }
+
+    // ── Reading time estimate ──
+    function getReadingTime(text) {
+        const words = text.trim().split(/\s+/).length;
+        const minutes = Math.ceil(words / 200); // 200 wpm average
+        return minutes < 1 ? '< 1 min read' : `${minutes} min read`;
+    }
+
+    // ── Word count ──
+    function getWordCount(text) {
+        return text.trim().split(/\s+/).filter(w => w.length > 0).length;
+    }
+
+    // ── Writing streak tracker ──
+    function getWritingStreak() {
+        const posts = JSON.parse(localStorage.getItem('posts') || '[]');
+        if (posts.length === 0) return { current: 0, best: 0 };
+
+        // Get unique days with posts
+        const days = new Set();
+        posts.forEach(p => {
+            const d = new Date(p.timestamp);
+            days.add(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`);
+        });
+
+        const sortedDays = [...days].map(d => {
+            const [y, m, dd] = d.split('-').map(Number);
+            return new Date(y, m, dd).getTime();
+        }).sort((a, b) => b - a); // newest first
+
+        let current = 1;
+        let best = 1;
+        let streak = 1;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // Check if today or yesterday has a post for current streak
+        const newest = sortedDays[0];
+        const dayDiff = Math.floor((today.getTime() - newest) / 86400000);
+        if (dayDiff > 1) {
+            current = 0; // streak broken
+        }
+
+        for (let i = 0; i < sortedDays.length - 1; i++) {
+            const diff = Math.floor((sortedDays[i] - sortedDays[i + 1]) / 86400000);
+            if (diff === 1) {
+                streak++;
+                best = Math.max(best, streak);
+                if (i === 0 || (current > 0 && i < sortedDays.length - 1)) current = streak;
+            } else {
+                streak = 1;
+            }
+        }
+
+        // Recalculate current streak properly
+        current = 1;
+        for (let i = 0; i < sortedDays.length - 1; i++) {
+            const diff = Math.floor((sortedDays[i] - sortedDays[i + 1]) / 86400000);
+            if (diff === 1) {
+                current++;
+            } else {
+                break;
+            }
+        }
+
+        // Reset if no post today or yesterday
+        const newestDay = Math.floor((today.getTime() - sortedDays[0]) / 86400000);
+        if (newestDay > 1) current = 0;
+
+        return { current, best: Math.max(best, current) };
+    }
+
+    // ── Generate shareable image from post ──
+    function generatePostImage(post, index) {
+        const { title, content } = extractTitleAndContent(post.text);
+        const cleanTitle = title ? title.replace(/^@/, '') : null;
+        const words = getWordCount(post.text);
+        const readTime = getReadingTime(post.text);
+        const relativeDate = timeAgo(post.timestamp);
+
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const scale = 2; // retina
+        const w = 600;
+        const h = cleanTitle ? 380 : 320;
+        canvas.width = w * scale;
+        canvas.height = h * scale;
+        ctx.scale(scale, scale);
+
+        // Background gradient
+        const grad = ctx.createLinearGradient(0, 0, w, h);
+        grad.addColorStop(0, '#0a0a0f');
+        grad.addColorStop(0.5, '#111118');
+        grad.addColorStop(1, '#0a0a0f');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.roundRect(0, 0, w, h, 20);
+        ctx.fill();
+
+        // Subtle border
+        ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.roundRect(0.5, 0.5, w - 1, h - 1, 20);
+        ctx.stroke();
+
+        // Accent line at top
+        const accentGrad = ctx.createLinearGradient(0, 0, w, 0);
+        accentGrad.addColorStop(0, '#1d9bf0');
+        accentGrad.addColorStop(0.5, '#7c6fff');
+        accentGrad.addColorStop(1, '#f4212e');
+        ctx.fillStyle = accentGrad;
+        ctx.beginPath();
+        ctx.roundRect(20, 0, w - 40, 3, [0, 0, 3, 3]);
+        ctx.fill();
+
+        let y = 40;
+
+        // Title (if exists)
+        if (cleanTitle) {
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            const titleLines = wrapText(ctx, cleanTitle, w - 60);
+            titleLines.forEach(line => {
+                ctx.fillText(line, 30, y);
+                y += 28;
+            });
+            y += 8;
+        }
+
+        // Content
+        ctx.fillStyle = '#b0b3b8';
+        ctx.font = '16px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+        const contentLines = wrapText(ctx, content.replace(/#\w+/g, '').trim(), w - 60, 6); // max 6 lines
+        contentLines.forEach(line => {
+            ctx.fillText(line, 30, y);
+            y += 24;
+        });
+
+        // Divider
+        y = h - 80;
+        ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+        ctx.beginPath();
+        ctx.moveTo(30, y);
+        ctx.lineTo(w - 30, y);
+        ctx.stroke();
+
+        // Meta row
+        y += 24;
+        ctx.fillStyle = '#666';
+        ctx.font = '13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+        ctx.fillText(`${relativeDate}  •  ${words} words  •  ${readTime}`, 30, y);
+
+        // Branding
+        ctx.fillStyle = '#1d9bf0';
+        ctx.font = 'bold 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText('Thoughts ✦', w - 30, y);
+        ctx.textAlign = 'left';
+
+        // Hashtags at bottom
+        const hashtags = (post.text.match(/#\w+/g) || []).slice(0, 3);
+        if (hashtags.length > 0) {
+            y += 24;
+            ctx.fillStyle = '#1d9bf0';
+            ctx.font = '12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.fillText(hashtags.join('  '), 30, y);
+        }
+
+        return canvas;
+    }
+
+    function wrapText(ctx, text, maxWidth, maxLines) {
+        const words = text.split(' ');
+        const lines = [];
+        let currentLine = '';
+
+        for (const word of words) {
+            const testLine = currentLine ? currentLine + ' ' + word : word;
+            if (ctx.measureText(testLine).width > maxWidth && currentLine) {
+                lines.push(currentLine);
+                currentLine = word;
+                if (maxLines && lines.length >= maxLines) {
+                    lines[lines.length - 1] += '...';
+                    return lines;
+                }
+            } else {
+                currentLine = testLine;
+            }
+        }
+        if (currentLine) lines.push(currentLine);
+        return lines;
+    }
+
+    // ── Share as image ──
+    async function sharePostAsImage(post, index) {
+        const canvas = generatePostImage(post, index);
+
+        canvas.toBlob(async (blob) => {
+            if (!blob) {
+                createNotification('Failed to generate image', { background: '#ef4444' });
+                return;
+            }
+
+            const file = new File([blob], 'thought.png', { type: 'image/png' });
+
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                try {
+                    await navigator.share({
+                        files: [file],
+                        title: 'Thoughts',
+                        text: post.text.substring(0, 100)
+                    });
+                    createNotification('Shared as image!', { background: 'rgba(34,197,94,0.9)', color: '#fff' });
+                } catch (err) {
+                    if (err.name !== 'AbortError') {
+                        downloadImage(canvas);
+                    }
+                }
+            } else {
+                downloadImage(canvas);
+            }
+        }, 'image/png');
+    }
+
+    function downloadImage(canvas) {
+        const link = document.createElement('a');
+        link.download = `thought-${Date.now()}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        createNotification('Image saved!', { background: 'rgba(34,197,94,0.9)', color: '#fff' });
+    }
+
+    // ── Share menu (text or image) ──
+    function showShareMenu(post, index, shareBadge) {
+        // Remove existing share menu
+        document.querySelectorAll('.share-menu-popup').forEach(el => el.remove());
+
+        const rect = shareBadge.getBoundingClientRect();
+        const menu = document.createElement('div');
+        menu.className = 'share-menu-popup';
+        Object.assign(menu.style, {
+            position: 'fixed',
+            top: (rect.bottom + 8) + 'px',
+            left: Math.min(rect.left, window.innerWidth - 200) + 'px',
+            background: 'rgba(20, 23, 26, 0.9)',
+            backdropFilter: 'blur(24px) saturate(180%)',
+            WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+            borderRadius: '14px',
+            border: '1px solid rgba(255,255,255,0.1)',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+            zIndex: '99999',
+            overflow: 'hidden',
+            minWidth: '180px',
+            animation: 'menuSlideIn 0.15s ease-out'
+        });
+
+        menu.innerHTML = `
+            <button class="share-menu-item" data-action="text" style="
+                display:flex;align-items:center;gap:10px;width:100%;
+                padding:12px 16px;background:none;border:none;color:#fff;
+                font-size:14px;cursor:pointer;text-align:left;
+            ">
+                <span style="font-size:18px;">📝</span>
+                <span>Share as Text</span>
+            </button>
+            <button class="share-menu-item" data-action="image" style="
+                display:flex;align-items:center;gap:10px;width:100%;
+                padding:12px 16px;background:none;border:none;color:#fff;
+                font-size:14px;cursor:pointer;text-align:left;
+                border-top:1px solid rgba(255,255,255,0.06);
+            ">
+                <span style="font-size:18px;">🖼️</span>
+                <span>Share as Image</span>
+            </button>
+            <button class="share-menu-item" data-action="copy" style="
+                display:flex;align-items:center;gap:10px;width:100%;
+                padding:12px 16px;background:none;border:none;color:#fff;
+                font-size:14px;cursor:pointer;text-align:left;
+                border-top:1px solid rgba(255,255,255,0.06);
+            ">
+                <span style="font-size:18px;">📋</span>
+                <span>Copy to Clipboard</span>
+            </button>
+        `;
+
+        document.body.appendChild(menu);
+
+        // Close on outside click
+        const closeMenu = (e) => {
+            if (!menu.contains(e.target) && e.target !== shareBadge) {
+                menu.remove();
+                document.removeEventListener('click', closeMenu);
+            }
+        };
+        setTimeout(() => document.addEventListener('click', closeMenu), 10);
+
+        menu.querySelector('[data-action="text"]').onclick = () => {
+            menu.remove();
+            sharePostAsText(post);
+        };
+
+        menu.querySelector('[data-action="image"]').onclick = () => {
+            menu.remove();
+            sharePostAsImage(post, index);
+        };
+
+        menu.querySelector('[data-action="copy"]').onclick = () => {
+            menu.remove();
+            const { title, content } = extractTitleAndContent(post.text);
+            const cleanTitle = title ? title.replace(/^@/, '') : '';
+            const text = cleanTitle ? `${cleanTitle}\n${content}` : content;
+            navigator.clipboard.writeText(text).then(() => {
+                createNotification('Copied!', { background: 'rgba(34,197,94,0.9)', color: '#fff', duration: 1500 });
+            });
+        };
+    }
+
+    function sharePostAsText(post) {
+        const { title, content } = extractTitleAndContent(post.text);
+        const cleanTitle = title ? title.replace(/^@/, '') : '';
+        const shareTextContent = cleanTitle ? `*${cleanTitle}*\n${content}` : content;
+        const shareText = `${shareTextContent}\n\n— from Thoughts`;
+
+        if (navigator.share) {
+            navigator.share({ title: 'Thoughts', text: shareText })
+                .then(() => createNotification('Shared!', { background: 'rgba(34,197,94,0.9)', color: '#fff' }))
+                .catch(() => {});
+        } else {
+            navigator.clipboard.writeText(shareText).then(() => {
+                createNotification('Copied to clipboard!', { background: 'rgba(34,197,94,0.9)', color: '#fff' });
+            });
+        }
+    }
+
+    // ── Input section live stats ──
+    function updateInputStats() {
+        const text = elements.inputWrapper.value;
+        let statsEl = document.getElementById('input-live-stats');
+        if (!statsEl) {
+            statsEl = document.createElement('div');
+            statsEl.id = 'input-live-stats';
+            Object.assign(statsEl.style, {
+                display: 'flex', gap: '12px', padding: '8px 4px 0',
+                fontSize: '12px', color: '#666',
+                fontFamily: 'system-ui, sans-serif',
+                transition: 'opacity 0.2s ease'
+            });
+            elements.inputWrapper.parentElement.appendChild(statsEl);
+        }
+
+        if (text.trim().length === 0) {
+            statsEl.style.opacity = '0';
+            return;
+        }
+
+        statsEl.style.opacity = '1';
+        const words = getWordCount(text);
+        const readTime = getReadingTime(text);
+        statsEl.innerHTML = `
+            <span>${words} words</span>
+            <span style="color:#444">•</span>
+            <span>${readTime}</span>
+            <span style="color:#444">•</span>
+            <span>${text.length} chars</span>
+        `;
+    }
+
+    // ── Streak badge in header ──
+    function renderStreakBadge() {
+        const streak = getWritingStreak();
+        if (streak.current === 0 && streak.best === 0) return;
+
+        let badge = document.getElementById('streak-badge');
+        if (!badge) {
+            badge = document.createElement('span');
+            badge.id = 'streak-badge';
+            Object.assign(badge.style, {
+                fontSize: '13px', color: '#f39c12', marginLeft: '10px',
+                fontWeight: '600', cursor: 'default', transition: 'all 0.3s ease'
+            });
+            const header = document.querySelector('header h1');
+            if (header) header.parentElement.appendChild(badge);
+        }
+
+        if (streak.current > 0) {
+            badge.textContent = `🔥 ${streak.current}d`;
+            badge.title = `Writing streak: ${streak.current} day${streak.current > 1 ? 's' : ''} (best: ${streak.best})`;
+        } else {
+            badge.textContent = `💤`;
+            badge.title = `Streak broken. Best was ${streak.best} days.`;
+        }
+    }
+
+    // ── Keyboard shortcut: Ctrl+N = focus input ──
+    document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+            e.preventDefault();
+            elements.inputWrapper.focus();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    });
+
     // Utility Functions
     function highlightHashtags(text) {
         const urlRegex = /(https?:\/\/[^\s]+)/g;
@@ -1168,6 +1591,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
             renderHashtagList(posts);
             elements.footer.classList.remove("hidden");
+            renderStreakBadge(); // Tier 3: writing streak
         } catch (err) {
             console.error("Failed to render posts:", err);
             elements.postContainer.innerHTML = `<div class="no-posts">Error loading posts</div>`;
@@ -1562,17 +1986,21 @@ document.addEventListener("DOMContentLoaded", async () => {
     function renderPost(post, index, isPinned) {
         const [date, time] = post.timestamp.split(", ");
         const { title, content } = extractTitleAndContent(post.text);
+        const relativeDate = timeAgo(post.timestamp);
+        const readTime = getReadingTime(post.text);
+        const wordCount = getWordCount(post.text);
+
         const postElement = document.createElement("div");
         postElement.className = `post ${editIndex === index ? "editing" : ""} ${isPinned ? "pinned" : ""}`;
         postElement.innerHTML = `
             ${title ? `<div class="post-title">${title}</div>` : ""}
             <div class="post-content ${title ? "with-title" : ""}">${highlightHashtags(content)}</div>
             <div class="post-meta">
-                <span class="meta-badge">${date}</span>
-                <span class="meta-badge">${time}</span>
-                <span class="meta-badge">${post.text.length} chars</span>
+                <span class="meta-badge" title="${date} at ${time}">${relativeDate}</span>
+                <span class="meta-badge">${wordCount} words</span>
+                <span class="meta-badge">${readTime}</span>
                 ${isPinned ? '<span class="meta-badge">Pinned</span>' : ''}
-                <span class="meta-badge share-post" data-index="${index}" style="cursor: pointer; ${editIndex === index ? 'opacity: 0.5; pointer-events: none;' : ''}">${texts.shareButton || "Share"}</span>
+                <span class="meta-badge share-post" data-index="${index}" style="cursor: pointer; ${editIndex === index ? 'opacity: 0.5; pointer-events: none;' : ''}">Share ▾</span>
             </div>
             <div class="post-actions">
                 <button class="edit-post" data-index="${index}" ${editIndex === index ? "disabled" : ""} style="-webkit-tap-highlight-color: transparent;">
@@ -1652,66 +2080,15 @@ document.addEventListener("DOMContentLoaded", async () => {
             togglePin(index);
         });
 
-        // Updated share button event listener
+        // Share button — shows menu with Text / Image / Copy options
         postElement.querySelector(".share-post").addEventListener("click", function () {
             throttledPlaySound('/sounds/click.ogg')
             if (!this.disabled) {
                 const posts = JSON.parse(localStorage.getItem("posts") || "[]");
                 const postToShare = posts[index];
-                const { title, content } = extractTitleAndContent(postToShare.text);
-                // Remove '@' from title if present
-                const cleanTitle = title ? title.replace(/^@/, "") : "";
-                // Construct share text with title (if any) and content
-                const shareTextContent = cleanTitle ? `*${cleanTitle}*\n${content}` : content;
-                const shareText = `${shareTextContent}\n\nPosted on: ${postToShare.timestamp} - Written in Thoughts`;
-    
-                const shareData = {
-                    title: texts.appName || "Thoughts",
-                    text: shareText
-                };
-    
-                console.log("Sharing data:", shareData); // Debug log
-    
-                if (navigator.share) {
-                    navigator.share(shareData)
-                        .then(() => {
-                            console.log("Post shared successfully");
-                            createNotification(texts.shareSuccessMessage || "Post shared!", {
-                                background: "rgba(34, 197, 94, 0.9)",
-                                color: "#fff",
-                                duration: 1500
-                            });
-                        })
-                        .catch(err => {
-                            console.warn("Share failed:", err.message);
-                            if (err.name !== "AbortError") { // Ignore user cancellation
-                                fallbackShare(shareText);
-                            }
-                        });
-                } else {
-                    fallbackShare(shareText);
-                }
+                showShareMenu(postToShare, index, this);
             }
         });
-    }
-
-    function fallbackShare(text) {
-        navigator.clipboard.writeText(text)
-            .then(() => {
-                createNotification(texts.shareFallbackMessage || "Post copied to clipboard!", {
-                    background: "rgba(34, 197, 94, 0.9)",
-                    color: "#fff",
-                    duration: 2000
-                });
-            })
-            .catch(err => {
-                throttledPlaySound('/sounds/error.ogg');
-                console.error("Clipboard copy failed:", err);
-                createNotification(texts.shareErrorMessage || "Failed to copy post.", {
-                    background: "#ef4444",
-                    duration: 2000
-                });
-            });
     }
 
     // Event Listeners
@@ -2130,7 +2507,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         throttledSaveDraft(this.value);
         adjustHeight();
         elements.charCount.textContent = (texts.charCount || "{count} characters").replace("{count}", this.value.length).replace("{count}", currentCharLimit);
-        updateEditState(); // Update button visibility based on input content
+        updateEditState();
+        updateInputStats(); // Live word count + reading time
         
         if (simpleHash(this.value) === SECRET_CODE_HASH && !isGodMode) {
             showGodModeConfirmation(() => {
