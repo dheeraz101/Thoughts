@@ -1,25 +1,43 @@
 // Version info
-const APP_VERSION = "2.1.0";
+const APP_VERSION = "2.2.0";
+const APP_BUILD_NUMBER = "220";
+const APP_BUILD_DATE = "2026-06-01";
+const INITIAL_RENDER_LIMIT = 30;
+const RENDER_STEP = 30;
+const SEARCH_DEBOUNCE_MS = 200;
+const UPDATE_DISMISS_KEY = "dismissedUpdateVersion";
+const SHARE_IMAGE_LIMITS = {
+    titleChars: 60,
+    contentChars: 320,
+    maxHashtags: 3
+};
 
 const whatsNew = `
-    <strong>Thoughts v2.1.0</strong><br>
+    <strong>Thoughts v2.1.2</strong><br>
     🖼️ <strong>Share as Image</strong> — turn any note into a beautiful shareable card<br>
     ⏰ Smart dates — "2h ago", "yesterday" instead of raw timestamps<br>
     📖 Reading time & word count on every note<br>
-    🔥 Writing streak tracker<br>
     📊 Live stats as you type<br>
     ✨ Smooth animations & glass effects<br>
-    🔧 Fixed update system & PWA reliability<br><br>
+    🔧 Fixed update system, PWA reliability & safety fixes<br><br>
     <small>Always back up your notes via Export at the bottom.</small>
 `;
 
-// Initialize the AudioContext
-const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+const FINAL_RELEASE_CHANGELOG = `
+    <strong>Thoughts v2.2.0</strong><br>
+    Final public release: stability and performance update<br>
+    Faster notes feed with smarter rendering and Load More<br>
+    Safe markdown support in notes<br>
+    Share-as-image improved with content limits for clean cards<br>
+    God Mode moved to hidden build-tap unlock (mobile friendly)<br>
+    Update system upgraded with better version and cache handling<br><br>
+    <small>Always back up your notes via Export at the bottom.</small>
+`;
 
-// Create a GainNode for volume control
-const gainNode = audioContext.createGain();
-gainNode.gain.value = 1.0; // Set to maximum volume (range: 0.0 to 1.0)
-gainNode.connect(audioContext.destination); // Connect to output
+// Lazy audio setup: keeps sound optional and avoids forcing loud defaults.
+let audioContext = null;
+let gainNode = null;
+let criticalSoundsPreloaded = false;
 
 // Define all sound files used in the app
 const soundFiles = [
@@ -46,9 +64,11 @@ const soundBuffers = new Map();
 async function preloadSound(src) {
     if (soundBuffers.has(src)) return; // Already preloaded
     try {
+        const ctx = ensureAudioReady();
+        if (!ctx) return;
         const response = await fetch(src);
         const arrayBuffer = await response.arrayBuffer();
-        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+        const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
         soundBuffers.set(src, audioBuffer);
         console.log(`Preloaded sound: ${src}`);
     } catch (err) {
@@ -56,34 +76,36 @@ async function preloadSound(src) {
     }
 }
 
-// Unlock audio context and preload critical sounds on page load
-document.addEventListener("DOMContentLoaded", () => {
-    // Unlock audio context on first touch/click for mobile
-    const unlockAudio = () => {
-        if (audioContext.state === "suspended") {
-            audioContext.resume().then(() => {
-                console.log("Audio context resumed");
-                // Preload critical sounds after unlocking
-                criticalSounds.forEach(src => preloadSound(src));
-            }).catch(err => console.warn("Audio resume failed:", err));
-        }
-        document.removeEventListener("touchstart", unlockAudio);
-        document.removeEventListener("click", unlockAudio);
-    };
-    document.addEventListener("touchstart", unlockAudio, { once: true });
-    document.addEventListener("click", unlockAudio, { once: true }); // Fallback for non-touch devices
-});
+function ensureAudioReady() {
+    if (!(window.AudioContext || window.webkitAudioContext)) return null;
+    if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        gainNode = audioContext.createGain();
+        gainNode.gain.value = 0.35;
+        gainNode.connect(audioContext.destination);
+    }
+    return audioContext;
+}
 
 // Play sound using Web Audio API with full volume
 const throttledPlaySound = throttle(async (src) => {
+    if (!isSoundEnabled) return;
+    const ctx = ensureAudioReady();
+    if (!ctx) return;
+
     if (!soundFiles.includes(src)) {
         console.warn(`Sound file ${src} not found in soundFiles array`);
         return;
     }
 
     // Ensure audio context is running
-    if (audioContext.state === "suspended") {
-        await audioContext.resume();
+    if (ctx.state === "suspended") {
+        await ctx.resume();
+    }
+
+    if (!criticalSoundsPreloaded) {
+        criticalSoundsPreloaded = true;
+        await Promise.all(criticalSounds.map(preloadSound));
     }
 
     // Lazy-load sound if not preloaded
@@ -98,7 +120,7 @@ const throttledPlaySound = throttle(async (src) => {
     }
 
     // Create and play the sound with full volume
-    const source = audioContext.createBufferSource();
+    const source = ctx.createBufferSource();
     source.buffer = soundBuffers.get(src);
     source.connect(gainNode); // Connect to gainNode instead of directly to destination
     source.start(0);
@@ -114,6 +136,7 @@ document.querySelectorAll("button").forEach(button => {
 
 // Optional: Function to adjust volume dynamically if needed
 function setVolume(level) {
+    if (!gainNode) return;
     gainNode.gain.value = Math.max(0, Math.min(1, level)); // Clamp between 0 and 1
     console.log(`Volume set to: ${gainNode.gain.value}`);
 }
@@ -157,19 +180,22 @@ function checkForUpdates() {
         .then(res => res.json())
         .then(manifest => {
             const currentVersion = localStorage.getItem('appVersion') || APP_VERSION;
+            const dismissedVersion = localStorage.getItem(UPDATE_DISMISS_KEY);
             if (manifest.version !== currentVersion) {
-                showUpdateNotification(manifest.version);
+                if (dismissedVersion === manifest.version) return;
+                showUpdateNotification(manifest.version, getCurrentDraftForUpdate, saveDraftForUpdate);
             }
         })
         .catch(() => {});
 }
 
-function showUpdateNotification(newVersion) {
+function showUpdateNotification(newVersion, getDraftFn, saveDraftFn) {
     if (document.querySelector('.update-notification')) return;
 
     const isMobile = window.innerWidth <= 768;
     const notification = document.createElement('div');
     notification.className = 'update-notification';
+
     Object.assign(notification.style, {
         position: 'fixed',
         bottom: '20px',
@@ -196,14 +222,26 @@ function showUpdateNotification(newVersion) {
 
     const title = document.createElement('p');
     title.textContent = texts.newUpdateTitle || 'Update Available';
-    Object.assign(title.style, { fontSize: '17px', fontWeight: '700', margin: '0', lineHeight: '1.3' });
+    Object.assign(title.style, {
+        fontSize: '17px',
+        fontWeight: '700',
+        margin: '0',
+        lineHeight: '1.3'
+    });
 
     const versionText = document.createElement('p');
     versionText.textContent = `Version ${newVersion}`;
-    Object.assign(versionText.style, { fontSize: '14px', color: '#aaa', margin: '0' });
+    Object.assign(versionText.style, {
+        fontSize: '14px',
+        color: '#aaa',
+        margin: '0'
+    });
 
     const updateButton = document.createElement('button');
     updateButton.textContent = texts.updateNowButton || 'Update Now';
+    const laterButton = document.createElement('button');
+    laterButton.textContent = texts.cancelButton || 'Later';
+
     Object.assign(updateButton.style, {
         background: '#34c759',
         color: '#fff',
@@ -216,52 +254,77 @@ function showUpdateNotification(newVersion) {
         width: '100%',
         transition: 'background 0.2s ease'
     });
+    Object.assign(laterButton.style, {
+        background: 'transparent',
+        color: '#c4c4c4',
+        border: '1px solid rgba(255,255,255,0.2)',
+        padding: '10px 0',
+        borderRadius: '12px',
+        fontSize: '14px',
+        fontWeight: '500',
+        cursor: 'pointer',
+        width: '100%'
+    });
+
     updateButton.onmouseover = () => updateButton.style.background = '#2db84d';
     updateButton.onmouseout = () => updateButton.style.background = '#34c759';
 
     updateButton.addEventListener('click', () => {
         throttledPlaySound('/sounds/click.ogg');
-        const currentDraft = elements.inputWrapper.value.trim();
-        if (currentDraft) saveDraft(currentDraft);
-        performUpdate(newVersion);
+        const currentDraft = (typeof getDraftFn === "function" ? getDraftFn() : "") || "";
+        if (currentDraft && typeof saveDraftFn === "function") saveDraftFn(currentDraft);
+        localStorage.removeItem(UPDATE_DISMISS_KEY);
+        performUpdate(newVersion, getDraftFn, saveDraftFn, notification);
+    });
+    laterButton.addEventListener('click', () => {
+        throttledPlaySound('/sounds/click.ogg');
+        localStorage.setItem(UPDATE_DISMISS_KEY, newVersion);
+        notification.remove();
     });
 
     notification.appendChild(title);
     notification.appendChild(versionText);
     notification.appendChild(updateButton);
+    notification.appendChild(laterButton);
     document.body.appendChild(notification);
 }
 
-async function performUpdate(newVersion) {
+async function performUpdate(newVersion, getDraftFn, saveDraftFn, notificationEl) {
     console.log(`Updating to version ${newVersion}...`);
 
-    // 1. Save new version
-    localStorage.setItem('appVersion', newVersion);
-
-    // 2. Tell SW to skip waiting (takes over immediately)
     try {
+        const currentDraft = (typeof getDraftFn === "function" ? getDraftFn() : "") || "";
+        if (currentDraft && typeof saveDraftFn === "function") saveDraftFn(currentDraft);
+
         const reg = await navigator.serviceWorker.ready;
+        await reg.update();
+
         if (reg.waiting) {
             reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+        } else {
+            const started = Date.now();
+            while (!reg.waiting && Date.now() - started < 4000) {
+                await new Promise(resolve => setTimeout(resolve, 250));
+                await reg.update();
+            }
+            if (reg.waiting) reg.waiting.postMessage({ type: 'SKIP_WAITING' });
         }
-    } catch (e) {
-        console.warn('SW skipWaiting failed:', e);
-    }
 
-    // 3. Delete old caches (but NOT the new one)
-    try {
         const keys = await caches.keys();
         await Promise.all(
             keys
                 .filter(k => k !== `thoughts-v${newVersion}` && k.startsWith('thoughts-v'))
                 .map(k => caches.delete(k))
         );
-    } catch (e) {
-        console.warn('Cache cleanup failed:', e);
-    }
 
-    // 4. Reload — the new SW will serve fresh assets
-    window.location.reload();
+        localStorage.setItem('appVersion', newVersion);
+        if (notificationEl) notificationEl.remove();
+        window.location.reload();
+
+    } catch (e) {
+        console.warn('Update failed:', e);
+        alert("Update failed. Please refresh manually.");
+    }
 }
 
 // Check for updates on load + every 30 minutes
@@ -279,9 +342,18 @@ let editIndex = null;
 let updateEditState;
 let originalLanguageData = {};
 const DEFAULT_CHAR_LIMIT = 500;
+const GOD_MODE_TAP_TARGET = 7;
 let currentCharLimit;
 let hasSeenVolumeNotification = localStorage.getItem("hasSeenVolumeNotification") === "true";
 let isZoomEnabled = localStorage.getItem("isZoomEnabled") === "true" || false;
+let isSoundEnabled = localStorage.getItem("isSoundEnabled") === "true";
+let getCurrentDraftForUpdate = () => {
+    const input = document.getElementById("public-input");
+    return input ? input.value.trim() : "";
+};
+let saveDraftForUpdate = (draft) => {
+    localStorage.setItem("draftNote", draft || "");
+};
 
 // Simple hash function (djb2 variant)
 function simpleHash(str) {
@@ -319,6 +391,17 @@ function debounce(func, wait) {
         clearTimeout(timeout);
         timeout = setTimeout(() => func.apply(this, args), wait);
     };
+}
+
+// Escape user-written text before putting it inside innerHTML
+function escapeHTML(str = "") {
+    return String(str).replace(/[&<>"']/g, char => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#039;"
+    }[char]));
 }
 
 // Function to detect if the user is on a PC
@@ -380,6 +463,10 @@ function showSuccess(message) {
     throttledPlaySound('/sounds/success.ogg');
     createNotification(message, { duration: 4500 });
 }
+
+function getBuildInfoLabel() {
+    return `Build ${APP_BUILD_NUMBER} • ${APP_BUILD_DATE}`;
+}
 function showLanguageChangeNotification(language, showWelcome = false) {
     const langName = languageData[language].name || language;
     let message;
@@ -423,10 +510,25 @@ function toRoman(num) {
 function updateHeaderTitle() {
     const headerTitle = document.querySelector("header h1");
     if (headerTitle) {
-        const posts = JSON.parse(localStorage.getItem("posts") || "[]");
+        let posts = normalizePosts(JSON.parse(localStorage.getItem("posts") || "[]"));
+        localStorage.setItem("posts", JSON.stringify(posts));
         const postCount = posts.length;
         headerTitle.textContent = `${texts.appName} ${toRoman(postCount)}`;
     }
+}
+
+function normalizePosts(posts) {
+    return posts.map(post => {
+        const parsedDate = new Date(post.timestamp);
+
+        return {
+            text: String(post.text || ""),
+            timestamp: isNaN(parsedDate.getTime())
+                ? new Date().toISOString()
+                : parsedDate.toISOString(),
+            pinned: Boolean(post.pinned)
+        };
+    });
 }
 
 // Async fetch for languages
@@ -462,7 +564,8 @@ async function fetchLanguages() {
         }
 
         texts = languageData[selectedLanguage];
-        currentCharLimit = isGodMode ? (texts.charLimit * 2 - 1) : texts.charLimit;
+        const baseCharLimit = Number(texts.charLimit) || DEFAULT_CHAR_LIMIT;
+        currentCharLimit = isGodMode ? baseCharLimit * 2 : baseCharLimit;
         texts.charCount = `{count}/${currentCharLimit}`;
 
         const splashTitle = document.getElementById("splash-title");
@@ -475,7 +578,8 @@ async function fetchLanguages() {
         selectedLanguage = "english";
         localStorage.setItem("language", "english");
         texts = languageData[selectedLanguage];
-        currentCharLimit = isGodMode ? (texts.charLimit * 2 - 1) : texts.charLimit;
+        const baseCharLimit = Number(texts.charLimit) || DEFAULT_CHAR_LIMIT;
+        currentCharLimit = isGodMode ? baseCharLimit * 2 : baseCharLimit;
     }
     // Backup to service worker cache asynchronously
     saveLanguagesToCache();
@@ -611,6 +715,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     let actionContext = null;
     let activeHashtag = null;
+    let visiblePostCount = INITIAL_RENDER_LIMIT;
+    let lastRenderFilter = "";
+    let lastRenderHashtag = null;
     let lastSavedDraft = localStorage.getItem("draftNote") || "";
     let isSavingOnClose = false;
 
@@ -619,13 +726,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Ensure God Mode state is applied correctly on init
     isGodMode = localStorage.getItem("isGodMode") === "true";
-    if (isGodMode) {
-        currentCharLimit = texts.charLimit * 2;
-        texts.charCount = `{count}/${currentCharLimit}`;
-        applyLanguage(selectedLanguage);
-        renderPosts();
-    } else {
-        currentCharLimit = texts.charLimit;
+    {
+        const baseCharLimit = Number(texts.charLimit) || DEFAULT_CHAR_LIMIT;
+        currentCharLimit = isGodMode ? baseCharLimit * 2 : baseCharLimit;
         texts.charCount = `{count}/${currentCharLimit}`;
         applyLanguage(selectedLanguage);
         renderPosts();
@@ -652,6 +755,18 @@ document.addEventListener("DOMContentLoaded", async () => {
         return then.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
     }
 
+    function formatPostDate(timestamp) {
+        const parsed = new Date(timestamp);
+        if (isNaN(parsed.getTime())) return "";
+        return parsed.toLocaleString(undefined, {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit"
+        });
+    }
+
     // ── Reading time estimate ──
     function getReadingTime(text) {
         const words = text.trim().split(/\s+/).length;
@@ -664,69 +779,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         return text.trim().split(/\s+/).filter(w => w.length > 0).length;
     }
 
-    // ── Writing streak tracker ──
-    function getWritingStreak() {
-        const posts = JSON.parse(localStorage.getItem('posts') || '[]');
-        if (posts.length === 0) return { current: 0, best: 0 };
-
-        // Get unique days with posts
-        const days = new Set();
-        posts.forEach(p => {
-            const d = new Date(p.timestamp);
-            days.add(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`);
-        });
-
-        const sortedDays = [...days].map(d => {
-            const [y, m, dd] = d.split('-').map(Number);
-            return new Date(y, m, dd).getTime();
-        }).sort((a, b) => b - a); // newest first
-
-        let current = 1;
-        let best = 1;
-        let streak = 1;
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        // Check if today or yesterday has a post for current streak
-        const newest = sortedDays[0];
-        const dayDiff = Math.floor((today.getTime() - newest) / 86400000);
-        if (dayDiff > 1) {
-            current = 0; // streak broken
-        }
-
-        for (let i = 0; i < sortedDays.length - 1; i++) {
-            const diff = Math.floor((sortedDays[i] - sortedDays[i + 1]) / 86400000);
-            if (diff === 1) {
-                streak++;
-                best = Math.max(best, streak);
-                if (i === 0 || (current > 0 && i < sortedDays.length - 1)) current = streak;
-            } else {
-                streak = 1;
-            }
-        }
-
-        // Recalculate current streak properly
-        current = 1;
-        for (let i = 0; i < sortedDays.length - 1; i++) {
-            const diff = Math.floor((sortedDays[i] - sortedDays[i + 1]) / 86400000);
-            if (diff === 1) {
-                current++;
-            } else {
-                break;
-            }
-        }
-
-        // Reset if no post today or yesterday
-        const newestDay = Math.floor((today.getTime() - sortedDays[0]) / 86400000);
-        if (newestDay > 1) current = 0;
-
-        return { current, best: Math.max(best, current) };
-    }
+    // Writing streak feature removed
 
     // ── Generate shareable image from post ──
     function generatePostImage(post, index) {
         const { title, content } = extractTitleAndContent(post.text);
-        const cleanTitle = title ? title.replace(/^@/, '') : null;
+        const cleanTitle = title ? title.replace(/^@/, '').slice(0, SHARE_IMAGE_LIMITS.titleChars) : null;
+        const cleanContent = (content || "").replace(/#\w+/g, '').trim().slice(0, SHARE_IMAGE_LIMITS.contentChars);
         const words = getWordCount(post.text);
         const readTime = getReadingTime(post.text);
         const relativeDate = timeAgo(post.timestamp);
@@ -784,7 +843,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         // Content
         ctx.fillStyle = '#b0b3b8';
         ctx.font = '16px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-        const contentLines = wrapText(ctx, content.replace(/#\w+/g, '').trim(), w - 60, 6); // max 6 lines
+        const contentLines = wrapText(ctx, cleanContent, w - 60, 6); // max 6 lines
         contentLines.forEach(line => {
             ctx.fillText(line, 30, y);
             y += 24;
@@ -812,7 +871,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         ctx.textAlign = 'left';
 
         // Hashtags at bottom
-        const hashtags = (post.text.match(/#\w+/g) || []).slice(0, 3);
+        const hashtags = (post.text.match(/#\w+/g) || []).slice(0, SHARE_IMAGE_LIMITS.maxHashtags);
         if (hashtags.length > 0) {
             y += 24;
             ctx.fillStyle = '#1d9bf0';
@@ -848,6 +907,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     // ── Share as image ──
     async function sharePostAsImage(post, index) {
         const canvas = generatePostImage(post, index);
+        if (!canvas || !(canvas instanceof HTMLCanvasElement)) {
+            createNotification('Image generator unavailable', { background: '#ef4444' });
+            return;
+        }
 
         canvas.toBlob(async (blob) => {
             if (!blob) {
@@ -1019,31 +1082,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         `;
     }
 
-    // ── Streak badge in header ──
-    function renderStreakBadge() {
-        const streak = getWritingStreak();
-        if (streak.current === 0 && streak.best === 0) return;
-
-        let badge = document.getElementById('streak-badge');
-        if (!badge) {
-            badge = document.createElement('span');
-            badge.id = 'streak-badge';
-            Object.assign(badge.style, {
-                fontSize: '13px', color: '#f39c12', marginLeft: '10px',
-                fontWeight: '600', cursor: 'default', transition: 'all 0.3s ease'
-            });
-            const header = document.querySelector('header h1');
-            if (header) header.parentElement.appendChild(badge);
-        }
-
-        if (streak.current > 0) {
-            badge.textContent = `🔥 ${streak.current}d`;
-            badge.title = `Writing streak: ${streak.current} day${streak.current > 1 ? 's' : ''} (best: ${streak.best})`;
-        } else {
-            badge.textContent = `💤`;
-            badge.title = `Streak broken. Best was ${streak.best} days.`;
-        }
-    }
+    // Streak badge removed
 
     // ── Keyboard shortcut: Ctrl+N = focus input ──
     document.addEventListener('keydown', (e) => {
@@ -1052,15 +1091,44 @@ document.addEventListener("DOMContentLoaded", async () => {
             elements.inputWrapper.focus();
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
+        if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'g' && !isGodMode) {
+            e.preventDefault();
+            showGodModeConfirmation(() => activateGodMode());
+        }
     });
 
     // Utility Functions
-    function highlightHashtags(text) {
-        const urlRegex = /(https?:\/\/[^\s]+)/g;
-        return text
-            .replace(urlRegex, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>')
-            .replace(/(\s|^)(#\w+)/g, '$1<span class="hashtag">$2</span>')
+    function formatNoteContent(text) {
+        const safeText = escapeHTML(text || "");
+        const codeBlocks = [];
+        const inlineCodes = [];
+
+        let html = safeText
+            .replace(/```([\s\S]*?)```/g, (_, code) => {
+                const token = `__CODE_BLOCK_${codeBlocks.length}__`;
+                codeBlocks.push(`<pre class="md-code-block"><code>${code}</code></pre>`);
+                return token;
+            })
+            .replace(/`([^`]+)`/g, (_, code) => {
+                const token = `__INLINE_CODE_${inlineCodes.length}__`;
+                inlineCodes.push(`<code class="md-inline-code">${code}</code>`);
+                return token;
+            })
+            .replace(/^### (.+)$/gm, '<h3 class="md-h3">$1</h3>')
+            .replace(/^## (.+)$/gm, '<h2 class="md-h2">$1</h2>')
+            .replace(/^# (.+)$/gm, '<h1 class="md-h1">$1</h1>')
+            .replace(/^> (.+)$/gm, '<blockquote class="md-quote">$1</blockquote>')
+            .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+            .replace(/~~([^~]+)~~/g, '<del>$1</del>')
+            .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
+            .replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, '$1<a href="$2" target="_blank" rel="noopener noreferrer">$2</a>')
+            .replace(/(^|\s)(#[\w\u00C0-\uFFFF]+)/g, '$1<span class="hashtag">$2</span>')
             .replace(/\n/g, "<br>");
+
+        html = html.replace(/__CODE_BLOCK_(\d+)__/g, (_, i) => codeBlocks[Number(i)] || "");
+        html = html.replace(/__INLINE_CODE_(\d+)__/g, (_, i) => inlineCodes[Number(i)] || "");
+        return html;
     }
 
     function extractTitleAndContent(text) {
@@ -1092,25 +1160,19 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     function showVolumeNotification() {
-        if (hasSeenVolumeNotification) return; // Skip if already shown
-    
-        showCustomPopup(
-            texts.volumeNotificationTitle || "Enhance Your Experience",
-            texts.volumeNotificationMessage || "For the best experience with sound effects, please turn your device volume to maximum.",
-            texts.okButton || "OK",
-            () => {
-                localStorage.setItem("hasSeenVolumeNotification", "true");
-                hasSeenVolumeNotification = true;
-            },
-            false // No cancel button
-        );
+        localStorage.setItem("hasSeenVolumeNotification", "true");
+        hasSeenVolumeNotification = true;
     }
 
     // Save post function
     function savePost(text) {
         try {
             const posts = JSON.parse(localStorage.getItem("posts") || "[]");
-            const newPost = { text, timestamp: new Date().toLocaleString(), pinned: false };
+            const newPost = {
+                text,
+                timestamp: new Date().toISOString(),
+                pinned: false
+            };
             posts.push(newPost);
             const postsString = JSON.stringify(posts);
             try {
@@ -1170,14 +1232,10 @@ document.addEventListener("DOMContentLoaded", async () => {
                     localStorage.setItem("draftNote", draft);
                 }
             }
-            if (simpleHash(draft) === SECRET_CODE_HASH && !isGodMode) {
-                draft = "";
-                forceClearDraft();
-            }
             lastSavedDraft = draft;
             elements.inputWrapper.value = draft;
             adjustHeight();
-            elements.charCount.textContent = (texts.charCount || "{count} characters").replace("{count}", draft.length).replace("{count}", currentCharLimit);
+            updateCharCount(draft.length);
     
             // Load posts
             const postsString = localStorage.getItem("posts") || "[]";
@@ -1194,13 +1252,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         } catch (err) {
             console.error("Failed to load initial data:", err);
             const draft = localStorage.getItem("draftNote") || "";
-            if (simpleHash(draft) === SECRET_CODE_HASH && !isGodMode) {
-                forceClearDraft();
-            }
             lastSavedDraft = draft;
             elements.inputWrapper.value = draft;
             adjustHeight();
-            elements.charCount.textContent = (texts.charCount || "{count} characters").replace("{count}", draft.length).replace("{count}", currentCharLimit);
+            updateCharCount(draft.length);
         }
     }
 
@@ -1209,11 +1264,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (isSavingOnClose) return;
         isSavingOnClose = true;
         const text = elements.inputWrapper.value.trim();
-        if (text && simpleHash(text) !== SECRET_CODE_HASH) { // Skip saving if it's the secret key
-            saveDraft(text);
-        } else if (simpleHash(text) === SECRET_CODE_HASH) {
-            forceClearDraft(); // Clear secret key if detected during close
-        }
+        saveDraft(text);
 
             // Persist language and zoom state immediately
         localStorage.setItem("language", selectedLanguage);
@@ -1230,7 +1281,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Throttled save for draft
     const throttledSaveDraft = throttle(saveDraft, 200); // Save every 200ms max
-    const debouncedRenderPosts = debounce(renderPosts, 100); // Reduce DOM thrashing
+    const debouncedRenderPosts = debounce(renderPosts, 100); // Generic rerender
+    const debouncedSearchRender = debounce(renderPosts, SEARCH_DEBOUNCE_MS);
 
     function showLanguageSelection(isNewUser = false) {
         const selectionDiv = document.getElementById("language-selection");
@@ -1269,7 +1321,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 document.body.style.overflow = "";
                 // Show welcome message only for new users, switch message for returning users
                 showLanguageChangeNotification(lang, isNewUser && !hasSeenLanguagePrompt);
-                showVolumeNotification(lang, isNewUser && !hasSeenVolumeNotification);
+                showVolumeNotification();
             });
     
             const deleteButton = document.createElement("button");
@@ -1358,15 +1410,73 @@ document.addEventListener("DOMContentLoaded", async () => {
           footerRightsReserved.innerHTML = `© ${dateString}. ${texts.footerRightsReserved || "All Rights Reserved"}`;
         }
     }
+
+    function ensureBuildInfoElement() {
+        const footerPrivacy = document.getElementById("footer-privacy");
+        const footerRightsReserved = document.getElementById("footer-rights-reserved");
+        if (!footerPrivacy || !footerRightsReserved) return null;
+
+        let buildInfoEl = document.getElementById("footer-build-info");
+        if (!buildInfoEl) {
+            buildInfoEl = document.createElement("p");
+            buildInfoEl.id = "footer-build-info";
+            buildInfoEl.style.fontSize = "0.85rem";
+            buildInfoEl.style.color = "#8b98a5";
+            buildInfoEl.style.marginTop = "8px";
+            buildInfoEl.style.marginBottom = "8px";
+            buildInfoEl.style.cursor = "pointer";
+            buildInfoEl.style.userSelect = "none";
+            buildInfoEl.style.webkitTapHighlightColor = "transparent";
+            footerRightsReserved.parentNode.insertBefore(buildInfoEl, footerRightsReserved);
+        }
+        buildInfoEl.textContent = getBuildInfoLabel();
+        return buildInfoEl;
+    }
+
+    function setupGodModeBuildTapUnlock() {
+        const buildInfoEl = ensureBuildInfoElement();
+        if (!buildInfoEl) return;
+        if (buildInfoEl.dataset.godModeTapInit === "1") return;
+        buildInfoEl.dataset.godModeTapInit = "1";
+
+        let tapCount = 0;
+        let tapTimeout = null;
+
+        buildInfoEl.addEventListener("click", () => {
+            if (isGodMode) {
+                createNotification("God Mode already unlocked", { duration: 1200 });
+                return;
+            }
+
+            tapCount += 1;
+            if (tapTimeout) clearTimeout(tapTimeout);
+            tapTimeout = setTimeout(() => {
+                tapCount = 0;
+            }, 1800);
+
+            if (tapCount >= GOD_MODE_TAP_TARGET) {
+                tapCount = 0;
+                activateGodMode();
+                return;
+            }
+
+            if (tapCount >= 2) {
+                const remaining = GOD_MODE_TAP_TARGET - tapCount;
+                createNotification(`${remaining} more taps to unlock God Mode`, { duration: 900 });
+            }
+        });
+    }
     
       // Initial call to set footer
       updateFooterCopyright();
+      setupGodModeBuildTapUnlock();
 
     function applyLanguage(lang) {
         saveAppSettings(lang, undefined);
         setTimeout(() => { 
             texts = { ...languageData[lang] || languageData["english"], ...JSON.parse(localStorage.getItem("customComponents") || "{}") };
-            currentCharLimit = isGodMode ? (texts.charLimit * 2 - 1) : texts.charLimit;
+            const baseCharLimit = Number(texts.charLimit) || DEFAULT_CHAR_LIMIT;
+            currentCharLimit = isGodMode ? baseCharLimit * 2 : baseCharLimit;
             texts.charCount = `{count}/${currentCharLimit}`;
             selectedLanguage = lang;
 
@@ -1450,7 +1560,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         
             const footerPrivacy = document.getElementById("footer-privacy");
             if (footerPrivacy) footerPrivacy.textContent = texts.footerPrivacy;
-        
+            ensureBuildInfoElement();
+            setupGodModeBuildTapUnlock();
+
             const footerMadeWithLove = document.getElementById("footer-made-with-love");
             if (footerMadeWithLove) footerMadeWithLove.textContent = texts.footerMadeWithLove;
         
@@ -1469,7 +1581,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         localStorage.removeItem("draftNote");
         lastSavedDraft = "";
         elements.inputWrapper.value = "";
-        elements.charCount.textContent = (texts.charCount || "{count} characters").replace("{count}", "0").replace("{count}", currentCharLimit);
+        updateCharCount(0);
         elements.charCount.classList.remove("text-red-500");
     
         if ("serviceWorker" in navigator) {
@@ -1487,10 +1599,12 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     async function activateGodMode() {
         isGodMode = true;
-        currentCharLimit = texts.charLimit * 2;
+        currentCharLimit = (Number(texts.charLimit) || DEFAULT_CHAR_LIMIT) * 2;
         texts.charCount = `{count}/${currentCharLimit}`;
+        localStorage.setItem("isGodMode", "true");
         forceClearDraft();
-        applyLanguage(selectedLanguage); // This will persist isGodMode
+        updateCharCount(0);
+        updateDynamicText();
         debouncedRenderPosts();
         showGodModeNotification();
     }
@@ -1563,11 +1677,47 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
+    function getFilteredPosts(posts, filterText = "") {
+        const normalizedFilter = (filterText || "").toLowerCase();
+        const filteredPosts = activeHashtag
+            ? posts.filter(post => post.text.includes(`#${activeHashtag}`))
+            : posts.filter(post => post.text.toLowerCase().includes(normalizedFilter));
+
+        const pinnedPosts = filteredPosts.filter(post => post.pinned);
+        const regularPosts = filteredPosts.filter(post => !post.pinned).reverse();
+        return [...pinnedPosts, ...regularPosts];
+    }
+
+    function renderLoadMoreControl(totalCount, renderedCount, filterText) {
+        const existing = document.getElementById("load-more-posts");
+        if (existing) existing.remove();
+        if (renderedCount >= totalCount) return;
+
+        const button = document.createElement("button");
+        button.id = "load-more-posts";
+        button.className = "load-more-posts";
+        button.textContent = `Load more (${totalCount - renderedCount} remaining)`;
+        button.addEventListener("click", () => {
+            throttledPlaySound('/sounds/click.ogg');
+            visiblePostCount += RENDER_STEP;
+            renderPosts(filterText);
+        });
+        elements.postContainer.appendChild(button);
+    }
+
     function renderPosts(filterText = "") {
         try {
-            const posts = JSON.parse(localStorage.getItem("posts") || "[]");
+            const posts = normalizePosts(JSON.parse(localStorage.getItem("posts") || "[]"));
+            localStorage.setItem("posts", JSON.stringify(posts));
             elements.postContainer.innerHTML = "";
             console.log("Rendering posts:", posts);
+            const normalizedFilter = (filterText || "").trim().toLowerCase();
+
+            if (normalizedFilter !== lastRenderFilter || activeHashtag !== lastRenderHashtag) {
+                visiblePostCount = INITIAL_RENDER_LIMIT;
+                lastRenderFilter = normalizedFilter;
+                lastRenderHashtag = activeHashtag;
+            }
     
             // Update header title with post count
             const headerTitle = document.querySelector("header h1");
@@ -1578,21 +1728,19 @@ document.addEventListener("DOMContentLoaded", async () => {
             if (posts.length === 0) {
                 elements.postContainer.innerHTML = `<div class="no-posts">${texts.noPostsMessage}</div>`;
             } else {
-                const filteredPosts = activeHashtag
-                    ? posts.filter(post => post.text.includes(`#${activeHashtag}`))
-                    : posts.filter(post => post.text.toLowerCase().includes(filterText.toLowerCase()));
+                const filteredPosts = getFilteredPosts(posts, normalizedFilter);
                 if (filteredPosts.length === 0) {
                     elements.postContainer.innerHTML = `<div class="no-results">${texts.noResultsMessage}</div>`;
                 } else {
-                    const pinnedPosts = filteredPosts.filter(post => post.pinned);
-                    const regularPosts = filteredPosts.filter(post => !post.pinned);
-                    pinnedPosts.forEach((post, index) => renderPost(post, posts.indexOf(post), true));
-                    regularPosts.reverse().forEach((post, index) => renderPost(post, posts.indexOf(post), false));
+                    const fragment = document.createDocumentFragment();
+                    const postsToRender = filteredPosts.slice(0, visiblePostCount);
+                    postsToRender.forEach((post) => renderPost(post, posts.indexOf(post), post.pinned, fragment));
+                    elements.postContainer.appendChild(fragment);
+                    renderLoadMoreControl(filteredPosts.length, postsToRender.length, normalizedFilter);
                 }
             }
             renderHashtagList(posts);
             elements.footer.classList.remove("hidden");
-            renderStreakBadge(); // Tier 3: writing streak
         } catch (err) {
             console.error("Failed to render posts:", err);
             elements.postContainer.innerHTML = `<div class="no-posts">Error loading posts</div>`;
@@ -1652,7 +1800,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     function updateDynamicText() {
-        elements.charCount.textContent = (texts.charCount || "{count} characters").replace("{count}", elements.inputWrapper.value.length || "0").replace("{count}", currentCharLimit);
+        updateCharCount();
         updateEditState = function () {
             if (editIndex !== null) {
                 elements.inputWrapper.classList.add("editing");
@@ -1744,6 +1892,14 @@ document.addEventListener("DOMContentLoaded", async () => {
         </style>
     `;
 
+    function updateCharCount(count = elements.inputWrapper.value.length) {
+        elements.charCount.textContent = (texts.charCount || "{count}/{currentCharLimit}")
+            .replace("{count}", count)
+            .replace("{currentCharLimit}", currentCharLimit);
+    }
+    getCurrentDraftForUpdate = () => elements.inputWrapper?.value?.trim() || "";
+    saveDraftForUpdate = saveDraft;
+
     // Hide zoom toggle for PC users
     const zoomToggleBtn = document.getElementById("zoom-toggle");
     if (zoomToggleBtn && isPC()) {
@@ -1767,7 +1923,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             throttledPlaySound('/sounds/click.ogg');
             showCustomPopup(
                 texts.whatsNewTitle ? texts.whatsNewTitle.replace("{version}", APP_VERSION) : `What's New in v${APP_VERSION}`, // Ensure version is substituted
-                whatsNew,
+                FINAL_RELEASE_CHANGELOG,
                 texts.okButton || "OK",
                 () => {}, // No action needed on confirm
                 false // No cancel button
@@ -1984,8 +2140,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         toggleZoom();
     });
 
-    function renderPost(post, index, isPinned) {
-        const [date, time] = post.timestamp.split(", ");
+    function renderPost(post, index, isPinned, targetContainer = elements.postContainer) {
+        const formattedDate = formatPostDate(post.timestamp);
         const { title, content } = extractTitleAndContent(post.text);
         const relativeDate = timeAgo(post.timestamp);
         const readTime = getReadingTime(post.text);
@@ -1994,10 +2150,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         const postElement = document.createElement("div");
         postElement.className = `post ${editIndex === index ? "editing" : ""} ${isPinned ? "pinned" : ""}`;
         postElement.innerHTML = `
-            ${title ? `<div class="post-title">${title}</div>` : ""}
-            <div class="post-content ${title ? "with-title" : ""}">${highlightHashtags(content)}</div>
+            ${title ? `<div class="post-title">${escapeHTML(title)}</div>` : ""}
+            <div class="post-content">${formatNoteContent(content)}</div>
             <div class="post-meta">
-                <span class="meta-badge" title="${date} at ${time}">${relativeDate}</span>
+                <span class="meta-badge" title="${formattedDate}">${relativeDate}</span>
                 <span class="meta-badge">${wordCount} words</span>
                 <span class="meta-badge">${readTime}</span>
                 ${isPinned ? '<span class="meta-badge">Pinned</span>' : ''}
@@ -2023,7 +2179,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 </button>
             </div>
         `;
-        elements.postContainer.appendChild(postElement);
+        targetContainer.appendChild(postElement);
 
         postElement.querySelector(".delete-post").addEventListener("click", function () {
             throttledPlaySound('/sounds/tone.ogg')
@@ -2067,7 +2223,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 editIndex = newEditIndex;
                 elements.inputWrapper.value = posts[editIndex].text;
                 adjustHeight();
-                elements.charCount.textContent = (texts.charCount || "{count} characters").replace("{count}", elements.inputWrapper.value.length);
+                updateCharCount();
                 elements.charCount.classList.toggle("text-red-500", elements.inputWrapper.value.length > currentCharLimit);
                 updateEditState();
                 renderPosts(elements.searchInput.value.trim());
@@ -2113,7 +2269,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             // Edit existing post
             const posts = JSON.parse(localStorage.getItem("posts") || "[]");
             posts[editIndex].text = text;
-            posts[editIndex].timestamp = new Date().toLocaleString();
+            posts[editIndex].timestamp = new Date().toISOString();
             localStorage.setItem("posts", JSON.stringify(posts));
             if ("serviceWorker" in navigator) {
                 navigator.serviceWorker.ready.then(reg => {
@@ -2133,7 +2289,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             elements.inputWrapper.value = "";
             forceClearDraft();
             adjustHeight();
-            elements.charCount.textContent = (texts.charCount || "{count} characters").replace("{count}", "0").replace("{count}", currentCharLimit);
+            updateCharCount(0);
             updateEditState();
             renderPosts(); // Immediate render instead of debounced
         }, 50); // Small delay
@@ -2152,7 +2308,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             saveDraft("");
         }
         adjustHeight();
-        elements.charCount.textContent = (texts.charCount || "{count} characters").replace("{count}", "0");
+        updateCharCount(0);
         elements.charCount.classList.remove("text-red-500");
         updateEditState();
         renderPosts();
@@ -2204,7 +2360,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 editIndex = actionContext.newIndex;
                 elements.inputWrapper.value = posts[editIndex].text;
                 adjustHeight();
-                elements.charCount.textContent = (texts.charCount || "{count} characters").replace("{count}", elements.inputWrapper.value.length);
+                updateCharCount();
                 elements.charCount.classList.toggle("text-red-500", elements.inputWrapper.value.length > currentCharLimit);
                 updateEditState();
                 renderPosts(); // Immediate render instead of debounced
@@ -2219,7 +2375,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     elements.searchInput.addEventListener("input", function () {
         const searchText = this.value.trim();
         const inputSection = document.querySelector(".input-section");
-        debouncedRenderPosts(searchText);
+        debouncedSearchRender(searchText);
         elements.clearSearch.style.display = searchText ? "block" : "none";
         inputSection.classList.toggle("hidden-on-search", !!searchText);
     });
@@ -2507,15 +2663,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
         throttledSaveDraft(this.value);
         adjustHeight();
-        elements.charCount.textContent = (texts.charCount || "{count} characters").replace("{count}", this.value.length).replace("{count}", currentCharLimit);
+        updateCharCount(this.value.length);
         updateEditState();
         updateInputStats(); // Live word count + reading time
         
-        if (simpleHash(this.value) === SECRET_CODE_HASH && !isGodMode) {
-            showGodModeConfirmation(() => {
-                activateGodMode();
-            });
-        }
     });
 
     if (navigator.share || window.location.search) {
@@ -2524,7 +2675,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (sharedText) {
             elements.inputWrapper.value = sharedText;
             adjustHeight();
-            elements.charCount.textContent = (texts.charCount || "{count} characters").replace("{count}", sharedText.length).replace("{count}", currentCharLimit);
+            updateCharCount(sharedText.length);
             saveDraft(sharedText);
             updateEditState();
             // Clear URL params to prevent re-processing on refresh
