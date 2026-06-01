@@ -1,11 +1,19 @@
 // Version info
-const APP_VERSION = "2.2.0";
-const APP_BUILD_NUMBER = "220";
+const APP_VERSION = "2.3.1";
+const APP_BUILD_NUMBER = "231";
 const APP_BUILD_DATE = "2026-06-01";
 const INITIAL_RENDER_LIMIT = 30;
 const RENDER_STEP = 30;
 const SEARCH_DEBOUNCE_MS = 200;
 const UPDATE_DISMISS_KEY = "dismissedUpdateVersion";
+const BACKUP_SCHEMA_VERSION = "2.3.1";
+const BACKUP_REMINDER_INTERVAL = 20;
+const RECYCLE_RETENTION_DAYS = 30;
+const FIRST_RUN_ONBOARDING_KEY = "hasSeenFirstRunOnboarding";
+const LAST_BACKUP_AT_KEY = "lastBackupAt";
+const LAST_BACKUP_COUNT_KEY = "lastBackupPostCount";
+const LAST_BACKUP_REMINDER_COUNT_KEY = "lastBackupReminderPostCount";
+const ENABLE_CELEBRATIONS_KEY = "enableCelebrations";
 const SHARE_IMAGE_LIMITS = {
     titleChars: 60,
     contentChars: 320,
@@ -13,25 +21,32 @@ const SHARE_IMAGE_LIMITS = {
 };
 
 const whatsNew = `
-    <strong>Thoughts v2.1.2</strong><br>
-    🖼️ <strong>Share as Image</strong> — turn any note into a beautiful shareable card<br>
-    ⏰ Smart dates — "2h ago", "yesterday" instead of raw timestamps<br>
-    📖 Reading time & word count on every note<br>
-    📊 Live stats as you type<br>
-    ✨ Smooth animations & glass effects<br>
-    🔧 Fixed update system, PWA reliability & safety fixes<br><br>
-    <small>Always back up your notes via Export at the bottom.</small>
+    <strong>Thoughts v2.3.1</strong><br>
+    Empty-note validation now shows a clear message instead of undefined<br>
+    Settings and About keep the refined grouped Apple-style layout<br>
+    Version, backup schema, and cache metadata updated for the patch release<br><br>
+    <small>Stored locally in your browser. Export backups before clearing browser data.</small>
 `;
 
 const FINAL_RELEASE_CHANGELOG = `
-    <strong>Thoughts v2.2.0</strong><br>
-    Final public release: stability and performance update<br>
+    <strong>Thoughts v2.3.1</strong><br>
+    Final public release patch: stability, polish, and validation update<br>
     Faster notes feed with smarter rendering and Load More<br>
     Safe markdown support in notes<br>
     Share-as-image improved with content limits for clean cards<br>
     God Mode moved to hidden build-tap unlock (mobile friendly)<br>
     Update system upgraded with better version and cache handling<br><br>
     <small>Always back up your notes via Export at the bottom.</small>
+`;
+
+const CURRENT_RELEASE_CHANGELOG = `
+    <strong>Thoughts v2.3.1</strong><br>
+    Patch release for a cleaner public build<br>
+    Empty notes now show a proper helpful message instead of undefined text<br>
+    Settings and About keep the refined Apple-style grouped layout<br>
+    PC users no longer see mobile-only zoom controls in Settings<br>
+    Popup text now has safe fallbacks when language packs miss optional strings<br><br>
+    <small>Stored locally in your browser. Export backups before clearing browser data.</small>
 `;
 
 // Lazy audio setup: keeps sound optional and avoids forcing loud defaults.
@@ -141,7 +156,7 @@ function setVolume(level) {
     console.log(`Volume set to: ${gainNode.gain.value}`);
 }
 
-// ── Service Worker Registration ──
+//  Service Worker Registration
 if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
         navigator.serviceWorker.register("/service-worker.js")
@@ -171,7 +186,7 @@ if ("serviceWorker" in navigator) {
     });
 }
 
-// ── Clean Update System ──
+//  Clean Update System
 
 function checkForUpdates() {
     if (!navigator.onLine) return;
@@ -410,14 +425,14 @@ function isPC() {
     // Common PC identifiers: Windows, Mac, Linux (excluding mobile versions)
     const pcPatterns = /(windows nt|macintosh|linux (?!.*android))/i;
     const mobilePatterns = /(android|iphone|ipad|mobile|tablet)/i;
-    
+
     // If it matches a PC pattern and does NOT match a mobile pattern, it's a PC
     return pcPatterns.test(userAgent) && !mobilePatterns.test(userAgent);
 }
 
 // Notification creation function (consolidated)
 function createNotification(message, options = {}) {
-    const { background = "rgba(20, 23, 26, 0.85)", color = "#ffffff", duration = 1500, top = "20px", zIndex = "3000" } = options;
+    const { background = "rgba(20, 23, 26, 0.85)", color = "#ffffff", duration = 1500, top = "20px", zIndex = "4200" } = options;
     const notificationDiv = document.createElement("div");
     notificationDiv.textContent = message;
     Object.assign(notificationDiv.style, {
@@ -434,7 +449,8 @@ function createNotification(message, options = {}) {
         fontSize: "18px",
         fontWeight: "600",
         textAlign: "center",
-        maxWidth: "90%",
+        width: "min(92vw, 760px)",
+        maxWidth: "760px",
         opacity: "0",
         transition: "opacity 0.3s ease-in-out",
         ...(window.innerWidth <= 768 && { fontSize: "16px", padding: "12px 20px", margin: "0 12px" })
@@ -465,18 +481,91 @@ function showSuccess(message) {
 }
 
 function getBuildInfoLabel() {
-    return `Build ${APP_BUILD_NUMBER} • ${APP_BUILD_DATE}`;
+    return `Build ${APP_BUILD_NUMBER} - ${APP_BUILD_DATE}`;
+}
+
+function getStoredPosts() {
+    return normalizePosts(JSON.parse(localStorage.getItem("posts") || "[]"));
+}
+
+function persistPosts(posts) {
+    const normalizedPosts = normalizePosts(posts);
+    const postsString = JSON.stringify(normalizedPosts);
+    localStorage.setItem("posts", postsString);
+    if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.ready
+            .then(reg => reg.active?.postMessage({ type: "SAVE_POSTS", posts: postsString }))
+            .catch(err => console.warn("SW posts save failed:", err));
+    }
+    return normalizedPosts;
+}
+
+function formatRelativeBackupAge(timestamp) {
+    if (!timestamp) return "No backup yet";
+    const diffMs = Date.now() - Date.parse(timestamp);
+    if (!Number.isFinite(diffMs) || diffMs < 0) return "Backup date unknown";
+    const minutes = Math.floor(diffMs / 60000);
+    if (minutes < 1) return "Backed up just now";
+    if (minutes < 60) return `Backed up ${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `Backed up ${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `Backed up ${days}d ago`;
+}
+
+function lockPageScrollForModal(overlay, panel) {
+    const scrollY = window.scrollY || document.documentElement.scrollTop || 0;
+    document.body.dataset.previousOverflow = document.body.style.overflow || "";
+    document.body.dataset.previousPosition = document.body.style.position || "";
+    document.body.dataset.previousTop = document.body.style.top || "";
+    document.body.dataset.previousWidth = document.body.style.width || "";
+    document.body.dataset.modalScrollY = String(scrollY);
+    document.body.style.overflow = "hidden";
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = "100%";
+    overlay.addEventListener("wheel", event => {
+        if (!panel) return;
+        event.preventDefault();
+        panel.scrollTop += event.deltaY;
+    }, { passive: false });
+    let lastTouchY = 0;
+    overlay.addEventListener("touchstart", event => {
+        lastTouchY = event.touches[0]?.clientY || 0;
+    }, { passive: true });
+    overlay.addEventListener("touchmove", event => {
+        if (!panel) return;
+        const currentY = event.touches[0]?.clientY || lastTouchY;
+        event.preventDefault();
+        panel.scrollTop += lastTouchY - currentY;
+        lastTouchY = currentY;
+    }, { passive: false });
+}
+
+function closeModalOverlay(overlay) {
+    overlay.remove();
+    const scrollY = Number.parseInt(document.body.dataset.modalScrollY || "0", 10);
+    document.body.style.overflow = document.body.dataset.previousOverflow || "";
+    document.body.style.position = document.body.dataset.previousPosition || "";
+    document.body.style.top = document.body.dataset.previousTop || "";
+    document.body.style.width = document.body.dataset.previousWidth || "";
+    delete document.body.dataset.previousOverflow;
+    delete document.body.dataset.previousPosition;
+    delete document.body.dataset.previousTop;
+    delete document.body.dataset.previousWidth;
+    delete document.body.dataset.modalScrollY;
+    window.scrollTo(0, Number.isFinite(scrollY) ? scrollY : 0);
 }
 function showLanguageChangeNotification(language, showWelcome = false) {
     const langName = languageData[language].name || language;
     let message;
-    
+
     if (showWelcome) {
         message = (texts.welcomeMessage || "Welcome! Language set to \"{name}\".").replace("{name}", langName);
     } else {
         message = (texts.applyingLanguageMessage || "Language switched to \"{name}\".").replace("{name}", langName);
     }
-    
+
     createNotification(message, { duration: 1500 });
 }
 
@@ -537,7 +626,7 @@ async function fetchLanguages() {
         // Load from localStorage first (instant)
         const storedLanguages = JSON.parse(localStorage.getItem("customLanguages") || "{}");
         const storedOriginal = JSON.parse(localStorage.getItem("originalLanguageData") || "{}");
-        
+
         // Fetch from server as a fallback or initial setup
         const response = await fetch("/languages.json");
         originalLanguageData = await response.json();
@@ -613,10 +702,10 @@ function getLocalizedDateString() {
     const date = today.getDate();
     const monthIndex = today.getMonth();
     const year = today.getFullYear();
-  
+
     const currentTexts = languageData[selectedLanguage] || languageData["english"];
     let dayName, monthName;
-  
+
     if (currentTexts.days && currentTexts.months) {
       dayName = currentTexts.days[dayIndex];
       monthName = currentTexts.months[monthIndex];
@@ -626,7 +715,7 @@ function getLocalizedDateString() {
       dayName = today.toLocaleDateString(locale, { weekday: "long" });
       monthName = today.toLocaleDateString(locale, { month: "long" });
     }
-  
+
     return `${dayName}, ${monthName} ${date}, ${year}`;
 }
 
@@ -636,19 +725,19 @@ function applyZoomStateSilently() {
     if (!metaViewport) {
         const newMeta = document.createElement("meta");
         newMeta.name = "viewport";
-        newMeta.content = isZoomEnabled 
-            ? "width=device-width, initial-scale=1.0" 
+        newMeta.content = isZoomEnabled
+            ? "width=device-width, initial-scale=1.0"
             : "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no";
         document.head.appendChild(newMeta);
     } else {
-        metaViewport.content = isZoomEnabled 
-            ? "width=device-width, initial-scale=1.0" 
+        metaViewport.content = isZoomEnabled
+            ? "width=device-width, initial-scale=1.0"
             : "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no";
     }
     const zoomToggleBtn = document.getElementById("zoom-toggle");
     if (zoomToggleBtn) {
-        zoomToggleBtn.textContent = isZoomEnabled 
-            ? (texts.zoomEnabledText || "Zoom: On") 
+        zoomToggleBtn.textContent = isZoomEnabled
+            ? (texts.zoomEnabledText || "Zoom: On")
             : (texts.zoomDisabledText || "Zoom: Off");
     }
 }
@@ -718,8 +807,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     let visiblePostCount = INITIAL_RENDER_LIMIT;
     let lastRenderFilter = "";
     let lastRenderHashtag = null;
+    let noteSearchIndex = [];
     let lastSavedDraft = localStorage.getItem("draftNote") || "";
     let isSavingOnClose = false;
+    let deferredInstallPrompt = null;
 
     await loadInitialData();
     applyZoomStateSilently();
@@ -734,11 +825,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         renderPosts();
     }
 
-    // ═══════════════════════════════════════════════
+    //
     // TIER 1 + TIER 3: Power Features
-    // ═══════════════════════════════════════════════
+    //
 
-    // ── Smart relative date ("2h ago", "yesterday") ──
+    //  Smart relative date ("2h ago", "yesterday")
     function timeAgo(timestamp) {
         const now = new Date();
         const then = new Date(timestamp);
@@ -767,21 +858,21 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
-    // ── Reading time estimate ──
+    //  Reading time estimate
     function getReadingTime(text) {
         const words = text.trim().split(/\s+/).length;
         const minutes = Math.ceil(words / 200); // 200 wpm average
         return minutes < 1 ? '< 1 min read' : `${minutes} min read`;
     }
 
-    // ── Word count ──
+    //  Word count
     function getWordCount(text) {
         return text.trim().split(/\s+/).filter(w => w.length > 0).length;
     }
 
     // Writing streak feature removed
 
-    // ── Generate shareable image from post ──
+    //  Generate shareable image from post
     function generatePostImage(post, index) {
         const { title, content } = extractTitleAndContent(post.text);
         const cleanTitle = title ? title.replace(/^@/, '').slice(0, SHARE_IMAGE_LIMITS.titleChars) : null;
@@ -861,13 +952,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         y += 24;
         ctx.fillStyle = '#666';
         ctx.font = '13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-        ctx.fillText(`${relativeDate}  •  ${words} words  •  ${readTime}`, 30, y);
+        ctx.fillText(`${relativeDate}    ${words} words    ${readTime}`, 30, y);
 
         // Branding
         ctx.fillStyle = '#1d9bf0';
         ctx.font = 'bold 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
         ctx.textAlign = 'right';
-        ctx.fillText('Thoughts ✦', w - 30, y);
+        ctx.fillText('Thoughts ', w - 30, y);
         ctx.textAlign = 'left';
 
         // Hashtags at bottom
@@ -904,7 +995,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         return lines;
     }
 
-    // ── Share as image ──
+    //  Share as image
     async function sharePostAsImage(post, index) {
         const canvas = generatePostImage(post, index);
         if (!canvas || !(canvas instanceof HTMLCanvasElement)) {
@@ -947,7 +1038,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         createNotification('Image saved!', { background: 'rgba(34,197,94,0.9)', color: '#fff' });
     }
 
-    // ── Share menu (text or image) ──
+    //  Share menu (text or image)
     function showShareMenu(post, index, shareBadge) {
         // Remove existing share menu
         document.querySelectorAll('.share-menu-popup').forEach(el => el.remove());
@@ -977,7 +1068,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 padding:12px 16px;background:none;border:none;color:#fff;
                 font-size:14px;cursor:pointer;text-align:left;
             ">
-                <span style="font-size:18px;">📝</span>
+                <span style="font-size:18px;"></span>
                 <span>Share as Text</span>
             </button>
             <button class="share-menu-item" data-action="image" style="
@@ -986,7 +1077,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 font-size:14px;cursor:pointer;text-align:left;
                 border-top:1px solid rgba(255,255,255,0.06);
             ">
-                <span style="font-size:18px;">🖼️</span>
+                <span style="font-size:18px;"></span>
                 <span>Share as Image</span>
             </button>
             <button class="share-menu-item" data-action="copy" style="
@@ -995,7 +1086,21 @@ document.addEventListener("DOMContentLoaded", async () => {
                 font-size:14px;cursor:pointer;text-align:left;
                 border-top:1px solid rgba(255,255,255,0.06);
             ">
-                <span style="font-size:18px;">📋</span>
+                <span style="font-size:18px;"></span>
+                <span>Copy to Clipboard</span>
+            </button>
+        `;
+        menu.innerHTML = `
+            <button class="share-menu-item" data-action="text">
+                <svg class="menu-icon" viewBox="0 0 24 24"><path d="M5 4h14"/><path d="M5 8h14"/><path d="M5 12h10"/><path d="M5 16h7"/></svg>
+                <span>Share as Text</span>
+            </button>
+            <button class="share-menu-item" data-action="image">
+                <svg class="menu-icon" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="m8 15 3-3 3 3 2-2 3 3"/><circle cx="9" cy="9" r="1.2"/></svg>
+                <span>Share as Image</span>
+            </button>
+            <button class="share-menu-item" data-action="copy">
+                <svg class="menu-icon" viewBox="0 0 24 24"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M5 15V6a1 1 0 0 1 1-1h9"/></svg>
                 <span>Copy to Clipboard</span>
             </button>
         `;
@@ -1036,7 +1141,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const { title, content } = extractTitleAndContent(post.text);
         const cleanTitle = title ? title.replace(/^@/, '') : '';
         const shareTextContent = cleanTitle ? `*${cleanTitle}*\n${content}` : content;
-        const shareText = `${shareTextContent}\n\n— from Thoughts`;
+        const shareText = `${shareTextContent}\n\n from Thoughts`;
 
         if (navigator.share) {
             navigator.share({ title: 'Thoughts', text: shareText })
@@ -1049,8 +1154,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     }
 
-    // ── Input section live stats ──
+    //  Input section live stats
     function updateInputStats() {
+        return;
         const text = elements.inputWrapper.value;
         let statsEl = document.getElementById('input-live-stats');
         if (!statsEl) {
@@ -1075,21 +1181,34 @@ document.addEventListener("DOMContentLoaded", async () => {
         const readTime = getReadingTime(text);
         statsEl.innerHTML = `
             <span>${words} words</span>
-            <span style="color:#444">•</span>
+            <span style="color:#444"></span>
             <span>${readTime}</span>
-            <span style="color:#444">•</span>
+            <span style="color:#444"></span>
             <span>${text.length} chars</span>
         `;
     }
 
     // Streak badge removed
 
-    // ── Keyboard shortcut: Ctrl+N = focus input ──
+    //  Keyboard shortcut: Ctrl+N = focus input
     document.addEventListener('keydown', (e) => {
         if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
             e.preventDefault();
             elements.inputWrapper.focus();
             window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+            e.preventDefault();
+            elements.postButton.click();
+        }
+        if (e.key === 'Escape') {
+            if (editIndex !== null || elements.inputWrapper.value.trim()) {
+                elements.cancelEditButton.click();
+            }
+            if (elements.searchInput.value.trim()) {
+                elements.searchInput.value = "";
+                elements.clearSearch.click();
+            }
         }
         if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'g' && !isGodMode) {
             e.preventDefault();
@@ -1167,16 +1286,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Save post function
     function savePost(text) {
         try {
-            const posts = JSON.parse(localStorage.getItem("posts") || "[]");
+            const posts = getStoredPosts();
             const newPost = {
                 text,
                 timestamp: new Date().toISOString(),
                 pinned: false
             };
             posts.push(newPost);
-            const postsString = JSON.stringify(posts);
             try {
-                localStorage.setItem("posts", postsString);
+                persistPosts(posts);
             } catch (e) {
                 if (e.name === "QuotaExceededError") {
                     throttledPlaySound('/sounds/error.ogg')
@@ -1185,11 +1303,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                 }
                 throw e; // Re-throw other errors
             }
-            if ("serviceWorker" in navigator) {
-                navigator.serviceWorker.ready.then(reg => {
-                    reg.active?.postMessage({ type: "SAVE_POSTS", posts: postsString });
-                }).catch(err => console.warn("SW posts save failed:", err));
-            }
+            maybeShowBackupReminder(posts);
+            updateBackupHealthUI();
             debouncedRenderPosts();
         } catch (err) {
             console.error("Failed to save post:", err);
@@ -1200,17 +1315,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     function togglePin(index) {
         try {
-            const posts = JSON.parse(localStorage.getItem("posts") || "[]");
+            const posts = getStoredPosts();
             const isPinned = posts[index].pinned;
-            posts.forEach(post => (post.pinned = false)); // Unpin all
-            if (!isPinned) posts[index].pinned = true;    // Pin the selected one
-            const postsString = JSON.stringify(posts);
-            localStorage.setItem("posts", postsString);
-            if ("serviceWorker" in navigator) {
-                navigator.serviceWorker.ready.then(reg => {
-                    reg.active?.postMessage({ type: "SAVE_POSTS", posts: postsString });
-                });
+            if (!isPinned && posts.some((post, postIndex) => post.pinned && postIndex !== index)) {
+                createNotification("One post is already pinned. Unpin it first.", { duration: 2200 });
+                return;
             }
+            posts[index].pinned = !isPinned;
+            persistPosts(posts);
             // Pass the current search filter to renderPosts
             const searchText = elements.searchInput.value.trim();
             renderPosts(searchText); // Preserve search filter
@@ -1236,7 +1348,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             elements.inputWrapper.value = draft;
             adjustHeight();
             updateCharCount(draft.length);
-    
+
             // Load posts
             const postsString = localStorage.getItem("posts") || "[]";
             const cachedPosts = await caches.match("/posts");
@@ -1246,7 +1358,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     localStorage.setItem("posts", cachedPostsString);
                 }
             }
-    
+
             // Load languages (already handled by fetchLanguages, just apply)
             applyLanguage(selectedLanguage);
         } catch (err) {
@@ -1292,21 +1404,21 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
         const popupDiv = selectionDiv.querySelector(".twitter-popup");
         const chooseText = texts.chooseLanguage || "Choose Your Language";
-    
+
         popupDiv.innerHTML = `
             <p class="mb-4 text-[1.375rem] font-bold text-white text-center md:text-[20px]">${chooseText}</p>
             <div id="language-list" class="language-list-container mb-6"></div>
             <button id="language-cancel" class="w-full bg-red-500 text-white font-semibold text-base py-2 px-6 rounded-[12px] shadow-lg hover:bg-red-600 transition-colors duration-300">${texts.cancelButton || "Cancel"}</button>
         `;
-    
+
         const languageListDiv = popupDiv.querySelector("#language-list");
         const languages = { ...languageData };
         const langKeys = Object.keys(languages);
-    
+
         langKeys.forEach(lang => {
             const langContainer = document.createElement("div");
             langContainer.className = "flex justify-between items-center mb-2";
-    
+
             const button = document.createElement("button");
             button.className = "language-button text-left flex-1";
             button.textContent = languages[lang].name || lang;
@@ -1323,7 +1435,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 showLanguageChangeNotification(lang, isNewUser && !hasSeenLanguagePrompt);
                 showVolumeNotification();
             });
-    
+
             const deleteButton = document.createElement("button");
             deleteButton.innerHTML = `
                 <svg class="w-5 h-5" viewBox="0 0 24 24" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1382,23 +1494,23 @@ document.addEventListener("DOMContentLoaded", async () => {
                     true
                 );
             });
-    
+
             langContainer.appendChild(button);
             if (!originalLanguageData[lang]) langContainer.appendChild(deleteButton);
             languageListDiv.appendChild(langContainer);
         });
-    
+
         document.getElementById("language-cancel").addEventListener("click", () => {
             throttledPlaySound('/sounds/click.ogg');
             selectionDiv.classList.add("hidden");
             document.body.style.overflow = "";
         });
-    
+
         if (langKeys.length > 5) {
             languageListDiv.classList.add("scrolling-enabled");
             setInterval(() => languageListDiv.scrollBy({ top: 40, behavior: "smooth" }), 2500);
         }
-    
+
         selectionDiv.classList.remove("hidden");
         document.body.style.overflow = "hidden";
     }
@@ -1407,7 +1519,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const footerRightsReserved = document.getElementById("footer-rights-reserved");
         if (footerRightsReserved) {
           const dateString = getLocalizedDateString();
-          footerRightsReserved.innerHTML = `© ${dateString}. ${texts.footerRightsReserved || "All Rights Reserved"}`;
+          footerRightsReserved.innerHTML = ` ${dateString}. ${texts.footerRightsReserved || "All Rights Reserved"}`;
         }
     }
 
@@ -1466,14 +1578,418 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
         });
     }
-    
+
+    function updateBackupHealthUI() {
+        const posts = getStoredPosts();
+        const lastBackupAt = localStorage.getItem(LAST_BACKUP_AT_KEY);
+        const badgeText = `${formatRelativeBackupAge(lastBackupAt)}  ${posts.length} notes`;
+        document.querySelectorAll("[data-backup-health]").forEach(el => {
+            el.textContent = badgeText;
+        });
+        const status = document.getElementById("local-first-status");
+        if (status) {
+            status.textContent = `Stored locally in your browser. ${badgeText}.`;
+        }
+    }
+
+    function maybeShowFirstRunOnboarding() {
+        if (localStorage.getItem(FIRST_RUN_ONBOARDING_KEY) === "true") return;
+        const existing = document.getElementById("first-run-onboarding");
+        if (existing) return;
+
+        const card = document.createElement("section");
+        card.id = "first-run-onboarding";
+        card.className = "first-run-card";
+        card.innerHTML = `
+            <div>
+                <strong>Local only.</strong>
+                <span>Export backup.</span>
+                <span>Works offline.</span>
+            </div>
+            <button type="button" aria-label="Dismiss onboarding">Got it</button>
+        `;
+        const inputSection = document.querySelector(".input-section");
+        inputSection?.parentNode.insertBefore(card, inputSection);
+        card.querySelector("button").addEventListener("click", () => {
+            localStorage.setItem(FIRST_RUN_ONBOARDING_KEY, "true");
+            card.remove();
+        });
+    }
+
+    function maybeShowBackupReminder(posts) {
+        const count = posts.length;
+        if (count === 0 || count % BACKUP_REMINDER_INTERVAL !== 0) return;
+        const lastReminderCount = Number(localStorage.getItem(LAST_BACKUP_REMINDER_COUNT_KEY) || "0");
+        const lastBackupCount = Number(localStorage.getItem(LAST_BACKUP_COUNT_KEY) || "0");
+        if (lastReminderCount >= count || lastBackupCount >= count) return;
+        localStorage.setItem(LAST_BACKUP_REMINDER_COUNT_KEY, String(count));
+        showCustomPopup(
+            "Backup reminder",
+            `You have ${count} notes stored locally in your browser. Export a backup before clearing browser data or switching devices.`,
+            "Export",
+            exportNotes,
+            true
+        );
+    }
+
+    function renderEmptyState() {
+        const examples = [
+            "@Idea Build local file sharing PWA #project",
+            "@Memory Something I learned today #life",
+            "@Task Fix homepage layout #work"
+        ];
+        elements.postContainer.innerHTML = `
+            <div class="empty-state">
+                <p>${texts.noPostsMessage || "No notes yet."}</p>
+                <div class="empty-examples">
+                    ${examples.map(example => `<button type="button" data-example="${escapeHTML(example)}">${escapeHTML(example)}</button>`).join("")}
+                </div>
+            </div>
+        `;
+        elements.postContainer.querySelectorAll("[data-example]").forEach(button => {
+            button.addEventListener("click", () => {
+                elements.inputWrapper.value = button.dataset.example || "";
+                adjustHeight();
+                updateCharCount();
+                updateEditState();
+                elements.inputWrapper.focus();
+            });
+        });
+    }
+
+    function getRecycleBin() {
+        try {
+            const cutoff = Date.now() - RECYCLE_RETENTION_DAYS * 86400000;
+            const items = JSON.parse(localStorage.getItem("recycleBin") || "[]")
+                .filter(item => Date.parse(item.deletedAt) >= cutoff);
+            localStorage.setItem("recycleBin", JSON.stringify(items));
+            return items;
+        } catch {
+            localStorage.setItem("recycleBin", "[]");
+            return [];
+        }
+    }
+
+    function saveRecycleBin(items) {
+        localStorage.setItem("recycleBin", JSON.stringify(items));
+    }
+
+    function movePostToRecycleBin(post) {
+        const items = getRecycleBin();
+        items.unshift({ ...post, deletedAt: new Date().toISOString() });
+        saveRecycleBin(items.slice(0, 100));
+    }
+
+    function showUndoDelete(post) {
+        const undo = document.createElement("div");
+        undo.className = "undo-toast";
+        undo.innerHTML = `<span>Note moved to Recently Deleted.</span><button type="button">Undo</button>`;
+        document.body.appendChild(undo);
+        const timer = setTimeout(() => undo.remove(), 5000);
+        undo.querySelector("button").addEventListener("click", () => {
+            clearTimeout(timer);
+            const posts = getStoredPosts();
+            persistPosts([post, ...posts]);
+            renderPosts(elements.searchInput.value.trim());
+            updateBackupHealthUI();
+            undo.remove();
+        });
+    }
+
+    function openSettingsPanel() {
+        const existing = document.getElementById("settings-panel-overlay");
+        if (existing) closeModalOverlay(existing);
+        const recycleCount = getRecycleBin().length;
+        const celebrationsEnabled = localStorage.getItem(ENABLE_CELEBRATIONS_KEY) === "true";
+        const soundEnabled = localStorage.getItem("isSoundEnabled") === "true";
+        const showZoomSettings = !isPC();
+        const zoomSettingsRow = showZoomSettings ? `
+                        <div class="settings-row settings-row-control">
+                            <div>
+                                <strong>Page Zoom</strong>
+                                <span>${isZoomEnabled ? "Browser zoom is available when you need larger text." : "Kept locked for an app-like layout on this device."}</span>
+                            </div>
+                            <button type="button" data-zoom-settings>${isZoomEnabled ? "Turn off" : "Turn on"}</button>
+                        </div>
+        ` : "";
+        const deletedText = recycleCount
+            ? `${recycleCount} note${recycleCount === 1 ? "" : "s"} can be restored.`
+            : `No deleted notes. Items stay here for ${RECYCLE_RETENTION_DAYS} days.`;
+        const panel = document.createElement("div");
+        panel.id = "settings-panel-overlay";
+        panel.className = "settings-overlay";
+        panel.innerHTML = `
+            <div class="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+                <div class="settings-panel-header">
+                    <div>
+                        <p class="panel-kicker">Thoughts</p>
+                        <h2 id="settings-title">Settings</h2>
+                        <p class="panel-subtitle">Local-first controls for privacy, backups, and the writing feel.</p>
+                    </div>
+                    <button type="button" data-close-settings aria-label="Close settings">&times;</button>
+                </div>
+                <div class="settings-content">
+                    <section class="settings-group settings-hero-card">
+                        <p class="settings-eyebrow">Stored on this device</p>
+                        <strong>Private by default.</strong>
+                        <span id="local-first-status"></span>
+                    </section>
+                    <section class="settings-group">
+                        <div class="settings-group-title">
+                            <p>Backup and recovery</p>
+                            <span>Keep notes portable and recover from mistakes.</span>
+                        </div>
+                        <div class="settings-row settings-row-control">
+                            <div>
+                                <strong>Export backup</strong>
+                                <span data-backup-health></span>
+                            </div>
+                            <button type="button" data-export-settings-secondary>Export</button>
+                        </div>
+                        <div class="settings-row settings-row-control">
+                            <div>
+                                <strong>Recently Deleted</strong>
+                                <span>${deletedText}</span>
+                            </div>
+                            <button type="button" data-restore-latest ${recycleCount ? "" : "disabled"}>Restore</button>
+                        </div>
+                        <div class="settings-actions-grid">
+                            <button type="button" data-import-settings>Import</button>
+                            <button type="button" data-export-settings>Export copy</button>
+                        </div>
+                    </section>
+                    <section class="settings-group">
+                        <div class="settings-group-title">
+                            <p>Language</p>
+                            <span>Change the interface or add your own language pack.</span>
+                        </div>
+                        <div class="settings-actions-grid">
+                            <button type="button" data-language-settings>Choose language</button>
+                            <button type="button" data-upload-language-settings>Upload language</button>
+                        </div>
+                    </section>
+                    <section class="settings-group">
+                        <div class="settings-group-title">
+                            <p>Experience</p>
+                            <span>Quiet optional details that stay out of your writing.</span>
+                        </div>
+${zoomSettingsRow}
+                        <label class="settings-row settings-toggle">
+                            <div>
+                                <strong>Celebrations</strong>
+                                <span>Small visual rewards after milestones. Off by default.</span>
+                            </div>
+                            <input class="ios-switch" type="checkbox" data-celebrations-toggle ${celebrationsEnabled ? "checked" : ""}>
+                        </label>
+                        <label class="settings-row settings-toggle">
+                            <div>
+                                <strong>Sound Effects</strong>
+                                <span>Soft interface sounds for feedback. Off by default.</span>
+                            </div>
+                            <input class="ios-switch" type="checkbox" data-sound-toggle ${soundEnabled ? "checked" : ""}>
+                        </label>
+                    </section>
+                    <section class="settings-group">
+                        <div class="settings-row settings-row-control">
+                            <div>
+                                <strong>Install Thoughts</strong>
+                                <span>Launch faster from your home screen and keep offline access close.</span>
+                            </div>
+                            <button type="button" data-install-app ${deferredInstallPrompt ? "" : "disabled"}>Install</button>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(panel);
+        const settingsPanel = panel.querySelector(".settings-panel");
+        lockPageScrollForModal(panel, settingsPanel);
+        updateBackupHealthUI();
+        panel.querySelector("[data-close-settings]").addEventListener("click", () => closeModalOverlay(panel));
+        panel.addEventListener("click", event => {
+            if (event.target === panel) closeModalOverlay(panel);
+        });
+        panel.querySelector("[data-export-settings]").addEventListener("click", exportNotes);
+        panel.querySelector("[data-export-settings-secondary]").addEventListener("click", exportNotes);
+        panel.querySelector("[data-import-settings]").addEventListener("click", () => document.getElementById("import-notes")?.click());
+        panel.querySelector("[data-upload-language-settings]").addEventListener("click", () => document.getElementById("upload-language")?.click());
+        panel.querySelector("[data-language-settings]").addEventListener("click", () => {
+            closeModalOverlay(panel);
+            showLanguageSelection(false);
+        });
+        panel.querySelector("[data-zoom-settings]")?.addEventListener("click", () => {
+            toggleZoom();
+            closeModalOverlay(panel);
+        });
+        panel.querySelector("[data-celebrations-toggle]").addEventListener("change", event => {
+            localStorage.setItem(ENABLE_CELEBRATIONS_KEY, event.target.checked ? "true" : "false");
+        });
+        panel.querySelector("[data-sound-toggle]").addEventListener("change", event => {
+            isSoundEnabled = event.target.checked;
+            localStorage.setItem("isSoundEnabled", isSoundEnabled ? "true" : "false");
+        });
+        panel.querySelector("[data-restore-latest]")?.addEventListener("click", () => {
+            const items = getRecycleBin();
+            const latest = items.shift();
+            if (!latest) return;
+            saveRecycleBin(items);
+            const { deletedAt, ...post } = latest;
+            persistPosts([post, ...getStoredPosts()]);
+            renderPosts(elements.searchInput.value.trim());
+            updateBackupHealthUI();
+            closeModalOverlay(panel);
+        });
+        panel.querySelector("[data-install-app]")?.addEventListener("click", async () => {
+            if (!deferredInstallPrompt) return;
+            deferredInstallPrompt.prompt();
+            await deferredInstallPrompt.userChoice;
+            deferredInstallPrompt = null;
+            closeModalOverlay(panel);
+        });
+    }
+
+    function openAboutPanel() {
+        const existing = document.getElementById("about-panel-overlay");
+        if (existing) closeModalOverlay(existing);
+        const panel = document.createElement("div");
+        panel.id = "about-panel-overlay";
+        panel.className = "settings-overlay";
+        panel.innerHTML = `
+            <div class="settings-panel about-panel" role="dialog" aria-modal="true" aria-labelledby="about-title">
+                <div class="settings-panel-header">
+                    <div>
+                        <p class="panel-kicker">About</p>
+                        <h2 id="about-title">${texts.appName || "Thoughts"}</h2>
+                        <p class="panel-subtitle">A fast local notebook for private thoughts, tasks, memories, and ideas.</p>
+                    </div>
+                    <button type="button" data-close-about aria-label="Close about">&times;</button>
+                </div>
+                <div class="about-copy">
+                    <section class="about-hero">
+                        <p class="settings-eyebrow">Local-first PWA</p>
+                        <h3>Capture now. Keep control later.</h3>
+                        <p>${texts.footerDescription || "A local-first notes PWA designed for fast capture, backup confidence, and offline use."}</p>
+                    </section>
+                    <section class="about-grid">
+                        <div>
+                            <h3>Private storage</h3>
+                            <p>Notes are stored locally in your browser on this device.</p>
+                        </div>
+                        <div>
+                            <h3>Offline ready</h3>
+                            <p>${texts.footerOfflineText || "Install Thoughts for offline use."}</p>
+                        </div>
+                    </section>
+                    <section>
+                        <h3>Privacy</h3>
+                        <p>Clearing browser data can delete your notes. Export a backup regularly before resetting the browser, changing devices, or clearing storage.</p>
+                    </section>
+                    <section>
+                        <h3>${texts.webStoreTitle || "Web Store"}</h3>
+                        <p>${texts.webStoreNote || "Download your favorite language from the site and upload it in Settings."}</p>
+                        <p><a href="https://thoughtswebstore.netlify.app" target="_blank" rel="noopener noreferrer">${texts.webStoreLinkText || "Visit Web Store"}</a></p>
+                    </section>
+                    <section>
+                        <h3>${texts.footerOfflineTitle || "Go Offline"}</h3>
+                        <p>${texts.footerAndroidGuide || "Android: Menu > Add to Home screen."}</p>
+                        <p>${texts.footerIOSGuide || "iOS: Share > Add to Home Screen."}</p>
+                    </section>
+                    <section class="about-meta-section">
+                        <h3>Release</h3>
+                        <div class="about-meta-pills">
+                            <p class="about-version">Version ${APP_VERSION}</p>
+                            <button type="button" class="about-build" data-about-build>${getBuildInfoLabel()}</button>
+                        </div>
+                    </section>
+                    <section>
+                        <h3>${texts.footerCraftedBy || "Crafted by"}</h3>
+                        <p><a href="https://dheeraz.netlify.app" target="_blank" rel="noopener noreferrer">Dheeraz</a></p>
+                    </section>
+                    <div class="about-legacy-copy" aria-hidden="true">
+                    <p>${texts.footerDescription || "A local-first notes PWA designed for fast capture, backup confidence, and offline use."}</p>
+                    <p>Stored locally in your browser. Clearing browser data can delete notes unless you export a backup.</p>
+                    <p>${texts.footerOfflineText || "Install Thoughts for offline use."}</p>
+                    <p>${texts.footerAndroidGuide || "Android: Menu > Add to Home screen."}</p>
+                    <p>${texts.footerIOSGuide || "iOS: Share > Add to Home Screen."}</p>
+                    <button type="button" class="about-build" data-about-build>${getBuildInfoLabel()}</button>
+                    <p class="about-version">Version ${APP_VERSION}</p>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(panel);
+        const aboutPanel = panel.querySelector(".settings-panel");
+        lockPageScrollForModal(panel, aboutPanel);
+        panel.querySelector("[data-close-about]").addEventListener("click", () => closeModalOverlay(panel));
+        panel.addEventListener("click", event => {
+            if (event.target === panel) closeModalOverlay(panel);
+        });
+
+        let tapCount = 0;
+        let tapTimeout = null;
+        panel.querySelector("[data-about-build]").addEventListener("click", () => {
+            if (isGodMode) {
+                createNotification("God Mode already unlocked", { duration: 1200 });
+                return;
+            }
+            tapCount += 1;
+            if (tapTimeout) clearTimeout(tapTimeout);
+            tapTimeout = setTimeout(() => {
+                tapCount = 0;
+            }, 1800);
+            if (tapCount >= GOD_MODE_TAP_TARGET) {
+                tapCount = 0;
+                closeModalOverlay(panel);
+                activateGodMode();
+                return;
+            }
+            if (tapCount >= 2) {
+                createNotification(`${GOD_MODE_TAP_TARGET - tapCount} more taps to unlock God Mode`, { duration: 900 });
+            }
+        });
+    }
+
+    function setupBottomNavigation() {
+        if (document.getElementById("bottom-nav")) return;
+        const nav = document.createElement("nav");
+        nav.id = "bottom-nav";
+        nav.className = "bottom-nav";
+        nav.setAttribute("aria-label", "Primary");
+        nav.innerHTML = `
+            <button type="button" data-nav-home aria-label="Home"></button>
+            <button type="button" data-nav-search aria-label="Search"></button>
+            <button type="button" data-nav-new aria-label="New note"></button>
+            <button type="button" data-nav-backup aria-label="Backup"></button>
+            <button type="button" data-nav-settings aria-label="Settings"></button>
+        `;
+        nav.innerHTML = `
+            <button type="button" data-nav-home aria-label="Home"><svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10.5V20h14v-9.5"/><path d="M9 20v-6h6v6"/></svg></button>
+            <button type="button" data-nav-search aria-label="Search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 4 4"/></svg></button>
+            <button type="button" data-nav-new aria-label="New note"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></button>
+            <button type="button" data-nav-about aria-label="About"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 10v6"/><path d="M12 7h.01"/></svg></button>
+            <button type="button" data-nav-settings aria-label="Settings"><svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6V20a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-.6 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1H4a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 .6-1 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6V4a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 .6 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c.16.36.36.7.6 1h.1a2 2 0 1 1 0 4h-.1c-.24.3-.44.64-.6 1Z"/></svg></button>
+        `;
+        document.body.appendChild(nav);
+        nav.querySelector("[data-nav-home]").addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
+        nav.querySelector("[data-nav-search]").addEventListener("click", () => elements.searchInput.focus());
+        nav.querySelector("[data-nav-new]").addEventListener("click", () => {
+            elements.inputWrapper.focus();
+            document.querySelector(".input-section")?.scrollIntoView({ behavior: "smooth", block: "center" });
+        });
+        nav.querySelector("[data-nav-about]").addEventListener("click", openAboutPanel);
+        nav.querySelector("[data-nav-settings]").addEventListener("click", openSettingsPanel);
+    }
+
       // Initial call to set footer
       updateFooterCopyright();
       setupGodModeBuildTapUnlock();
+      maybeShowFirstRunOnboarding();
+      setupBottomNavigation();
+      updateBackupHealthUI();
 
     function applyLanguage(lang) {
         saveAppSettings(lang, undefined);
-        setTimeout(() => { 
+        setTimeout(() => {
             texts = { ...languageData[lang] || languageData["english"], ...JSON.parse(localStorage.getItem("customComponents") || "{}") };
             const baseCharLimit = Number(texts.charLimit) || DEFAULT_CHAR_LIMIT;
             currentCharLimit = isGodMode ? baseCharLimit * 2 : baseCharLimit;
@@ -1481,7 +1997,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             selectedLanguage = lang;
 
             localStorage.setItem("language", lang);
-        
+
             const headerTitle = document.querySelector("header h1");
             if (headerTitle) {
                 const posts = JSON.parse(localStorage.getItem("posts") || "[]");
@@ -1494,8 +2010,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             // Update zoom toggle button text without notification
             const zoomToggleBtn = document.getElementById("zoom-toggle");
             if (zoomToggleBtn) {
-                zoomToggleBtn.textContent = isZoomEnabled 
-                    ? (texts.zoomEnabledText || "Zoom: On") 
+                zoomToggleBtn.textContent = isZoomEnabled
+                    ? (texts.zoomEnabledText || "Zoom: On")
                     : (texts.zoomDisabledText || "Zoom: Off");
             }
 
@@ -1512,60 +2028,61 @@ document.addEventListener("DOMContentLoaded", async () => {
             if (footerDescription) {
                 footerDescription.textContent = texts.footerDescription || "Efficiently crafted: Entire app under 1MB, including all assets.";
             }
-        
+
             if (elements.deleteAllButton) elements.deleteAllButton.textContent = texts.deleteAllButton;
             if (elements.searchInput) elements.searchInput.placeholder = texts.searchPlaceholder;
             if (elements.inputWrapper) elements.inputWrapper.placeholder = texts.inputPlaceholder;
             if (elements.postButton) elements.postButton.textContent = texts.addButton;
             if (elements.cancelEditButton) elements.cancelEditButton.textContent = texts.cancelEditButton;
-        
+
             const exportNotesBtn = document.getElementById("export-notes");
             if (exportNotesBtn) exportNotesBtn.textContent = texts.exportButton;
-        
+
             const importTriggerBtn = document.getElementById("import-trigger");
             if (importTriggerBtn) importTriggerBtn.textContent = texts.importButton;
-        
+
             const languageSwitchBtn = document.getElementById("language-switch");
             if (languageSwitchBtn) languageSwitchBtn.textContent = texts.name;
-        
+
             const uploadLanguageTriggerBtn = document.getElementById("upload-language-trigger");
             if (uploadLanguageTriggerBtn) uploadLanguageTriggerBtn.textContent = texts.uploadLanguage || "Upload Language";
-        
+
             const footerOfflineTitle = document.getElementById("footer-offline-title");
             if (footerOfflineTitle) footerOfflineTitle.textContent = texts.footerOfflineTitle;
-        
+
             const footerOfflineText = document.getElementById("footer-offline-text");
             if (footerOfflineText) footerOfflineText.textContent = texts.footerOfflineText;
-        
+
             const footerAndroidGuide = document.getElementById("footer-android-guide");
             if (footerAndroidGuide) footerAndroidGuide.textContent = texts.footerAndroidGuide;
-        
+
             const footerIosGuide = document.getElementById("footer-ios-guide");
             if (footerIosGuide) footerIosGuide.textContent = texts.footerIOSGuide;
-        
+
             const footerTitle = document.getElementById("footer-title");
             if (footerTitle) footerTitle.textContent = texts.appName;
-        
+
             const craftedByText = document.getElementById("crafted-by-text");
             if (craftedByText) craftedByText.textContent = texts.footerCraftedBy + " ";
-        
+
             const footerWebstoreTitle = document.getElementById("footer-webstore-title");
             if (footerWebstoreTitle) footerWebstoreTitle.textContent = texts.webStoreTitle || "Web Store";
-        
+
             const footerWebstoreLink = document.getElementById("footer-webstore-link");
             if (footerWebstoreLink) footerWebstoreLink.textContent = texts.webStoreLinkText || "Visit Web Store";
-        
+
             const footerWebstoreNote = document.getElementById("footer-webstore-note");
             if (footerWebstoreNote) footerWebstoreNote.textContent = texts.webStoreNote || "Download your favorite language from the site and upload it to the app using the Upload Language option.";
-        
+
             const footerPrivacy = document.getElementById("footer-privacy");
-            if (footerPrivacy) footerPrivacy.textContent = texts.footerPrivacy;
+            if (footerPrivacy) footerPrivacy.textContent = "Stored locally in your browser. Clearing browser data can delete notes unless you export a backup.";
             ensureBuildInfoElement();
             setupGodModeBuildTapUnlock();
+            updateBackupHealthUI();
 
             const footerMadeWithLove = document.getElementById("footer-made-with-love");
             if (footerMadeWithLove) footerMadeWithLove.textContent = texts.footerMadeWithLove;
-        
+
             updateFooterCopyright();
             // Persist immediately
             localStorage.setItem("language", lang);
@@ -1583,19 +2100,19 @@ document.addEventListener("DOMContentLoaded", async () => {
         elements.inputWrapper.value = "";
         updateCharCount(0);
         elements.charCount.classList.remove("text-red-500");
-    
+
         if ("serviceWorker" in navigator) {
             navigator.serviceWorker.ready.then(reg => {
                 reg.active?.postMessage({ type: "CLEAR_DRAFT" });
             }).catch(err => console.warn("Failed to notify SW to clear draft:", err));
         }
-    
+
         if ("caches" in window) {
             caches.open("thoughts-app-cache").then(cache => {
                 cache.delete("/draft").catch(err => console.warn("Failed to delete cached draft:", err));
             });
         }
-    }    
+    }
 
     async function activateGodMode() {
         isGodMode = true;
@@ -1629,21 +2146,21 @@ document.addEventListener("DOMContentLoaded", async () => {
         `;
         document.body.appendChild(overlayDiv);
         document.body.appendChild(popupDiv);
-        
+
         // Show popup with animation
         setTimeout(() => popupDiv.style.opacity = "1", 10);
-        
+
         // Get elements
         const confirmBtn = document.getElementById("god-mode-confirm-btn");
         const cancelBtn = document.getElementById("god-mode-cancel-btn");
         const confirmInput = document.getElementById("god-mode-confirm-input");
-        
+
         // Auto-focus the input field
         setTimeout(() => {
             confirmInput.focus();
             confirmInput.select(); // Optional: selects any existing text
         }, 50); // Small delay to ensure popup is rendered
-        
+
         confirmBtn.onclick = () => {
             throttledPlaySound('/sounds/click.ogg');
             if (confirmInput.value.trim().toLowerCase() === "yes") {
@@ -1657,7 +2174,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 }, 300);
             }
         };
-        
+
         cancelBtn.onclick = () => {
             throttledPlaySound('/sounds/click.ogg');
             popupDiv.style.opacity = "0";
@@ -1668,7 +2185,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 document.body.style.overflow = "";
             }, 300);
         };
-        
+
         // Optional: Allow Enter key to confirm
         confirmInput.addEventListener("keypress", (e) => {
             if (e.key === "Enter" && confirmInput.value.trim().toLowerCase() === "yes") {
@@ -1678,10 +2195,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     function getFilteredPosts(posts, filterText = "") {
+        noteSearchIndex = posts.map(post => ({
+            post,
+            text: post.text.toLowerCase(),
+            tags: post.text.match(/#[\w\u00C0-\uFFFF]+/g) || []
+        }));
         const normalizedFilter = (filterText || "").toLowerCase();
         const filteredPosts = activeHashtag
-            ? posts.filter(post => post.text.includes(`#${activeHashtag}`))
-            : posts.filter(post => post.text.toLowerCase().includes(normalizedFilter));
+            ? noteSearchIndex.filter(entry => entry.tags.includes(`#${activeHashtag}`)).map(entry => entry.post)
+            : noteSearchIndex.filter(entry => entry.text.includes(normalizedFilter)).map(entry => entry.post);
 
         const pinnedPosts = filteredPosts.filter(post => post.pinned);
         const regularPosts = filteredPosts.filter(post => !post.pinned).reverse();
@@ -1718,15 +2240,15 @@ document.addEventListener("DOMContentLoaded", async () => {
                 lastRenderFilter = normalizedFilter;
                 lastRenderHashtag = activeHashtag;
             }
-    
+
             // Update header title with post count
             const headerTitle = document.querySelector("header h1");
             if (headerTitle) {
                 headerTitle.textContent = `${texts.appName} ${toRoman(posts.length)}`;
             }
-    
+
             if (posts.length === 0) {
-                elements.postContainer.innerHTML = `<div class="no-posts">${texts.noPostsMessage}</div>`;
+                renderEmptyState();
             } else {
                 const filteredPosts = getFilteredPosts(posts, normalizedFilter);
                 if (filteredPosts.length === 0) {
@@ -1740,6 +2262,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 }
             }
             renderHashtagList(posts);
+            updateBackupHealthUI();
             elements.footer.classList.remove("hidden");
         } catch (err) {
             console.error("Failed to render posts:", err);
@@ -1754,17 +2277,23 @@ document.addEventListener("DOMContentLoaded", async () => {
         const confirmBtn = document.getElementById("custom-popup-confirm");
         const cancelBtn = document.getElementById("custom-popup-cancel");
 
-        titleEl.textContent = title;
-        messageEl.innerHTML = message;
-        confirmBtn.textContent = confirmText;
-        cancelBtn.textContent = texts.cancelButton;
+        const safeTitle = typeof title === "string" && title.trim() ? title : "Notice";
+        const safeMessage = typeof message === "string" && message.trim() ? message : "Please check this and try again.";
+        const safeConfirmText = typeof confirmText === "string" && confirmText.trim() ? confirmText : "OK";
+        const safeCancelText = typeof texts.cancelButton === "string" && texts.cancelButton.trim() ? texts.cancelButton : "Cancel";
+        const safeConfirmAction = typeof confirmAction === "function" ? confirmAction : () => {};
+
+        titleEl.textContent = safeTitle;
+        messageEl.innerHTML = safeMessage;
+        confirmBtn.textContent = safeConfirmText;
+        cancelBtn.textContent = safeCancelText;
         cancelBtn.style.display = showCancel ? "block" : "none";
 
         popupDiv.classList.remove("hidden");
         document.body.style.overflow = "hidden";
 
         confirmBtn.onclick = () => {
-            confirmAction();
+            safeConfirmAction();
             popupDiv.classList.add("hidden");
             document.body.style.overflow = "";
         };
@@ -1815,7 +2344,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
         };
         updateEditState();
-    }    
+    }
 
 
     function updateOnlineStatus() {
@@ -1823,7 +2352,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (existingStatus) existingStatus.remove();
         const status = document.createElement("div");
         status.className = "online-status";
-        status.textContent = navigator.onLine ? "↑" : "↓";
+        status.textContent = navigator.onLine ? "" : "";
         Object.assign(status.style, {
             position: "fixed",
             top: "8px",
@@ -1843,7 +2372,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
         document.body.appendChild(status);
         setTimeout(() => status.remove(), 1500);
-    }  
+    }
 
     elements.footer.innerHTML += `
         <div class="backup-actions">
@@ -1917,13 +2446,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         versionElement.style.transition = "color 0.2s ease";
         versionElement.style.zIndex = "1";
         versionElement.style.position = "relative";
-        
+
         // Add click event listener
         versionElement.addEventListener("click", () => {
             throttledPlaySound('/sounds/click.ogg');
             showCustomPopup(
                 texts.whatsNewTitle ? texts.whatsNewTitle.replace("{version}", APP_VERSION) : `What's New in v${APP_VERSION}`, // Ensure version is substituted
-                FINAL_RELEASE_CHANGELOG,
+                CURRENT_RELEASE_CHANGELOG,
                 texts.okButton || "OK",
                 () => {}, // No action needed on confirm
                 false // No cancel button
@@ -1960,7 +2489,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             );
             return;
         }
-    
+
         const reader = new FileReader();
         reader.onload = e => {
             try {
@@ -1976,7 +2505,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     );
                     return;
                 }
-    
+
                 let languagesToAdd = {};
                 if (customLangData.name) {
                     languagesToAdd[customLangData.name || file.name.replace(".json", "")] = { ...customLangData, appId: undefined };
@@ -1988,12 +2517,12 @@ document.addEventListener("DOMContentLoaded", async () => {
                             return obj;
                         }, {});
                 }
-    
+
                 Object.assign(languageData, languagesToAdd);
                 const firstLang = Object.keys(languagesToAdd)[0];
                 selectedLanguage = firstLang;
                 applyLanguage(firstLang); // Apply without notification
-                
+
                 // Fixed string construction
                 const baseMessage = texts.addingLanguageMessage || "Language uploaded: \"{name}\".";
                 const refreshMessage = texts.refreshMessage || "The app will refresh to apply changes.";
@@ -2020,20 +2549,44 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Import/Export Functions
     function exportNotes() {
-        const posts = JSON.parse(localStorage.getItem("posts") || "[]");
+        const posts = getStoredPosts();
         if (posts.length === 0) {
             throttledPlaySound('/sounds/error.ogg');
             showCustomPopup(texts.exportNotesTitle, texts.exportEmptyMessage, texts.okButton, () => {}, false);
             return;
         }
-        const exportData = { appId: "thoughts-app", posts };
+        const exportedAt = new Date().toISOString();
+        const exportData = {
+            appId: "thoughts-app",
+            version: BACKUP_SCHEMA_VERSION,
+            exportedAt,
+            posts
+        };
         const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: "application/json" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = "thoughts-backup.json";
+        a.download = `thoughts-backup-${exportedAt.slice(0, 10)}.json`;
         a.click();
         URL.revokeObjectURL(url);
+        localStorage.setItem(LAST_BACKUP_AT_KEY, exportedAt);
+        localStorage.setItem(LAST_BACKUP_COUNT_KEY, String(posts.length));
+        updateBackupHealthUI();
+    }
+
+    function readBackupPayload(data) {
+        if (!data || data.appId !== "thoughts-app") return null;
+        const posts = Array.isArray(data.posts) ? data.posts : null;
+        if (!posts) return null;
+        const normalizedPosts = normalizePosts(posts);
+        const migrationLog = JSON.parse(localStorage.getItem("backupMigrationLog") || "[]");
+        migrationLog.push({
+            fromVersion: data.version || "legacy",
+            importedAt: new Date().toISOString(),
+            postCount: normalizedPosts.length
+        });
+        localStorage.setItem("backupMigrationLog", JSON.stringify(migrationLog.slice(-20)));
+        return normalizedPosts;
     }
 
     function importNotes(event) {
@@ -2048,17 +2601,19 @@ document.addEventListener("DOMContentLoaded", async () => {
         reader.onload = e => {
             try {
                 const data = JSON.parse(e.target.result);
-                if (!data.appId || data.appId !== "thoughts-app" || !Array.isArray(data.posts) || !data.posts.every(post => typeof post.text === "string" && typeof post.timestamp === "string" && typeof post.pinned === "boolean")) {
+                const importedPosts = readBackupPayload(data);
+                if (!importedPosts) {
                     throttledPlaySound('/sounds/error.ogg');
-                    showCustomPopup(texts.importErrorTitle, data.appId !== "thoughts-app" ? texts.importErrorNotThoughts : texts.importErrorInvalidFormat, texts.okButton, () => {}, false);
+                    showCustomPopup(texts.importErrorTitle, data?.appId !== "thoughts-app" ? texts.importErrorNotThoughts : texts.importErrorInvalidFormat, texts.okButton, () => {}, false);
                     return;
                 }
-                const existingPosts = JSON.parse(localStorage.getItem("posts") || "[]");
+                const existingPosts = getStoredPosts();
                 if (existingPosts.length > 0) {
-                    showImportConfirmation(data.posts, existingPosts);
+                    showImportConfirmation(importedPosts, existingPosts);
                 } else {
-                    localStorage.setItem("posts", JSON.stringify(data.posts));
+                    persistPosts(importedPosts);
                     debouncedRenderPosts();
+                    updateBackupHealthUI();
                     showSuccess(texts.importSuccessFirst);
                 }
             } catch (err) {
@@ -2090,8 +2645,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         mergeBtn.onclick = () => {
             throttledPlaySound('/sounds/click.ogg')
             const mergedPosts = mergePosts(existingPosts, newPosts);
-            localStorage.setItem("posts", JSON.stringify(mergedPosts));
+            persistPosts(mergedPosts);
             debouncedRenderPosts();
+            updateBackupHealthUI();
             showSuccess(texts.importSuccessMerge);
             popupDiv.classList.add("hidden");
             document.body.style.overflow = "";
@@ -2099,8 +2655,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         replaceBtn.onclick = () => {
             throttledPlaySound('/sounds/click.ogg')
-            localStorage.setItem("posts", JSON.stringify(newPosts));
+            persistPosts(newPosts);
             debouncedRenderPosts();
+            updateBackupHealthUI();
             showSuccess(texts.importSuccessReplace);
             popupDiv.classList.add("hidden");
             document.body.style.overflow = "";
@@ -2157,7 +2714,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 <span class="meta-badge">${wordCount} words</span>
                 <span class="meta-badge">${readTime}</span>
                 ${isPinned ? '<span class="meta-badge">Pinned</span>' : ''}
-                <span class="meta-badge share-post" data-index="${index}" style="cursor: pointer; ${editIndex === index ? 'opacity: 0.5; pointer-events: none;' : ''}">Share ▾</span>
+                <span class="meta-badge share-post" data-index="${index}" style="cursor: pointer; ${editIndex === index ? 'opacity: 0.5; pointer-events: none;' : ''}">Share </span>
             </div>
             <div class="post-actions">
                 <button class="edit-post" data-index="${index}" ${editIndex === index ? "disabled" : ""} style="-webkit-tap-highlight-color: transparent;">
@@ -2174,8 +2731,17 @@ document.addEventListener("DOMContentLoaded", async () => {
                 </button>
                 <button class="pin-post ${isPinned ? "pinned" : ""}" data-index="${index}" ${editIndex === index ? "disabled" : ""} aria-label="${isPinned ? "Unpin Post" : "Pin Post"}" style="-webkit-tap-highlight-color: transparent;">
                     <svg class="icon" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        ${isPinned ? `<path d="M6 3l12 12"/><path d="M6 15l12-12"/><path d="M12 22v-6"/>` : `<path d="M12 2v13"/><path d="M5 15l7 7 7-7"/><path d="M19 9H5"/>`}
+                        ${isPinned ? `<path d="M6 4l14 14"/><path d="M14 4l4 4-5 5"/><path d="M8 16l-4 4"/><path d="M9 9l6 6"/>` : `<path d="M14 4l6 6"/><path d="M12 6 6 12l6 6 6-6-6-6Z"/><path d="M8 16l-4 4"/>`}
                     </svg>
+                    <span>${isPinned ? "Unpin" : "Pin"}</span>
+                </button>
+                <button class="share-post-action" data-index="${index}" ${editIndex === index ? "disabled" : ""} aria-label="Share Post" style="-webkit-tap-highlight-color: transparent;">
+                    <svg class="icon" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/>
+                        <path d="M16 6l-4-4-4 4"/>
+                        <path d="M12 2v13"/>
+                    </svg>
+                    <span>Share</span>
                 </button>
             </div>
         `;
@@ -2205,7 +2771,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const newEditIndex = parseInt(this.getAttribute("data-index"));
                 const posts = JSON.parse(localStorage.getItem("posts") || "[]");
                 const currentText = elements.inputWrapper.value.trim();
-        
+
                 if (editIndex !== null && currentText && currentText !== posts[editIndex].text) {
                     elements.deleteConfirmation.classList.remove("hidden");
                     elements.scrollToTopButton.classList.remove("visible");
@@ -2219,7 +2785,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     actionContext = { type: "edit-switch", newIndex: newEditIndex };
                     return;
                 }
-        
+
                 editIndex = newEditIndex;
                 elements.inputWrapper.value = posts[editIndex].text;
                 adjustHeight();
@@ -2237,15 +2803,31 @@ document.addEventListener("DOMContentLoaded", async () => {
             togglePin(index);
         });
 
-        // Share button — shows menu with Text / Image / Copy options
-        postElement.querySelector(".share-post").addEventListener("click", function () {
+        // Share button  shows menu with Text / Image / Copy options
+        postElement.querySelector(".share-post-action").addEventListener("click", function () {
             throttledPlaySound('/sounds/click.ogg')
             if (!this.disabled) {
-                const posts = JSON.parse(localStorage.getItem("posts") || "[]");
+                const posts = getStoredPosts();
                 const postToShare = posts[index];
                 showShareMenu(postToShare, index, this);
             }
         });
+        postElement.addEventListener("contextmenu", event => {
+            event.preventDefault();
+            if (editIndex !== null) return;
+            const posts = getStoredPosts();
+            showShareMenu(posts[index], index, postElement.querySelector(".share-post-action"));
+        });
+        let pressTimer = null;
+        postElement.addEventListener("touchstart", () => {
+            if (editIndex !== null) return;
+            pressTimer = setTimeout(() => {
+                const posts = getStoredPosts();
+                showShareMenu(posts[index], index, postElement.querySelector(".share-post-action"));
+            }, 520);
+        }, { passive: true });
+        postElement.addEventListener("touchend", () => clearTimeout(pressTimer));
+        postElement.addEventListener("touchmove", () => clearTimeout(pressTimer), { passive: true });
     }
 
     // Event Listeners
@@ -2257,25 +2839,33 @@ document.addEventListener("DOMContentLoaded", async () => {
         const text = elements.inputWrapper.value.trim();
         if (!text) {
             throttledPlaySound('/sounds/error.ogg');
-            showCustomPopup(texts.emptyNoteTitle, texts.emptyNoteMessage, texts.okButton, () => { }, false);
+            showCustomPopup(
+                texts.emptyNoteTitle || "Nothing to add",
+                texts.emptyNoteMessage || "Write a thought first, then tap Add.",
+                texts.okButton || "OK",
+                () => {},
+                false
+            );
             return;
         }
         if (!text || text.length > currentCharLimit) {
             throttledPlaySound('/sounds/error.ogg');
-            showCustomPopup(texts.charLimitTitle, texts.charLimitMessage, texts.okButton, () => { }, false);
+            const limitMessage = (texts.charLimitMessage || "Keep notes under {count} characters.").replace("{count}", currentCharLimit);
+            showCustomPopup(
+                texts.charLimitTitle || "Note is too long",
+                limitMessage,
+                texts.okButton || "OK",
+                () => {},
+                false
+            );
             return;
         }
         if (editIndex !== null) {
             // Edit existing post
-            const posts = JSON.parse(localStorage.getItem("posts") || "[]");
+            const posts = getStoredPosts();
             posts[editIndex].text = text;
             posts[editIndex].timestamp = new Date().toISOString();
-            localStorage.setItem("posts", JSON.stringify(posts));
-            if ("serviceWorker" in navigator) {
-                navigator.serviceWorker.ready.then(reg => {
-                    reg.active?.postMessage({ type: "SAVE_POSTS", posts: JSON.stringify(posts) });
-                });
-            }
+            persistPosts(posts);
             editIndex = null;
             elements.cancelEditButton.style.display = "none";
             elements.postButton.textContent = texts.addButton;
@@ -2283,7 +2873,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             // Save new post
             savePost(text);
         }
-    
+
         // Clear the input and draft *after* saving the post
         setTimeout(() => {
             elements.inputWrapper.value = "";
@@ -2315,7 +2905,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     elements.deleteAllButton.addEventListener("click", () => {
-        const posts = JSON.parse(localStorage.getItem("posts") || "[]");
+        const posts = getStoredPosts();
         if (posts.length === 0) {
             throttledPlaySound('/sounds/error.ogg');
             showCustomPopup(texts.deleteAllConfirmTitle, texts.deleteAllEmptyMessage, texts.okButton, () => {}, false);
@@ -2326,10 +2916,9 @@ document.addEventListener("DOMContentLoaded", async () => {
                 texts.deleteAllConfirmText,
                 texts.confirmDeleteButton,
                 () => {
-                    localStorage.removeItem("posts");
-                    if ("serviceWorker" in navigator) {
-                        navigator.serviceWorker.ready.then(reg => reg.active?.postMessage({ type: "SAVE_POSTS", posts: "[]" }));
-                    }
+                    posts.forEach(movePostToRecycleBin);
+                    persistPosts([]);
+                    updateBackupHealthUI();
                     debouncedRenderPosts();
                 },
                 true
@@ -2347,14 +2936,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     elements.confirmDelete.addEventListener("click", () => {
-        const posts = JSON.parse(localStorage.getItem("posts") || "[]");
+        const posts = getStoredPosts();
         if (actionContext) {
             if (actionContext.type === "delete") {
-                posts.splice(actionContext.index, 1);
-                localStorage.setItem("posts", JSON.stringify(posts));
-                if ("serviceWorker" in navigator) {
-                    navigator.serviceWorker.ready.then(reg => reg.active?.postMessage({ type: "SAVE_POSTS", posts: JSON.stringify(posts) }));
+                const [deletedPost] = posts.splice(actionContext.index, 1);
+                if (deletedPost) {
+                    movePostToRecycleBin(deletedPost);
+                    showUndoDelete(deletedPost);
                 }
+                persistPosts(posts);
+                updateBackupHealthUI();
                 renderPosts();
             } else if (actionContext.type === "edit-switch") {
                 editIndex = actionContext.newIndex;
@@ -2439,7 +3030,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     let isEffectActive = false;
 
     function createEmojiConfettiEffect(emoji) {
-        console.log(`🎉 Easter Egg: Emoji - ${emoji}! 🎉`);
+        console.log(` Easter Egg: Emoji - ${emoji}! `);
         throttledPlaySound('/sounds/long-touch.ogg');
         const scalar = 2;
         const shape = confetti.shapeFromText({ text: emoji, scalar });
@@ -2456,7 +3047,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const effects = [
         () => {
-            console.log("🎉 Easter Egg: Realistic! 🎉");
+            console.log(" Easter Egg: Realistic! ");
             throttledPlaySound('/sounds/single-firework.ogg');
             const count = 200;
             const defaults = { origin: { y: 0.7 } };
@@ -2470,7 +3061,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             fire(0.1, { spread: 120, startVelocity: 45 });
         },
         () => {
-            console.log("🎉 Easter Egg: Fireworks! 🎉");
+            console.log(" Easter Egg: Fireworks! ");
             throttledPlaySound('/sounds/fireworksschoolprid.ogg');
             const duration = 5 * 1000;
             const end = Date.now() + duration;
@@ -2484,7 +3075,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             }, 200);
         },
         () => {
-            console.log("🎉 Easter Egg: Starfield Effect! 🎉");
+            console.log(" Easter Egg: Starfield Effect! ");
             throttledPlaySound('/sounds/shooting-stars.ogg');
             function randomInRange(min, max) {
                 return Math.random() * (max - min) + min;
@@ -2542,7 +3133,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             createStarfield();
         },
         () => {
-            console.log("🎉 Easter Egg: Snow! 🎉");
+            console.log(" Easter Egg: Snow! ");
             throttledPlaySound('/sounds/snow.ogg');
             const duration = 5 * 1000;
             const animationEnd = Date.now() + duration;
@@ -2573,7 +3164,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             })();
         },
         () => {
-            console.log("🎉 Easter Egg: School Pride! 🎉");
+            console.log(" Easter Egg: School Pride! ");
             throttledPlaySound('/sounds/fireworks.ogg');
             const duration = 5 * 1000;
             const end = Date.now() + duration;
@@ -2588,7 +3179,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             }, 250);
         },
         () => {
-            console.log("🎉 Easter Egg: Custom Shapes! 🎉");
+            console.log(" Easter Egg: Custom Shapes! ");
             throttledPlaySound('/sounds/stars.ogg');
             const pumpkin = confetti.shapeFromPath({
                 path: "M449.4 142c-5 0-10 .3-15 1a183 183 0 0 0-66.9-19.1V87.5a17.5 17.5 0 1 0-35 0v36.4a183 183 0 0 0-67 19c-4.9-.6-9.9-1-14.8-1C170.3 142 105 219.6 105 315s65.3 173 145.7 173c5 0 10-.3 14.8-1a184.7 184.7 0 0 0 169 0c4.9.7 9.9 1 14.9 1 80.3 0 145.6-77.6 145.6-173s-65.3-173-145.7-173zm-220 138 27.4-40.4a11.6 11.6 0 0 1 16.4-2.7l54.7 40.3a11.3 11.3 0 0 1-7 20.3H239a11.3 11.3 0 0 1-9.6-17.5zM444 383.8l-43.7 17.5a17.7 17.7 0 0 1-13 0l-37.3-15-37.2 15a17.8 17.8 0 0 1-13 0L256 383.8a17.5 17.5 0 0 1 13-32.6l37.3 15 37.2-15c4.2-1.6 8.8-1.6 13 0l37.3 15 37.2-15a17.5 17.5 0 0 1 13 32.6zm17-86.3h-82a11.3 11.3 0 0 1-6.9-20.4l54.7-40.3a11.6 11.6 0 0 1 16.4 2.8l27.4 40.4a11.3 11.3 0 0 1-9.6 17.5z",
@@ -2607,22 +3198,26 @@ document.addEventListener("DOMContentLoaded", async () => {
             confetti({ ...defaults, shapes: [tree], colors: ["#8d960f", "#be0f10", "#445404"] });
             confetti({ ...defaults, shapes: [heart], colors: ["#f93963", "#a10864", "#ee0b93"] });
         },
-        () => createEmojiConfettiEffect("🐸"),
-        () => createEmojiConfettiEffect("🐶"),
-        () => createEmojiConfettiEffect("🐼"),
-        () => createEmojiConfettiEffect("👾"),
-        () => createEmojiConfettiEffect("💀"),
-        () => createEmojiConfettiEffect("🐍"),
-        () => createEmojiConfettiEffect("🍕"),
-        () => createEmojiConfettiEffect("🔪"),
-        () => createEmojiConfettiEffect("🎃"),
-        () => createEmojiConfettiEffect("🏀"),
-        () => createEmojiConfettiEffect("🍀"),
-        () => createEmojiConfettiEffect("🌞🌝"),
-        () => createEmojiConfettiEffect("🌏")
+        () => createEmojiConfettiEffect(""),
+        () => createEmojiConfettiEffect(""),
+        () => createEmojiConfettiEffect(""),
+        () => createEmojiConfettiEffect(""),
+        () => createEmojiConfettiEffect(""),
+        () => createEmojiConfettiEffect(""),
+        () => createEmojiConfettiEffect(""),
+        () => createEmojiConfettiEffect(""),
+        () => createEmojiConfettiEffect(""),
+        () => createEmojiConfettiEffect(""),
+        () => createEmojiConfettiEffect(""),
+        () => createEmojiConfettiEffect(""),
+        () => createEmojiConfettiEffect("")
     ];
 
     function triggerNextEffect() {
+        if (localStorage.getItem(ENABLE_CELEBRATIONS_KEY) !== "true") {
+            createNotification("Celebrations are off. Enable them in Settings.", { duration: 1400 });
+            return;
+        }
         if (isEffectActive) return;
         isEffectActive = true;
         effects[currentEffectIndex]();
@@ -2652,13 +3247,18 @@ document.addEventListener("DOMContentLoaded", async () => {
         updateOnlineStatus();
         debouncedRenderPosts();
     });
+    window.addEventListener("beforeinstallprompt", event => {
+        event.preventDefault();
+        deferredInstallPrompt = event;
+        createNotification("Thoughts can be installed for offline use", { duration: 2500 });
+    });
 
     elements.inputWrapper.addEventListener("input", function () {
         const text = this.value.trim();
         if (text.length > currentCharLimit) {
             throttledPlaySound('/sounds/error.ogg');
             this.value = text.slice(0, currentCharLimit);
-            const limitMessage = (texts.charLimitMessage || "Whoa there! Only {count} characters are allowed. Extra characters? Poof—they’re gone!").replace("{count}", currentCharLimit);
+            const limitMessage = (texts.charLimitMessage || "Whoa there! Only {count} characters are allowed. Extra characters? Pooftheyre gone!").replace("{count}", currentCharLimit);
             showCustomPopup(texts.charLimitTitle || "Character Limit Reached", limitMessage, texts.okButton || "OK", () => {}, false);
         }
         throttledSaveDraft(this.value);
@@ -2666,7 +3266,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         updateCharCount(this.value.length);
         updateEditState();
         updateInputStats(); // Live word count + reading time
-        
+
     });
 
     if (navigator.share || window.location.search) {
@@ -2689,10 +3289,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         language: localStorage.getItem("language"),
         isNewUser: localStorage.getItem("hasSeenLanguagePrompt")
     });
-    
+
     const hasSeenLanguagePrompt = localStorage.getItem("hasSeenLanguagePrompt") === "true";
     const storedLanguage = localStorage.getItem("language");
-    
+
     if (!hasSeenLanguagePrompt || !storedLanguage || !languageData[storedLanguage]) {
         console.log("New user detected or invalid language, showing selection");
         showLanguageSelection(true); // Show selection for new users, welcome message after
@@ -2704,14 +3304,14 @@ document.addEventListener("DOMContentLoaded", async () => {
         renderPosts();
     }
     elements.footer.classList.remove("hidden");
-    
+
     const splashScreen = document.getElementById("splash-screen");
     splashScreen.style.opacity = "0";
     setTimeout(() => (splashScreen.style.display = "none"), 700);
 });
 
 let deferredPrompt;
-window.addEventListener("beforeinstallprompt", e => {
+window.addEventListener("thoughts-legacy-beforeinstallprompt-disabled", e => {
     console.log("beforeinstallprompt event fired");
     e.preventDefault(); // Prevent the default browser prompt
     deferredPrompt = e;
@@ -2779,7 +3379,7 @@ window.addEventListener("beforeinstallprompt", e => {
 
             // Dismiss Button (Cross)
             const dismissButton = document.createElement("button");
-            dismissButton.textContent = "✕"; // Cross symbol
+            dismissButton.textContent = ""; // Cross symbol
             Object.assign(dismissButton.style, {
                 backgroundColor: "#ffffff", // White background
                 color: "#000000", // Black text

@@ -1,5 +1,5 @@
 // service-worker.js
-const CACHE_VERSION = '2.2.0';
+const CACHE_VERSION = '2.3.1';
 const CACHE_NAME = `thoughts-v${CACHE_VERSION}`;
 
 // Core assets to cache on install
