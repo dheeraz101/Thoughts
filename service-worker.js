@@ -1,5 +1,5 @@
 // service-worker.js
-const CACHE_VERSION = '2.1.0';
+const CACHE_VERSION = '2.2.0';
 const CACHE_NAME = `thoughts-v${CACHE_VERSION}`;
 
 // Core assets to cache on install
@@ -117,15 +117,41 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-// Message handler — clean, minimal
+// Message handler — handles update + lightweight local backups
 self.addEventListener('message', (event) => {
   if (!event.data || !event.data.type) return;
 
-  switch (event.data.type) {
-    case 'SKIP_WAITING':
-      self.skipWaiting();
-      break;
-  }
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE_NAME);
+
+    switch (event.data.type) {
+      case 'SKIP_WAITING':
+        self.skipWaiting();
+        break;
+
+      case 'SAVE_POSTS':
+        await cache.put('/posts', new Response(event.data.posts || '[]', {
+          headers: { 'Content-Type': 'application/json' }
+        }));
+        break;
+
+      case 'SAVE_DRAFT':
+        await cache.put('/draft', new Response(event.data.draft || '', {
+          headers: { 'Content-Type': 'text/plain' }
+        }));
+        break;
+
+      case 'CLEAR_DRAFT':
+        await cache.delete('/draft');
+        break;
+
+      case 'SAVE_LANGUAGES':
+        await cache.put('/languages', new Response(event.data.languages || '{}', {
+          headers: { 'Content-Type': 'application/json' }
+        }));
+        break;
+    }
+  })());
 });
 
 // Suppress console.log in production

@@ -118,7 +118,7 @@
       "noPostsMessage": "Koi notes nahi hai. Upar se ek naya note daalo.",
       "noResultsMessage": "Kuch match nahi mila. Search thoda badlo ya naya note daalo.",
       "charCount": "{count}/{currentCharLimit}",
-      "charLimit": "500",
+      "charLimit": 500,
       "exportButton": "Export Karo",
       "importButton": "Import Karo",
       "exportNotesTitle": "Notes Bahar Bheje",

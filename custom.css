@@ -1144,23 +1144,21 @@ header:hover {
         0 0 0 1px rgba(255, 255, 255, 0.05);
 }
 
-/* ── Buttons: glass tinted ── */
+/* ── Buttons: simplified, professional (no glow) ── */
 #post-button {
-    background: rgba(29, 155, 240, 0.85) !important;
-    backdrop-filter: blur(12px) !important;
-    -webkit-backdrop-filter: blur(12px) !important;
-    border: 1px solid rgba(255, 255, 255, 0.15) !important;
-    box-shadow:
-        0 0 0 0.5px rgba(255, 255, 255, 0.1) inset,
-        0 2px 8px rgba(29, 155, 240, 0.3);
-    transition: all 0.2s ease;
+    background: #1d9bf0; /* Clean solid brand color */
+    color: #ffffff;
+    border: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: none;
+    transition: background-color 0.15s ease, transform 0.08s ease;
 }
 
 #post-button:hover {
-    background: rgba(29, 155, 240, 0.95) !important;
-    box-shadow:
-        0 0 0 0.5px rgba(255, 255, 255, 0.15) inset,
-        0 4px 16px rgba(29, 155, 240, 0.4);
+    background: #1a8cd8; /* Slightly darker on hover, no glow */
+    box-shadow: none;
+    transform: translateY(-1px);
 }
 
 .edit-post {
@@ -1315,38 +1313,7 @@ header:hover {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
-/* ── Refraction shimmer on hover (the "liquid" part) ── */
-@keyframes glass-shimmer {
-    0% { background-position: -200% center; }
-    100% { background-position: 200% center; }
-}
-
-.post::before,
-.input-section::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    background: linear-gradient(
-        105deg,
-        transparent 40%,
-        rgba(255, 255, 255, 0.03) 45%,
-        rgba(255, 255, 255, 0.06) 50%,
-        rgba(255, 255, 255, 0.03) 55%,
-        transparent 60%
-    );
-    background-size: 200% 100%;
-    pointer-events: none;
-    z-index: 1;
-    animation: glass-shimmer 6s ease-in-out infinite;
-    opacity: 0;
-    transition: opacity 0.4s ease;
-}
-
-.post:hover::before,
-.input-section:hover::before {
-    opacity: 1;
-}
+/* Shimmer effect removed for input area and posts */
 
 /* ── Share menu animation ── */
 @keyframes menuSlideIn {
@@ -1374,16 +1341,7 @@ header:hover {
 .post:nth-child(4) { animation-delay: 0.12s; }
 .post:nth-child(5) { animation-delay: 0.16s; }
 
-/* ── Streak badge pulse ── */
-@keyframes streakPulse {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.15); }
-}
-
-#streak-badge {
-    animation: streakPulse 2s ease-in-out infinite;
-    display: inline-block;
-}
+/* Streak badge removed */
 
 /* ── Input live stats ── */
 #input-live-stats {
@@ -1395,4 +1353,85 @@ header:hover {
 .input-section {
     position: relative;
     overflow: hidden;
+}
+
+.load-more-posts {
+    width: 100%;
+    margin-top: 14px;
+    padding: 10px 14px;
+    border-radius: 9999px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.06);
+    color: #ffffff;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.md-h1, .md-h2, .md-h3 {
+    margin: 0 0 10px;
+    line-height: 1.35;
+}
+
+.md-h1 { font-size: 1.2rem; }
+.md-h2 { font-size: 1.1rem; }
+.md-h3 { font-size: 1.02rem; }
+
+.md-quote {
+    margin: 8px 0;
+    padding: 8px 12px;
+    border-left: 3px solid #1d9bf0;
+    background: rgba(29, 155, 240, 0.08);
+    border-radius: 8px;
+}
+
+.md-inline-code {
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.md-code-block {
+    margin: 8px 0;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.08);
+    overflow-x: auto;
+}
+
+.md-code-block code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    white-space: pre;
+}
+
+@media (max-width: 768px) {
+    .post,
+    .twitter-popup,
+    .language-button,
+    .hashtag-scroll-arrow {
+        backdrop-filter: blur(8px) !important;
+        -webkit-backdrop-filter: blur(8px) !important;
+    }
+
+    .post-actions {
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .edit-post,
+    .delete-post,
+    .pin-post {
+        min-width: 0;
+        flex: 1 1 30%;
+        padding: 8px 10px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation: none !important;
+        transition: none !important;
+        scroll-behavior: auto !important;
+    }
 }
