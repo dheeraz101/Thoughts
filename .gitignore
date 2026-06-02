@@ -5,3 +5,4 @@ tailwind.config.js
 package-lock.json
 script.js
 custom.css
+sync-version.cjs

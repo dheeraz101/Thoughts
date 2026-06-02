@@ -28,9 +28,12 @@
   "orientation": "any",
   "scope": "/",
   "theme_color": "#000000",
-  "version": "2.3.1",
-  "updated": "2026-06-01T00:00:00Z",
-  "categories": ["productivity", "utilities"],
+  "version": "2.3.3",
+  "updated": "2026-06-02T00:00:00Z",
+  "categories": [
+    "productivity",
+    "utilities"
+  ],
   "screenshots": [
     {
       "src": "/screenshots/desktop-view.png",
@@ -52,7 +55,12 @@
       "name": "New Note",
       "short_name": "New",
       "url": "/?action=new",
-      "icons": [{ "src": "/icon-192x192.png", "sizes": "192x192" }]
+      "icons": [
+        {
+          "src": "/icon-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
     }
   ],
   "share_target": {
