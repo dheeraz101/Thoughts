@@ -1,12 +1,13 @@
 // Version info
-const APP_VERSION = "2.3.1";
-const APP_BUILD_NUMBER = "231";
-const APP_BUILD_DATE = "2026-06-01";
+const APP_VERSION = "2.3.3";
+const APP_BUILD_NUMBER = "103102062026";
+const APP_BUILD_DATE = "2026-06-02";
 const INITIAL_RENDER_LIMIT = 30;
 const RENDER_STEP = 30;
 const SEARCH_DEBOUNCE_MS = 200;
 const UPDATE_DISMISS_KEY = "dismissedUpdateVersion";
-const BACKUP_SCHEMA_VERSION = "2.3.1";
+const PENDING_UPDATE_VERSION_KEY = "pendingUpdateVersion";
+const BACKUP_SCHEMA_VERSION = "2.3.3";
 const BACKUP_REMINDER_INTERVAL = 20;
 const RECYCLE_RETENTION_DAYS = 30;
 const FIRST_RUN_ONBOARDING_KEY = "hasSeenFirstRunOnboarding";
@@ -21,16 +22,17 @@ const SHARE_IMAGE_LIMITS = {
 };
 
 const whatsNew = `
-    <strong>Thoughts v2.3.1</strong><br>
-    Empty-note validation now shows a clear message instead of undefined<br>
-    Settings and About keep the refined grouped Apple-style layout<br>
-    Version, backup schema, and cache metadata updated for the patch release<br><br>
+    <strong>Thoughts v2.3.3</strong><br>
+    Language support now covers post meta, share actions, notifications, settings, About, and update flow text<br>
+    Hinglish now uses localized messages for empty-note save, pin limits, onboarding, and post actions<br>
+    Post meta labels are calmer, consistent, and language-aware<br>
+    Version, build, backup schema, and cache metadata are synced from one version file<br><br>
     <small>Stored locally in your browser. Export backups before clearing browser data.</small>
 `;
 
 const FINAL_RELEASE_CHANGELOG = `
-    <strong>Thoughts v2.3.1</strong><br>
-    Final public release patch: stability, polish, and validation update<br>
+    <strong>Thoughts v2.3.3</strong><br>
+    Final public release patch: localization, stability, polish, and validation update<br>
     Faster notes feed with smarter rendering and Load More<br>
     Safe markdown support in notes<br>
     Share-as-image improved with content limits for clean cards<br>
@@ -40,12 +42,12 @@ const FINAL_RELEASE_CHANGELOG = `
 `;
 
 const CURRENT_RELEASE_CHANGELOG = `
-    <strong>Thoughts v2.3.1</strong><br>
-    Patch release for a cleaner public build<br>
-    Empty notes now show a proper helpful message instead of undefined text<br>
-    Settings and About keep the refined Apple-style grouped layout<br>
-    PC users no longer see mobile-only zoom controls in Settings<br>
-    Popup text now has safe fallbacks when language packs miss optional strings<br><br>
+    <strong>Thoughts v2.3.3</strong><br>
+    Patch release for a cleaner multilingual public build<br>
+    All major visible UI text now uses the language system with English fallback and Hinglish coverage<br>
+    Post meta, pin/unpin, share menu, notifications, settings, About, and update flow copy are now localized<br>
+    Empty-note, pin-limit, install, backup, and God Mode messages now respect the selected language<br>
+    Build metadata is synced from version.json for easier releases<br><br>
     <small>Stored locally in your browser. Export backups before clearing browser data.</small>
 `;
 
@@ -177,31 +179,37 @@ if ("serviceWorker" in navigator) {
             .catch(err => console.warn("ServiceWorker registration failed:", err));
     });
 
-    // When the SW takes over, reload once to get fresh assets
+    // When the SW takes over, wait for the user to reload from the update popup.
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (!sessionStorage.getItem('sw-reloaded')) {
-            sessionStorage.setItem('sw-reloaded', '1');
-            window.location.reload();
-        }
+        sessionStorage.setItem('sw-controller-updated', '1');
     });
 }
 
 //  Clean Update System
 
-function checkForUpdates() {
-    if (!navigator.onLine) return;
+function checkForUpdates(options = {}) {
+    if (!navigator.onLine) return Promise.resolve({ status: "offline" });
 
-    fetch(`/manifest.json?t=${Date.now()}`, { cache: 'no-store' })
+    return fetch(`/manifest.json?t=${Date.now()}`, { cache: 'no-store' })
         .then(res => res.json())
         .then(manifest => {
-            const currentVersion = localStorage.getItem('appVersion') || APP_VERSION;
+            const storedVersion = localStorage.getItem('appVersion');
+            const currentVersion = storedVersion || APP_VERSION;
             const dismissedVersion = localStorage.getItem(UPDATE_DISMISS_KEY);
+            const isLocalDevelopmentHost = ["localhost", "127.0.0.1", "0.0.0.0"].includes(window.location.hostname);
             if (manifest.version !== currentVersion) {
-                if (dismissedVersion === manifest.version) return;
+                localStorage.setItem(PENDING_UPDATE_VERSION_KEY, manifest.version);
+                if (!options.forceNotify && isLocalDevelopmentHost) return { status: "local-dev", version: manifest.version };
+                if (!options.forceNotify && dismissedVersion === manifest.version) return { status: "dismissed", version: manifest.version };
                 showUpdateNotification(manifest.version, getCurrentDraftForUpdate, saveDraftForUpdate);
+                return { status: "available", version: manifest.version };
             }
+            localStorage.setItem('appVersion', APP_VERSION);
+            localStorage.removeItem(PENDING_UPDATE_VERSION_KEY);
+            localStorage.removeItem(UPDATE_DISMISS_KEY);
+            return { status: "current", version: manifest.version };
         })
-        .catch(() => {});
+        .catch(() => ({ status: "error" }));
 }
 
 function showUpdateNotification(newVersion, getDraftFn, saveDraftFn) {
@@ -236,7 +244,7 @@ function showUpdateNotification(newVersion, getDraftFn, saveDraftFn) {
     });
 
     const title = document.createElement('p');
-    title.textContent = texts.newUpdateTitle || 'Update Available';
+        title.textContent = textFor("newUpdateTitle", "Update Available");
     Object.assign(title.style, {
         fontSize: '17px',
         fontWeight: '700',
@@ -245,7 +253,7 @@ function showUpdateNotification(newVersion, getDraftFn, saveDraftFn) {
     });
 
     const versionText = document.createElement('p');
-    versionText.textContent = `Version ${newVersion}`;
+    versionText.textContent = `${textFor("versionLabel", "Version")} ${newVersion}`;
     Object.assign(versionText.style, {
         fontSize: '14px',
         color: '#aaa',
@@ -253,9 +261,9 @@ function showUpdateNotification(newVersion, getDraftFn, saveDraftFn) {
     });
 
     const updateButton = document.createElement('button');
-    updateButton.textContent = texts.updateNowButton || 'Update Now';
+    updateButton.textContent = textFor("updateNowButton", "Update Now");
     const laterButton = document.createElement('button');
-    laterButton.textContent = texts.cancelButton || 'Later';
+    laterButton.textContent = textFor("laterButton", "Later");
 
     Object.assign(updateButton.style, {
         background: '#34c759',
@@ -294,6 +302,7 @@ function showUpdateNotification(newVersion, getDraftFn, saveDraftFn) {
     laterButton.addEventListener('click', () => {
         throttledPlaySound('/sounds/click.ogg');
         localStorage.setItem(UPDATE_DISMISS_KEY, newVersion);
+        localStorage.setItem(PENDING_UPDATE_VERSION_KEY, newVersion);
         notification.remove();
     });
 
@@ -310,6 +319,8 @@ async function performUpdate(newVersion, getDraftFn, saveDraftFn, notificationEl
     try {
         const currentDraft = (typeof getDraftFn === "function" ? getDraftFn() : "") || "";
         if (currentDraft && typeof saveDraftFn === "function") saveDraftFn(currentDraft);
+        const progressEl = showUpdateProgressPopup(newVersion, notificationEl);
+        const startedAt = Date.now();
 
         const reg = await navigator.serviceWorker.ready;
         await reg.update();
@@ -332,14 +343,49 @@ async function performUpdate(newVersion, getDraftFn, saveDraftFn, notificationEl
                 .map(k => caches.delete(k))
         );
 
+        const elapsed = Date.now() - startedAt;
+        if (elapsed < 2000) await new Promise(resolve => setTimeout(resolve, 2000 - elapsed));
         localStorage.setItem('appVersion', newVersion);
-        if (notificationEl) notificationEl.remove();
-        window.location.reload();
+        localStorage.removeItem(UPDATE_DISMISS_KEY);
+        localStorage.removeItem(PENDING_UPDATE_VERSION_KEY);
+        showUpdateReloadState(progressEl, newVersion);
 
     } catch (e) {
         console.warn('Update failed:', e);
-        alert("Update failed. Please refresh manually.");
+        createNotification(textFor("updateFailedTrySettings", "Update failed. Try again from Settings."), { background: "#ef4444" });
     }
+}
+
+function showUpdateProgressPopup(newVersion, notificationEl) {
+    if (notificationEl?.classList?.contains("settings-overlay")) {
+        closeModalOverlay(notificationEl);
+    } else if (notificationEl) {
+        notificationEl.remove();
+    }
+    document.querySelectorAll('.update-progress-popup').forEach(el => el.remove());
+    const popup = document.createElement('div');
+    popup.className = 'update-progress-popup';
+    popup.innerHTML = `
+        <div class="update-progress-card">
+            <div class="update-progress-track" aria-hidden="true"><span></span></div>
+            <h2>${textFor("updateInstallingTitle", "Installing update")}</h2>
+            <p>${textFor("updateInstallingMessage", "Preparing version {version}. Your current draft is kept safe.", { version: newVersion })}</p>
+        </div>
+    `;
+    document.body.appendChild(popup);
+    return popup;
+}
+
+function showUpdateReloadState(popup, newVersion) {
+    const target = popup || showUpdateProgressPopup(newVersion);
+    target.innerHTML = `
+        <div class="update-progress-card">
+            <h2>${textFor("updateReadyTitle", "Update ready")}</h2>
+            <p>${textFor("updateReadyMessage", "Version {version} is installed. Reload to finish switching over.", { version: newVersion })}</p>
+            <button type="button" data-update-reload>${textFor("reloadButton", "Reload")}</button>
+        </div>
+    `;
+    target.querySelector("[data-update-reload]").addEventListener("click", () => window.location.reload());
 }
 
 // Check for updates on load + every 30 minutes
@@ -356,6 +402,7 @@ let texts = {};
 let editIndex = null;
 let updateEditState;
 let originalLanguageData = {};
+let hasRenderedPostSkeleton = false;
 const DEFAULT_CHAR_LIMIT = 500;
 const GOD_MODE_TAP_TARGET = 7;
 let currentCharLimit;
@@ -369,6 +416,19 @@ let getCurrentDraftForUpdate = () => {
 let saveDraftForUpdate = (draft) => {
     localStorage.setItem("draftNote", draft || "");
 };
+
+function textFor(key, fallback, replacements = {}) {
+    let value = texts?.[key] || languageData?.english?.[key] || fallback || "";
+    Object.entries(replacements).forEach(([name, replacement]) => {
+        value = value.replaceAll(`{${name}}`, replacement);
+    });
+    return value;
+}
+
+function subtleHaptic() {
+    if (!isSoundEnabled || !navigator.vibrate) return;
+    navigator.vibrate(8);
+}
 
 // Simple hash function (djb2 variant)
 function simpleHash(str) {
@@ -453,7 +513,7 @@ function createNotification(message, options = {}) {
         maxWidth: "760px",
         opacity: "0",
         transition: "opacity 0.3s ease-in-out",
-        ...(window.innerWidth <= 768 && { fontSize: "16px", padding: "12px 20px", margin: "0 12px" })
+        ...(window.innerWidth <= 768 && { fontSize: "16px", padding: "12px 20px", width: "calc(100vw - 28px)" })
     });
     if (background === "rgba(20, 23, 26, 0.85)") {
         Object.assign(notificationDiv.style, {
@@ -473,7 +533,7 @@ function createNotification(message, options = {}) {
 // Specific notification types
 function showGodModeNotification() {
     throttledPlaySound('/sounds/stars.ogg');
-    createNotification("God Mode Unlocked", { background: "rgba(255, 215, 0, 0.9)", color: "#000", duration: 1500 });
+    createNotification(textFor("godModeUnlocked", "God Mode Unlocked"), { background: "rgba(255, 215, 0, 0.9)", color: "#000", duration: 1500 });
 }
 function showSuccess(message) {
     throttledPlaySound('/sounds/success.ogg');
@@ -527,7 +587,7 @@ function lockPageScrollForModal(overlay, panel) {
     overlay.addEventListener("wheel", event => {
         if (!panel) return;
         event.preventDefault();
-        panel.scrollTop += event.deltaY;
+        panel.scrollTop += event.deltaY * 2.2;
     }, { passive: false });
     let lastTouchY = 0;
     overlay.addEventListener("touchstart", event => {
@@ -537,7 +597,7 @@ function lockPageScrollForModal(overlay, panel) {
         if (!panel) return;
         const currentY = event.touches[0]?.clientY || lastTouchY;
         event.preventDefault();
-        panel.scrollTop += lastTouchY - currentY;
+        panel.scrollTop += (lastTouchY - currentY) * 1.7;
         lastTouchY = currentY;
     }, { passive: false });
 }
@@ -652,7 +712,7 @@ async function fetchLanguages() {
             localStorage.setItem("language", "english");
         }
 
-        texts = languageData[selectedLanguage];
+        texts = { ...(languageData["english"] || {}), ...(languageData[selectedLanguage] || {}) };
         const baseCharLimit = Number(texts.charLimit) || DEFAULT_CHAR_LIMIT;
         currentCharLimit = isGodMode ? baseCharLimit * 2 : baseCharLimit;
         texts.charCount = `{count}/${currentCharLimit}`;
@@ -666,7 +726,7 @@ async function fetchLanguages() {
         languageData = JSON.parse(localStorage.getItem("customLanguages") || "{}") || { english: { appName: "Thoughts", addButton: "Add", charLimit: DEFAULT_CHAR_LIMIT } };
         selectedLanguage = "english";
         localStorage.setItem("language", "english");
-        texts = languageData[selectedLanguage];
+        texts = { ...(languageData["english"] || {}), ...(languageData[selectedLanguage] || {}) };
         const baseCharLimit = Number(texts.charLimit) || DEFAULT_CHAR_LIMIT;
         currentCharLimit = isGodMode ? baseCharLimit * 2 : baseCharLimit;
     }
@@ -798,7 +858,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Validate critical elements
     if (!elements.inputWrapper || !elements.postContainer || !elements.footer) {
         console.error("Critical DOM elements missing");
-        createNotification("App initialization failed", { background: "#ef4444", duration: 5000 });
+        createNotification(textFor("appInitFailed", "App initialization failed"), { background: "#ef4444", duration: 5000 });
         return;
     }
 
@@ -862,7 +922,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     function getReadingTime(text) {
         const words = text.trim().split(/\s+/).length;
         const minutes = Math.ceil(words / 200); // 200 wpm average
-        return minutes < 1 ? '< 1 min read' : `${minutes} min read`;
+        return minutes < 1
+            ? textFor("readingTimeUnderMinute", "< 1 min read")
+            : textFor("readingTimeMinutes", "{count} min read", { count: String(minutes) });
     }
 
     //  Word count
@@ -880,6 +942,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const words = getWordCount(post.text);
         const readTime = getReadingTime(post.text);
         const relativeDate = timeAgo(post.timestamp);
+        const shortNote = cleanContent.length < 90 && words < 18;
 
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
@@ -922,22 +985,22 @@ document.addEventListener("DOMContentLoaded", async () => {
         // Title (if exists)
         if (cleanTitle) {
             ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+            ctx.font = `bold ${shortNote ? 30 : 22}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
             const titleLines = wrapText(ctx, cleanTitle, w - 60);
             titleLines.forEach(line => {
                 ctx.fillText(line, 30, y);
-                y += 28;
+                y += shortNote ? 36 : 28;
             });
-            y += 8;
+            y += shortNote ? 12 : 8;
         }
 
         // Content
         ctx.fillStyle = '#b0b3b8';
-        ctx.font = '16px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+        ctx.font = `${shortNote ? 24 : 16}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
         const contentLines = wrapText(ctx, cleanContent, w - 60, 6); // max 6 lines
         contentLines.forEach(line => {
             ctx.fillText(line, 30, y);
-            y += 24;
+            y += shortNote ? 34 : 24;
         });
 
         // Divider
@@ -958,8 +1021,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         ctx.fillStyle = '#1d9bf0';
         ctx.font = 'bold 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
         ctx.textAlign = 'right';
-        ctx.fillText('Thoughts ', w - 30, y);
+        ctx.fillText('Thoughts', w - 50, y);
         ctx.textAlign = 'left';
+        drawThoughtsSpark(ctx, w - 38, y - 5, '#1d9bf0');
 
         // Hashtags at bottom
         const hashtags = (post.text.match(/#\w+/g) || []).slice(0, SHARE_IMAGE_LIMITS.maxHashtags);
@@ -971,6 +1035,24 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
 
         return canvas;
+    }
+
+    function drawThoughtsSpark(ctx, x, y, color) {
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.8;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(x, y - 8);
+        ctx.lineTo(x, y + 8);
+        ctx.moveTo(x - 8, y);
+        ctx.lineTo(x + 8, y);
+        ctx.moveTo(x - 5, y - 5);
+        ctx.lineTo(x + 5, y + 5);
+        ctx.moveTo(x + 5, y - 5);
+        ctx.lineTo(x - 5, y + 5);
+        ctx.stroke();
+        ctx.restore();
     }
 
     function wrapText(ctx, text, maxWidth, maxLines) {
@@ -997,15 +1079,22 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     //  Share as image
     async function sharePostAsImage(post, index) {
-        const canvas = generatePostImage(post, index);
+        const canvas = await new Promise(resolve => {
+            const run = () => resolve(generatePostImage(post, index));
+            if ("requestIdleCallback" in window) {
+                requestIdleCallback(run, { timeout: 800 });
+            } else {
+                setTimeout(run, 0);
+            }
+        });
         if (!canvas || !(canvas instanceof HTMLCanvasElement)) {
-            createNotification('Image generator unavailable', { background: '#ef4444' });
+            createNotification(textFor("imageGeneratorUnavailable", "Image generator unavailable"), { background: '#ef4444' });
             return;
         }
 
         canvas.toBlob(async (blob) => {
             if (!blob) {
-                createNotification('Failed to generate image', { background: '#ef4444' });
+                createNotification(textFor("imageShareFailed", "Failed to generate image"), { background: '#ef4444' });
                 return;
             }
 
@@ -1018,7 +1107,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                         title: 'Thoughts',
                         text: post.text.substring(0, 100)
                     });
-                    createNotification('Shared as image!', { background: 'rgba(34,197,94,0.9)', color: '#fff' });
+                    createNotification(textFor("sharedMessage", "Shared!"), { background: 'rgba(34,197,94,0.9)', color: '#fff' });
                 } catch (err) {
                     if (err.name !== 'AbortError') {
                         downloadImage(canvas);
@@ -1035,21 +1124,23 @@ document.addEventListener("DOMContentLoaded", async () => {
         link.download = `thought-${Date.now()}.png`;
         link.href = canvas.toDataURL('image/png');
         link.click();
-        createNotification('Image saved!', { background: 'rgba(34,197,94,0.9)', color: '#fff' });
+        createNotification(textFor("imageSavedMessage", "Image saved!"), { background: 'rgba(34,197,94,0.9)', color: '#fff' });
     }
 
     //  Share menu (text or image)
     function showShareMenu(post, index, shareBadge) {
-        // Remove existing share menu
         document.querySelectorAll('.share-menu-popup').forEach(el => el.remove());
+        document.querySelectorAll('.share-menu-overlay').forEach(el => el.remove());
 
         const rect = shareBadge.getBoundingClientRect();
+        const isMobileShareMenu = window.innerWidth <= 768;
         const menu = document.createElement('div');
-        menu.className = 'share-menu-popup';
+        menu.className = `share-menu-popup ${isMobileShareMenu ? "share-menu-centered" : ""}`;
         Object.assign(menu.style, {
             position: 'fixed',
-            top: (rect.bottom + 8) + 'px',
-            left: Math.min(rect.left, window.innerWidth - 200) + 'px',
+            top: isMobileShareMenu ? '50%' : (rect.bottom + 8) + 'px',
+            left: isMobileShareMenu ? '50%' : Math.min(rect.left, window.innerWidth - 200) + 'px',
+            transform: isMobileShareMenu ? 'translate(-50%, -50%)' : 'none',
             background: 'rgba(20, 23, 26, 0.9)',
             backdropFilter: 'blur(24px) saturate(180%)',
             WebkitBackdropFilter: 'blur(24px) saturate(180%)',
@@ -1059,49 +1150,27 @@ document.addEventListener("DOMContentLoaded", async () => {
             zIndex: '99999',
             overflow: 'hidden',
             minWidth: '180px',
-            animation: 'menuSlideIn 0.15s ease-out'
+            animation: isMobileShareMenu ? 'none' : 'menuSlideIn 0.15s ease-out'
         });
+        let overlay = null;
+        if (isMobileShareMenu) {
+            overlay = document.createElement('div');
+            overlay.className = 'share-menu-overlay';
+            document.body.appendChild(overlay);
+        }
 
-        menu.innerHTML = `
-            <button class="share-menu-item" data-action="text" style="
-                display:flex;align-items:center;gap:10px;width:100%;
-                padding:12px 16px;background:none;border:none;color:#fff;
-                font-size:14px;cursor:pointer;text-align:left;
-            ">
-                <span style="font-size:18px;"></span>
-                <span>Share as Text</span>
-            </button>
-            <button class="share-menu-item" data-action="image" style="
-                display:flex;align-items:center;gap:10px;width:100%;
-                padding:12px 16px;background:none;border:none;color:#fff;
-                font-size:14px;cursor:pointer;text-align:left;
-                border-top:1px solid rgba(255,255,255,0.06);
-            ">
-                <span style="font-size:18px;"></span>
-                <span>Share as Image</span>
-            </button>
-            <button class="share-menu-item" data-action="copy" style="
-                display:flex;align-items:center;gap:10px;width:100%;
-                padding:12px 16px;background:none;border:none;color:#fff;
-                font-size:14px;cursor:pointer;text-align:left;
-                border-top:1px solid rgba(255,255,255,0.06);
-            ">
-                <span style="font-size:18px;"></span>
-                <span>Copy to Clipboard</span>
-            </button>
-        `;
         menu.innerHTML = `
             <button class="share-menu-item" data-action="text">
                 <svg class="menu-icon" viewBox="0 0 24 24"><path d="M5 4h14"/><path d="M5 8h14"/><path d="M5 12h10"/><path d="M5 16h7"/></svg>
-                <span>Share as Text</span>
+                <span>${textFor("shareAsText", "Share as Text")}</span>
             </button>
             <button class="share-menu-item" data-action="image">
                 <svg class="menu-icon" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="m8 15 3-3 3 3 2-2 3 3"/><circle cx="9" cy="9" r="1.2"/></svg>
-                <span>Share as Image</span>
+                <span>${textFor("shareAsImage", "Share as Image")}</span>
             </button>
             <button class="share-menu-item" data-action="copy">
                 <svg class="menu-icon" viewBox="0 0 24 24"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M5 15V6a1 1 0 0 1 1-1h9"/></svg>
-                <span>Copy to Clipboard</span>
+                <span>${textFor("copyToClipboard", "Copy to Clipboard")}</span>
             </button>
         `;
 
@@ -1111,28 +1180,37 @@ document.addEventListener("DOMContentLoaded", async () => {
         const closeMenu = (e) => {
             if (!menu.contains(e.target) && e.target !== shareBadge) {
                 menu.remove();
+                overlay?.remove();
                 document.removeEventListener('click', closeMenu);
             }
         };
+        overlay?.addEventListener('click', () => {
+            menu.remove();
+            overlay.remove();
+            document.removeEventListener('click', closeMenu);
+        });
         setTimeout(() => document.addEventListener('click', closeMenu), 10);
 
         menu.querySelector('[data-action="text"]').onclick = () => {
             menu.remove();
+            overlay?.remove();
             sharePostAsText(post);
         };
 
         menu.querySelector('[data-action="image"]').onclick = () => {
             menu.remove();
+            overlay?.remove();
             sharePostAsImage(post, index);
         };
 
         menu.querySelector('[data-action="copy"]').onclick = () => {
             menu.remove();
+            overlay?.remove();
             const { title, content } = extractTitleAndContent(post.text);
             const cleanTitle = title ? title.replace(/^@/, '') : '';
             const text = cleanTitle ? `${cleanTitle}\n${content}` : content;
             navigator.clipboard.writeText(text).then(() => {
-                createNotification('Copied!', { background: 'rgba(34,197,94,0.9)', color: '#fff', duration: 1500 });
+                createNotification(textFor("copiedMessage", "Copied!"), { background: 'rgba(34,197,94,0.9)', color: '#fff', duration: 1500 });
             });
         };
     }
@@ -1141,15 +1219,15 @@ document.addEventListener("DOMContentLoaded", async () => {
         const { title, content } = extractTitleAndContent(post.text);
         const cleanTitle = title ? title.replace(/^@/, '') : '';
         const shareTextContent = cleanTitle ? `*${cleanTitle}*\n${content}` : content;
-        const shareText = `${shareTextContent}\n\n from Thoughts`;
+        const shareText = `${shareTextContent}\n\n${textFor("shareSignature", "from Thoughts")}`;
 
         if (navigator.share) {
             navigator.share({ title: 'Thoughts', text: shareText })
-                .then(() => createNotification('Shared!', { background: 'rgba(34,197,94,0.9)', color: '#fff' }))
+                .then(() => createNotification(textFor("sharedMessage", "Shared!"), { background: 'rgba(34,197,94,0.9)', color: '#fff' }))
                 .catch(() => {});
         } else {
             navigator.clipboard.writeText(shareText).then(() => {
-                createNotification('Copied to clipboard!', { background: 'rgba(34,197,94,0.9)', color: '#fff' });
+                createNotification(textFor("copiedMessage", "Copied!"), { background: 'rgba(34,197,94,0.9)', color: '#fff' });
             });
         }
     }
@@ -1223,6 +1301,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         const inlineCodes = [];
 
         let html = safeText
+            .replace(/&lt;(b|strong)&gt;([\s\S]*?)&lt;\/?\1&gt;/gi, '<strong>$2</strong>')
+            .replace(/&lt;(i|em)&gt;([\s\S]*?)&lt;\/?\1&gt;/gi, '<em>$2</em>')
+            .replace(/&lt;u&gt;([\s\S]*?)&lt;\/?u&gt;/gi, '<u>$1</u>')
+            .replace(/&lt;(s|strike|del)&gt;([\s\S]*?)&lt;\/?\1&gt;/gi, '<del>$2</del>')
+            .replace(/&lt;mark&gt;([\s\S]*?)&lt;\/?mark&gt;/gi, '<mark>$1</mark>')
             .replace(/```([\s\S]*?)```/g, (_, code) => {
                 const token = `__CODE_BLOCK_${codeBlocks.length}__`;
                 codeBlocks.push(`<pre class="md-code-block"><code>${code}</code></pre>`);
@@ -1238,8 +1321,12 @@ document.addEventListener("DOMContentLoaded", async () => {
             .replace(/^# (.+)$/gm, '<h1 class="md-h1">$1</h1>')
             .replace(/^> (.+)$/gm, '<blockquote class="md-quote">$1</blockquote>')
             .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+            .replace(/__([^_]+)__/g, '<u>$1</u>')
             .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+            .replace(/_([^_]+)_/g, '<em>$1</em>')
             .replace(/~~([^~]+)~~/g, '<del>$1</del>')
+            .replace(/~([^~]+)~/g, '<del>$1</del>')
+            .replace(/==([^=]+)==/g, '<mark>$1</mark>')
             .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
             .replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, '$1<a href="$2" target="_blank" rel="noopener noreferrer">$2</a>')
             .replace(/(^|\s)(#[\w\u00C0-\uFFFF]+)/g, '$1<span class="hashtag">$2</span>')
@@ -1298,7 +1385,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             } catch (e) {
                 if (e.name === "QuotaExceededError") {
                     throttledPlaySound('/sounds/error.ogg')
-                    showCustomPopup("Storage Full", "Cannot save post: storage limit reached. Delete some posts to free space.", "OK", () => {}, false);
+                    showCustomPopup(textFor("storageFullTitle", "Storage Full"), textFor("storageFullMessage", "Cannot save note: storage limit reached. Delete some notes to free space."), textFor("okButton", "OK"), () => {}, false);
                     return;
                 }
                 throw e; // Re-throw other errors
@@ -1309,7 +1396,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         } catch (err) {
             console.error("Failed to save post:", err);
             throttledPlaySound('/sounds/error.ogg')
-            showCustomPopup("Error", "Failed to save post. Try again.", "OK", () => {}, false);
+            showCustomPopup(textFor("savePostErrorTitle", textFor("errorTitle", "Error")), textFor("savePostFailed", "Failed to save note. Try again."), textFor("okButton", "OK"), () => {}, false);
         }
     }
 
@@ -1318,7 +1405,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             const posts = getStoredPosts();
             const isPinned = posts[index].pinned;
             if (!isPinned && posts.some((post, postIndex) => post.pinned && postIndex !== index)) {
-                createNotification("One post is already pinned. Unpin it first.", { duration: 2200 });
+                createNotification(textFor("pinLimitMessage", "One note is already pinned. Unpin it first."), { duration: 2200 });
                 return;
             }
             posts[index].pinned = !isPinned;
@@ -1392,7 +1479,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     window.addEventListener("beforeunload", saveOnClose);
 
     // Throttled save for draft
-    const throttledSaveDraft = throttle(saveDraft, 200); // Save every 200ms max
+    const throttledSaveDraft = throttle(saveDraft, 2500); // Quiet autosave every few seconds
     const debouncedRenderPosts = debounce(renderPosts, 100); // Generic rerender
     const debouncedSearchRender = debounce(renderPosts, SEARCH_DEBOUNCE_MS);
 
@@ -1556,7 +1643,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         buildInfoEl.addEventListener("click", () => {
             if (isGodMode) {
-                createNotification("God Mode already unlocked", { duration: 1200 });
+                createNotification(textFor("godModeAlreadyUnlocked", "God Mode already unlocked"), { duration: 1200 });
                 return;
             }
 
@@ -1574,7 +1661,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             if (tapCount >= 2) {
                 const remaining = GOD_MODE_TAP_TARGET - tapCount;
-                createNotification(`${remaining} more taps to unlock God Mode`, { duration: 900 });
+                createNotification(textFor("godModeTapsRemaining", "{count} more taps to unlock God Mode", { count: String(remaining) }), { duration: 900 });
             }
         });
     }
@@ -1582,13 +1669,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     function updateBackupHealthUI() {
         const posts = getStoredPosts();
         const lastBackupAt = localStorage.getItem(LAST_BACKUP_AT_KEY);
-        const badgeText = `${formatRelativeBackupAge(lastBackupAt)}  ${posts.length} notes`;
+        const badgeText = textFor("backupHealthStatus", "{age} • {count} notes", { age: formatRelativeBackupAge(lastBackupAt), count: String(posts.length) });
         document.querySelectorAll("[data-backup-health]").forEach(el => {
             el.textContent = badgeText;
         });
         const status = document.getElementById("local-first-status");
         if (status) {
-            status.textContent = `Stored locally in your browser. ${badgeText}.`;
+            status.textContent = textFor("localFirstStatus", "Stored locally in your browser. {status}.", { status: badgeText });
         }
     }
 
@@ -1602,11 +1689,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         card.className = "first-run-card";
         card.innerHTML = `
             <div>
-                <strong>Local only.</strong>
-                <span>Export backup.</span>
-                <span>Works offline.</span>
+                <strong>${textFor("onboardingLocalOnly", "Local only.")}</strong>
+                <span>${textFor("onboardingExportBackup", "Export backup.")}</span>
+                <span>${textFor("onboardingOffline", "Works offline.")}</span>
+                <span>${textFor("instantCaptureMarkdownHint", "Markdown: **bold**, *italic*, __underline__, ~~strike~~, ==mark==, links.")}</span>
             </div>
-            <button type="button" aria-label="Dismiss onboarding">Got it</button>
+            <button type="button" aria-label="${textFor("dismissOnboardingLabel", "Dismiss onboarding")}">${textFor("gotItButton", "Got it")}</button>
         `;
         const inputSection = document.querySelector(".input-section");
         inputSection?.parentNode.insertBefore(card, inputSection);
@@ -1618,15 +1706,16 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     function maybeShowBackupReminder(posts) {
         const count = posts.length;
-        if (count === 0 || count % BACKUP_REMINDER_INTERVAL !== 0) return;
+        if (count === 0) return;
         const lastReminderCount = Number(localStorage.getItem(LAST_BACKUP_REMINDER_COUNT_KEY) || "0");
         const lastBackupCount = Number(localStorage.getItem(LAST_BACKUP_COUNT_KEY) || "0");
-        if (lastReminderCount >= count || lastBackupCount >= count) return;
+        const growthSinceBackup = count - lastBackupCount;
+        if (growthSinceBackup < BACKUP_REMINDER_INTERVAL || lastReminderCount >= count) return;
         localStorage.setItem(LAST_BACKUP_REMINDER_COUNT_KEY, String(count));
         showCustomPopup(
-            "Backup reminder",
-            `You have ${count} notes stored locally in your browser. Export a backup before clearing browser data or switching devices.`,
-            "Export",
+            textFor("backupReminderTitle", "Backup reminder"),
+            textFor("backupReminderMessage", "You have {count} notes stored locally in your browser. Export a backup before clearing browser data or switching devices.", { count: String(count) }),
+            textFor("exportButton", "Export"),
             exportNotes,
             true
         );
@@ -1634,13 +1723,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     function renderEmptyState() {
         const examples = [
-            "@Idea Build local file sharing PWA #project",
-            "@Memory Something I learned today #life",
-            "@Task Fix homepage layout #work"
+            textFor("emptyExampleIdea", "@Idea Build local file sharing PWA #project"),
+            textFor("emptyExampleMemory", "@Memory Something I learned today #life"),
+            textFor("emptyExampleTask", "@Task Fix homepage layout #work")
         ];
         elements.postContainer.innerHTML = `
             <div class="empty-state">
-                <p>${texts.noPostsMessage || "No notes yet."}</p>
+                <p>${textFor("noPostsMessage", "No notes yet.")}</p>
                 <div class="empty-examples">
                     ${examples.map(example => `<button type="button" data-example="${escapeHTML(example)}">${escapeHTML(example)}</button>`).join("")}
                 </div>
@@ -1681,17 +1770,26 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     function showUndoDelete(post) {
+        showUndoToast(
+            textFor("undoDeleteMessage", "Note moved to Recently Deleted."),
+            () => {
+                const posts = getStoredPosts();
+                persistPosts([post, ...posts]);
+                renderPosts(elements.searchInput.value.trim());
+                updateBackupHealthUI();
+            }
+        );
+    }
+
+    function showUndoToast(message, undoAction, duration = 6500) {
         const undo = document.createElement("div");
         undo.className = "undo-toast";
-        undo.innerHTML = `<span>Note moved to Recently Deleted.</span><button type="button">Undo</button>`;
+        undo.innerHTML = `<span>${escapeHTML(message)}</span><button type="button">${textFor("undoButton", "Undo")}</button>`;
         document.body.appendChild(undo);
-        const timer = setTimeout(() => undo.remove(), 5000);
+        const timer = setTimeout(() => undo.remove(), duration);
         undo.querySelector("button").addEventListener("click", () => {
             clearTimeout(timer);
-            const posts = getStoredPosts();
-            persistPosts([post, ...posts]);
-            renderPosts(elements.searchInput.value.trim());
-            updateBackupHealthUI();
+            undoAction?.();
             undo.remove();
         });
     }
@@ -1702,19 +1800,22 @@ document.addEventListener("DOMContentLoaded", async () => {
         const recycleCount = getRecycleBin().length;
         const celebrationsEnabled = localStorage.getItem(ENABLE_CELEBRATIONS_KEY) === "true";
         const soundEnabled = localStorage.getItem("isSoundEnabled") === "true";
+        const storedPendingUpdateVersion = localStorage.getItem(PENDING_UPDATE_VERSION_KEY);
+        const pendingUpdateVersion = storedPendingUpdateVersion && storedPendingUpdateVersion !== APP_VERSION ? storedPendingUpdateVersion : "";
+        if (storedPendingUpdateVersion && !pendingUpdateVersion) localStorage.removeItem(PENDING_UPDATE_VERSION_KEY);
         const showZoomSettings = !isPC();
         const zoomSettingsRow = showZoomSettings ? `
                         <div class="settings-row settings-row-control">
                             <div>
-                                <strong>Page Zoom</strong>
-                                <span>${isZoomEnabled ? "Browser zoom is available when you need larger text." : "Kept locked for an app-like layout on this device."}</span>
+                                <strong>${textFor("pageZoomTitle", "Page Zoom")}</strong>
+                                <span>${isZoomEnabled ? textFor("pageZoomOn", "Browser zoom is available when you need larger text.") : textFor("pageZoomOff", "Kept locked for an app-like layout on this device.")}</span>
                             </div>
-                            <button type="button" data-zoom-settings>${isZoomEnabled ? "Turn off" : "Turn on"}</button>
+                            <button type="button" data-zoom-settings>${isZoomEnabled ? textFor("turnOffButton", "Turn off") : textFor("turnOnButton", "Turn on")}</button>
                         </div>
         ` : "";
         const deletedText = recycleCount
-            ? `${recycleCount} note${recycleCount === 1 ? "" : "s"} can be restored.`
-            : `No deleted notes. Items stay here for ${RECYCLE_RETENTION_DAYS} days.`;
+            ? textFor("recentlyDeletedCount", "{count} note{plural} can be restored.", { count: String(recycleCount), plural: recycleCount === 1 ? "" : "s" })
+            : textFor("recentlyDeletedEmpty", "No deleted notes. Items stay here for {days} days.", { days: String(RECYCLE_RETENTION_DAYS) });
         const panel = document.createElement("div");
         panel.id = "settings-panel-overlay";
         panel.className = "settings-overlay";
@@ -1722,69 +1823,72 @@ document.addEventListener("DOMContentLoaded", async () => {
             <div class="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settings-title">
                 <div class="settings-panel-header">
                     <div>
-                        <p class="panel-kicker">Thoughts</p>
-                        <h2 id="settings-title">Settings</h2>
-                        <p class="panel-subtitle">Local-first controls for privacy, backups, and the writing feel.</p>
+                        <p class="panel-kicker">${texts.appName || "Thoughts"}</p>
+                        <h2 id="settings-title">${textFor("settingsTitle", "Settings")}</h2>
+                        <p class="panel-subtitle">${textFor("settingsSubtitle", "Local-first controls for privacy, backups, and the writing feel.")}</p>
                     </div>
-                    <button type="button" data-close-settings aria-label="Close settings">&times;</button>
+                    <button type="button" data-close-settings aria-label="${textFor("closeSettingsLabel", "Close settings")}">&times;</button>
                 </div>
                 <div class="settings-content">
                     <section class="settings-group settings-hero-card">
-                        <p class="settings-eyebrow">Stored on this device</p>
-                        <strong>Private by default.</strong>
+                        <p class="settings-eyebrow">${textFor("settingsStoredOnDevice", "Stored on this device")}</p>
+                        <strong>${textFor("settingsPrivateDefault", "Private by default.")}</strong>
                         <span id="local-first-status"></span>
                     </section>
                     <section class="settings-group">
                         <div class="settings-group-title">
-                            <p>Backup and recovery</p>
-                            <span>Keep notes portable and recover from mistakes.</span>
+                            <p>${textFor("settingsBackupRecovery", "Backup and recovery")}</p>
+                            <span>${textFor("settingsBackupRecoveryTagline", "Keep notes portable and recover from mistakes.")}</span>
                         </div>
                         <div class="settings-row settings-row-control">
                             <div>
-                                <strong>Export backup</strong>
+                                <strong>${textFor("settingsExportBackup", "Export backup")}</strong>
                                 <span data-backup-health></span>
                             </div>
-                            <button type="button" data-export-settings-secondary>Export</button>
+                            <button type="button" data-export-settings-secondary>${textFor("exportButton", "Export")}</button>
                         </div>
                         <div class="settings-row settings-row-control">
                             <div>
-                                <strong>Recently Deleted</strong>
+                                <strong>${textFor("settingsRecentlyDeleted", "Recently Deleted")}</strong>
                                 <span>${deletedText}</span>
                             </div>
-                            <button type="button" data-restore-latest ${recycleCount ? "" : "disabled"}>Restore</button>
+                            <div class="settings-inline-actions">
+                                <button type="button" data-restore-latest ${recycleCount ? "" : "disabled"}>${textFor("settingsRestore", "Restore")}</button>
+                                <button type="button" data-clear-deleted ${recycleCount ? "" : "disabled"}>${textFor("settingsClear", "Clear")}</button>
+                            </div>
                         </div>
                         <div class="settings-actions-grid">
-                            <button type="button" data-import-settings>Import</button>
-                            <button type="button" data-export-settings>Export copy</button>
+                            <button type="button" data-import-settings>${textFor("importButton", "Import")}</button>
+                            <button type="button" data-export-settings>${textFor("exportCopyButton", "Export copy")}</button>
                         </div>
                     </section>
                     <section class="settings-group">
                         <div class="settings-group-title">
-                            <p>Language</p>
-                            <span>Change the interface or add your own language pack.</span>
+                            <p>${textFor("settingsLanguageTitle", "Language")}</p>
+                            <span>${textFor("settingsLanguageTagline", "Change the interface or add your own language pack.")}</span>
                         </div>
                         <div class="settings-actions-grid">
-                            <button type="button" data-language-settings>Choose language</button>
-                            <button type="button" data-upload-language-settings>Upload language</button>
+                            <button type="button" data-language-settings>${textFor("settingsChooseLanguage", "Choose language")}</button>
+                            <button type="button" data-upload-language-settings>${textFor("settingsUploadLanguage", "Upload language")}</button>
                         </div>
                     </section>
                     <section class="settings-group">
                         <div class="settings-group-title">
-                            <p>Experience</p>
-                            <span>Quiet optional details that stay out of your writing.</span>
+                            <p>${textFor("settingsExperience", "Experience")}</p>
+                            <span>${textFor("settingsExperienceTagline", "Quiet optional details that stay out of your writing.")}</span>
                         </div>
 ${zoomSettingsRow}
                         <label class="settings-row settings-toggle">
                             <div>
-                                <strong>Celebrations</strong>
-                                <span>Small visual rewards after milestones. Off by default.</span>
+                                <strong>${textFor("settingsCelebrations", "Celebrations")}</strong>
+                                <span>${textFor("settingsCelebrationsTagline", "Small visual rewards after milestones. Off by default.")}</span>
                             </div>
                             <input class="ios-switch" type="checkbox" data-celebrations-toggle ${celebrationsEnabled ? "checked" : ""}>
                         </label>
                         <label class="settings-row settings-toggle">
                             <div>
-                                <strong>Sound Effects</strong>
-                                <span>Soft interface sounds for feedback. Off by default.</span>
+                                <strong>${textFor("settingsSoundEffects", "Sound Effects")}</strong>
+                                <span>${textFor("settingsSoundEffectsTagline", "Soft interface sounds for feedback. Off by default.")}</span>
                             </div>
                             <input class="ios-switch" type="checkbox" data-sound-toggle ${soundEnabled ? "checked" : ""}>
                         </label>
@@ -1792,10 +1896,40 @@ ${zoomSettingsRow}
                     <section class="settings-group">
                         <div class="settings-row settings-row-control">
                             <div>
-                                <strong>Install Thoughts</strong>
-                                <span>Launch faster from your home screen and keep offline access close.</span>
+                                <strong>${textFor("settingsInstallThoughts", "Install Thoughts")}</strong>
+                                <span>${textFor("settingsInstallThoughtsTagline", "Launch faster from your home screen and keep offline access close.")}</span>
                             </div>
-                            <button type="button" data-install-app ${deferredInstallPrompt ? "" : "disabled"}>Install</button>
+                            <button type="button" data-install-app ${deferredInstallPrompt ? "" : "disabled"}>${textFor("settingsInstall", "Install")}</button>
+                        </div>
+                    </section>
+                    ${pendingUpdateVersion ? `
+                    <section class="settings-group settings-update-card">
+                        <div class="settings-row settings-row-control">
+                            <div>
+                                <strong>${textFor("settingsUpdateAvailable", "Update available")}</strong>
+                                <span>${textFor("settingsUpdateAvailableTagline", "Version {version} is ready. Install now and reload when you choose.", { version: pendingUpdateVersion })}</span>
+                            </div>
+                            <button type="button" data-install-update>${textFor("settingsInstall", "Install")}</button>
+                        </div>
+                    </section>
+                    ` : `
+                    <section class="settings-group settings-check-update-card">
+                        <div class="settings-row settings-row-control">
+                            <div>
+                                <strong data-update-check-title>${textFor("settingsCheckUpdates", "Check for updates")}</strong>
+                                <span data-update-check-status>${textFor("settingsCurrentVersion", "Current version {version}", { version: APP_VERSION })}</span>
+                            </div>
+                            <button type="button" data-check-update>${textFor("settingsCheck", "Check")}</button>
+                        </div>
+                    </section>
+                    `}
+                    <section class="settings-group settings-about-card">
+                        <div class="settings-row settings-row-control">
+                            <div>
+                                <strong>${textFor("settingsAboutThoughts", "About Thoughts")}</strong>
+                                <span>${textFor("settingsAboutTagline", "Privacy, offline details, release build, and creator links.")}</span>
+                            </div>
+                            <button type="button" data-open-about>${textFor("settingsOpen", "Open")}</button>
                         </div>
                     </section>
                 </div>
@@ -1839,6 +1973,18 @@ ${zoomSettingsRow}
             updateBackupHealthUI();
             closeModalOverlay(panel);
         });
+        panel.querySelector("[data-clear-deleted]")?.addEventListener("click", () => {
+            const previous = getRecycleBin();
+            saveRecycleBin([]);
+            showUndoToast(
+                textFor("clearDeletedMessage", "Recently Deleted cleared."),
+                () => {
+                    saveRecycleBin(previous);
+                    createNotification(textFor("clearDeletedUndoMessage", "Recently Deleted restored."), { duration: 1600 });
+                }
+            );
+            closeModalOverlay(panel);
+        });
         panel.querySelector("[data-install-app]")?.addEventListener("click", async () => {
             if (!deferredInstallPrompt) return;
             deferredInstallPrompt.prompt();
@@ -1846,6 +1992,56 @@ ${zoomSettingsRow}
             deferredInstallPrompt = null;
             closeModalOverlay(panel);
         });
+        panel.querySelector("[data-install-update]")?.addEventListener("click", () => {
+            const version = localStorage.getItem(PENDING_UPDATE_VERSION_KEY);
+            if (!version) return;
+            performUpdate(version, getCurrentDraftForUpdate, saveDraftForUpdate, panel);
+        });
+        panel.querySelector("[data-check-update]")?.addEventListener("click", async event => {
+            const button = event.currentTarget;
+            const title = panel.querySelector("[data-update-check-title]");
+            const status = panel.querySelector("[data-update-check-status]");
+            const originalTitle = title.textContent;
+            const originalStatus = status.textContent;
+            button.disabled = true;
+            button.classList.add("is-checking");
+            button.textContent = textFor("settingsChecking", "Checking...");
+            const startedAt = Date.now();
+            const result = await checkForUpdates({ forceNotify: true });
+            const elapsed = Date.now() - startedAt;
+            if (elapsed < 5000) await new Promise(resolve => setTimeout(resolve, 5000 - elapsed));
+            if (result.status === "available") {
+                closeModalOverlay(panel);
+                return;
+            }
+            title.textContent = textFor("settingsUpToDate", "You're up to date!");
+            status.textContent = result.status === "offline" ? textFor("settingsOfflineUpdate", "Connect to the internet and try again.") : textFor("settingsNoUpdate", "No update is available.");
+            button.classList.remove("is-checking");
+            button.classList.add("is-update-current");
+            button.textContent = textFor("settingsDone", "Done");
+            setTimeout(() => {
+                if (!document.body.contains(panel)) return;
+                title.textContent = originalTitle;
+                status.textContent = originalStatus;
+                button.disabled = false;
+                button.classList.remove("is-update-current");
+                button.textContent = textFor("settingsCheck", "Check");
+            }, 45000);
+        });
+        panel.querySelector("[data-open-about]")?.addEventListener("click", openAboutPanel);
+    }
+
+    function renderPostSkeletons(count = 4) {
+        elements.postContainer.innerHTML = Array.from({ length: count }, () => `
+            <article class="post post-skeleton" aria-hidden="true">
+                <div class="skeleton-line skeleton-title"></div>
+                <div class="skeleton-line"></div>
+                <div class="skeleton-line skeleton-short"></div>
+                <div class="skeleton-actions">
+                    <span></span><span></span><span></span>
+                </div>
+            </article>
+        `).join("");
     }
 
     function openAboutPanel() {
@@ -1858,31 +2054,31 @@ ${zoomSettingsRow}
             <div class="settings-panel about-panel" role="dialog" aria-modal="true" aria-labelledby="about-title">
                 <div class="settings-panel-header">
                     <div>
-                        <p class="panel-kicker">About</p>
+                        <p class="panel-kicker">${textFor("aboutKicker", "About")}</p>
                         <h2 id="about-title">${texts.appName || "Thoughts"}</h2>
-                        <p class="panel-subtitle">A fast local notebook for private thoughts, tasks, memories, and ideas.</p>
+                        <p class="panel-subtitle">${textFor("aboutSubtitle", "A fast local notebook for private thoughts, tasks, memories, and ideas.")}</p>
                     </div>
-                    <button type="button" data-close-about aria-label="Close about">&times;</button>
+                    <button type="button" data-close-about aria-label="${textFor("closeAboutLabel", "Close about")}">&times;</button>
                 </div>
                 <div class="about-copy">
                     <section class="about-hero">
-                        <p class="settings-eyebrow">Local-first PWA</p>
-                        <h3>Capture now. Keep control later.</h3>
+                        <p class="settings-eyebrow">${textFor("aboutEyebrow", "Local-first PWA")}</p>
+                        <h3>${textFor("aboutHeroTitle", "Capture now. Keep control later.")}</h3>
                         <p>${texts.footerDescription || "A local-first notes PWA designed for fast capture, backup confidence, and offline use."}</p>
                     </section>
                     <section class="about-grid">
                         <div>
-                            <h3>Private storage</h3>
-                            <p>Notes are stored locally in your browser on this device.</p>
+                            <h3>${textFor("aboutPrivateStorageTitle", "Private storage")}</h3>
+                            <p>${textFor("aboutPrivateStorageText", "Notes are stored locally in your browser on this device.")}</p>
                         </div>
                         <div>
-                            <h3>Offline ready</h3>
+                            <h3>${textFor("aboutOfflineReadyTitle", "Offline ready")}</h3>
                             <p>${texts.footerOfflineText || "Install Thoughts for offline use."}</p>
                         </div>
                     </section>
                     <section>
-                        <h3>Privacy</h3>
-                        <p>Clearing browser data can delete your notes. Export a backup regularly before resetting the browser, changing devices, or clearing storage.</p>
+                        <h3>${textFor("aboutPrivacyTitle", "Privacy")}</h3>
+                        <p>${textFor("aboutPrivacyText", "Clearing browser data can delete your notes. Export a backup regularly before resetting the browser, changing devices, or clearing storage.")}</p>
                     </section>
                     <section>
                         <h3>${texts.webStoreTitle || "Web Store"}</h3>
@@ -1895,9 +2091,9 @@ ${zoomSettingsRow}
                         <p>${texts.footerIOSGuide || "iOS: Share > Add to Home Screen."}</p>
                     </section>
                     <section class="about-meta-section">
-                        <h3>Release</h3>
+                        <h3>${textFor("aboutReleaseTitle", "Release")}</h3>
                         <div class="about-meta-pills">
-                            <p class="about-version">Version ${APP_VERSION}</p>
+                            <p class="about-version">${textFor("versionLabel", "Version")} ${APP_VERSION}</p>
                             <button type="button" class="about-build" data-about-build>${getBuildInfoLabel()}</button>
                         </div>
                     </section>
@@ -1907,12 +2103,12 @@ ${zoomSettingsRow}
                     </section>
                     <div class="about-legacy-copy" aria-hidden="true">
                     <p>${texts.footerDescription || "A local-first notes PWA designed for fast capture, backup confidence, and offline use."}</p>
-                    <p>Stored locally in your browser. Clearing browser data can delete notes unless you export a backup.</p>
+                    <p>${textFor("footerPrivacy", "Stored locally in your browser. Clearing browser data can delete notes unless you export a backup.")}</p>
                     <p>${texts.footerOfflineText || "Install Thoughts for offline use."}</p>
                     <p>${texts.footerAndroidGuide || "Android: Menu > Add to Home screen."}</p>
                     <p>${texts.footerIOSGuide || "iOS: Share > Add to Home Screen."}</p>
                     <button type="button" class="about-build" data-about-build>${getBuildInfoLabel()}</button>
-                    <p class="about-version">Version ${APP_VERSION}</p>
+                    <p class="about-version">${textFor("versionLabel", "Version")} ${APP_VERSION}</p>
                     </div>
                 </div>
             </div>
@@ -1929,7 +2125,7 @@ ${zoomSettingsRow}
         let tapTimeout = null;
         panel.querySelector("[data-about-build]").addEventListener("click", () => {
             if (isGodMode) {
-                createNotification("God Mode already unlocked", { duration: 1200 });
+                createNotification(textFor("godModeAlreadyUnlocked", "God Mode already unlocked"), { duration: 1200 });
                 return;
             }
             tapCount += 1;
@@ -1944,7 +2140,7 @@ ${zoomSettingsRow}
                 return;
             }
             if (tapCount >= 2) {
-                createNotification(`${GOD_MODE_TAP_TARGET - tapCount} more taps to unlock God Mode`, { duration: 900 });
+                createNotification(textFor("godModeTapsRemaining", "{count} more taps to unlock God Mode", { count: String(GOD_MODE_TAP_TARGET - tapCount) }), { duration: 900 });
             }
         });
     }
@@ -1954,29 +2150,23 @@ ${zoomSettingsRow}
         const nav = document.createElement("nav");
         nav.id = "bottom-nav";
         nav.className = "bottom-nav";
-        nav.setAttribute("aria-label", "Primary");
+        nav.setAttribute("aria-label", textFor("primaryNavigationLabel", "Primary"));
         nav.innerHTML = `
-            <button type="button" data-nav-home aria-label="Home"></button>
-            <button type="button" data-nav-search aria-label="Search"></button>
-            <button type="button" data-nav-new aria-label="New note"></button>
-            <button type="button" data-nav-backup aria-label="Backup"></button>
-            <button type="button" data-nav-settings aria-label="Settings"></button>
+            <button type="button" data-nav-search aria-label="${textFor("searchLabel", "Search")}"></button>
+            <button type="button" data-nav-new aria-label="${textFor("newNoteLabel", "New note")}"></button>
+            <button type="button" data-nav-settings aria-label="${textFor("settingsTitle", "Settings")}"></button>
         `;
         nav.innerHTML = `
-            <button type="button" data-nav-home aria-label="Home"><svg viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5 10.5V20h14v-9.5"/><path d="M9 20v-6h6v6"/></svg></button>
-            <button type="button" data-nav-search aria-label="Search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 4 4"/></svg></button>
-            <button type="button" data-nav-new aria-label="New note"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></button>
-            <button type="button" data-nav-about aria-label="About"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 10v6"/><path d="M12 7h.01"/></svg></button>
-            <button type="button" data-nav-settings aria-label="Settings"><svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6V20a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-.6 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1H4a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 .6-1 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6V4a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 .6 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c.16.36.36.7.6 1h.1a2 2 0 1 1 0 4h-.1c-.24.3-.44.64-.6 1Z"/></svg></button>
+            <button type="button" data-nav-search aria-label="${textFor("searchLabel", "Search")}"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 4 4"/></svg></button>
+            <button type="button" data-nav-new aria-label="${textFor("newNoteLabel", "New note")}"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></button>
+            <button type="button" data-nav-settings aria-label="${textFor("settingsTitle", "Settings")}"><svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6V20a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-.6 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1H4a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 .6-1 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6V4a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 .6 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c.16.36.36.7.6 1h.1a2 2 0 1 1 0 4h-.1c-.24.3-.44.64-.6 1Z"/></svg></button>
         `;
         document.body.appendChild(nav);
-        nav.querySelector("[data-nav-home]").addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
         nav.querySelector("[data-nav-search]").addEventListener("click", () => elements.searchInput.focus());
         nav.querySelector("[data-nav-new]").addEventListener("click", () => {
             elements.inputWrapper.focus();
             document.querySelector(".input-section")?.scrollIntoView({ behavior: "smooth", block: "center" });
         });
-        nav.querySelector("[data-nav-about]").addEventListener("click", openAboutPanel);
         nav.querySelector("[data-nav-settings]").addEventListener("click", openSettingsPanel);
     }
 
@@ -1990,7 +2180,7 @@ ${zoomSettingsRow}
     function applyLanguage(lang) {
         saveAppSettings(lang, undefined);
         setTimeout(() => {
-            texts = { ...languageData[lang] || languageData["english"], ...JSON.parse(localStorage.getItem("customComponents") || "{}") };
+            texts = { ...(languageData["english"] || {}), ...(languageData[lang] || {}), ...JSON.parse(localStorage.getItem("customComponents") || "{}") };
             const baseCharLimit = Number(texts.charLimit) || DEFAULT_CHAR_LIMIT;
             currentCharLimit = isGodMode ? baseCharLimit * 2 : baseCharLimit;
             texts.charCount = `{count}/${currentCharLimit}`;
@@ -2030,7 +2220,7 @@ ${zoomSettingsRow}
             }
 
             if (elements.deleteAllButton) elements.deleteAllButton.textContent = texts.deleteAllButton;
-            if (elements.searchInput) elements.searchInput.placeholder = texts.searchPlaceholder;
+            if (elements.searchInput) elements.searchInput.placeholder = textFor("searchPlaceholderAdvanced", texts.searchPlaceholder || "Search #tag, @title, \"exact\", recent...");
             if (elements.inputWrapper) elements.inputWrapper.placeholder = texts.inputPlaceholder;
             if (elements.postButton) elements.postButton.textContent = texts.addButton;
             if (elements.cancelEditButton) elements.cancelEditButton.textContent = texts.cancelEditButton;
@@ -2075,7 +2265,7 @@ ${zoomSettingsRow}
             if (footerWebstoreNote) footerWebstoreNote.textContent = texts.webStoreNote || "Download your favorite language from the site and upload it to the app using the Upload Language option.";
 
             const footerPrivacy = document.getElementById("footer-privacy");
-            if (footerPrivacy) footerPrivacy.textContent = "Stored locally in your browser. Clearing browser data can delete notes unless you export a backup.";
+            if (footerPrivacy) footerPrivacy.textContent = textFor("footerPrivacy", "Stored locally in your browser. Clearing browser data can delete notes unless you export a backup.");
             ensureBuildInfoElement();
             setupGodModeBuildTapUnlock();
             updateBackupHealthUI();
@@ -2198,12 +2388,31 @@ ${zoomSettingsRow}
         noteSearchIndex = posts.map(post => ({
             post,
             text: post.text.toLowerCase(),
-            tags: post.text.match(/#[\w\u00C0-\uFFFF]+/g) || []
+            title: (extractTitleAndContent(post.text).title || "").toLowerCase(),
+            tags: (post.text.match(/#[\w\u00C0-\uFFFF]+/g) || []).map(tag => tag.toLowerCase()),
+            timestampMs: Date.parse(post.timestamp) || 0
         }));
         const normalizedFilter = (filterText || "").toLowerCase();
+        const phraseMatches = [...normalizedFilter.matchAll(/"([^"]+)"/g)].map(match => match[1].trim()).filter(Boolean);
+        const tagMatches = [...normalizedFilter.matchAll(/(^|\s)#([\w\u00C0-\uFFFF]+)/g)].map(match => `#${match[2]}`);
+        const titleMatches = [...normalizedFilter.matchAll(/(^|\s)@([\w\u00C0-\uFFFF]+)/g)].map(match => match[2]);
+        const wantsRecent = /\brecent\b|recent:7d/.test(normalizedFilter);
+        const plainQuery = normalizedFilter
+            .replace(/"[^"]+"/g, "")
+            .replace(/(^|\s)[#@][\w\u00C0-\uFFFF]+/g, " ")
+            .replace(/\brecent(?::7d)?\b/g, " ")
+            .trim();
+        const recentCutoff = Date.now() - 7 * 86400000;
         const filteredPosts = activeHashtag
             ? noteSearchIndex.filter(entry => entry.tags.includes(`#${activeHashtag}`)).map(entry => entry.post)
-            : noteSearchIndex.filter(entry => entry.text.includes(normalizedFilter)).map(entry => entry.post);
+            : noteSearchIndex.filter(entry => {
+                if (tagMatches.length && !tagMatches.every(tag => entry.tags.includes(tag))) return false;
+                if (titleMatches.length && !titleMatches.every(title => entry.title.includes(title))) return false;
+                if (phraseMatches.length && !phraseMatches.every(phrase => entry.text.includes(phrase))) return false;
+                if (wantsRecent && entry.timestampMs < recentCutoff) return false;
+                if (plainQuery && !entry.text.includes(plainQuery)) return false;
+                return true;
+            }).map(entry => entry.post);
 
         const pinnedPosts = filteredPosts.filter(post => post.pinned);
         const regularPosts = filteredPosts.filter(post => !post.pinned).reverse();
@@ -2231,6 +2440,12 @@ ${zoomSettingsRow}
         try {
             const posts = normalizePosts(JSON.parse(localStorage.getItem("posts") || "[]"));
             localStorage.setItem("posts", JSON.stringify(posts));
+            if (!hasRenderedPostSkeleton && posts.length > 0 && !filterText && !activeHashtag) {
+                hasRenderedPostSkeleton = true;
+                renderPostSkeletons(Math.min(4, posts.length));
+                setTimeout(() => renderPosts(filterText), 120);
+                return;
+            }
             elements.postContainer.innerHTML = "";
             console.log("Rendering posts:", posts);
             const normalizedFilter = (filterText || "").trim().toLowerCase();
@@ -2633,8 +2848,14 @@ ${zoomSettingsRow}
 
         const titleEl = popupDiv.querySelector(".twitter-popup p:first-child");
         const messageEl = popupDiv.querySelector(".twitter-popup p:nth-child(2)");
-        titleEl.textContent = texts.importConfirmTitle;
-        messageEl.textContent = texts.importConfirmText;
+        const duplicateCount = newPosts.filter(newPost => existingPosts.some(post => post.text === newPost.text && post.timestamp === newPost.timestamp)).length;
+        const addCount = Math.max(0, newPosts.length - duplicateCount);
+        titleEl.textContent = textFor("importConfirmTitle", "Import Notes?");
+        messageEl.textContent = textFor(
+            "importPreviewText",
+            "Adds {addCount} notes, skips {skipCount} duplicates. Merge keeps existing notes; Replace overwrites the current list.",
+            { addCount: String(addCount), skipCount: String(duplicateCount) }
+        );
         mergeBtn.textContent = texts.mergeButton;
         replaceBtn.textContent = texts.replaceButton;
         cancelBtn.textContent = texts.cancelButton;
@@ -2655,10 +2876,20 @@ ${zoomSettingsRow}
 
         replaceBtn.onclick = () => {
             throttledPlaySound('/sounds/click.ogg')
+            const previousPosts = [...existingPosts];
             persistPosts(newPosts);
             debouncedRenderPosts();
             updateBackupHealthUI();
-            showSuccess(texts.importSuccessReplace);
+            showUndoToast(
+                textFor("importSuccessReplace", "Notes replaced."),
+                () => {
+                    persistPosts(previousPosts);
+                    renderPosts(elements.searchInput.value.trim());
+                    updateBackupHealthUI();
+                    createNotification(textFor("importReplaceUndoMessage", "Previous notes restored."), { duration: 1600 });
+                },
+                9000
+            );
             popupDiv.classList.add("hidden");
             document.body.style.overflow = "";
         };
@@ -2711,37 +2942,37 @@ ${zoomSettingsRow}
             <div class="post-content">${formatNoteContent(content)}</div>
             <div class="post-meta">
                 <span class="meta-badge" title="${formattedDate}">${relativeDate}</span>
-                <span class="meta-badge">${wordCount} words</span>
+                <span class="meta-badge">${textFor("wordCountLabel", "{count} words", { count: String(wordCount) })}</span>
                 <span class="meta-badge">${readTime}</span>
-                ${isPinned ? '<span class="meta-badge">Pinned</span>' : ''}
-                <span class="meta-badge share-post" data-index="${index}" style="cursor: pointer; ${editIndex === index ? 'opacity: 0.5; pointer-events: none;' : ''}">Share </span>
+                ${isPinned ? `<span class="meta-badge">${textFor("pinnedMetaLabel", "Pinned")}</span>` : ''}
+                <span class="meta-badge share-post" data-index="${index}" style="cursor: pointer; ${editIndex === index ? 'opacity: 0.5; pointer-events: none;' : ''}">${textFor("shareButton", "Share")}</span>
             </div>
             <div class="post-actions">
                 <button class="edit-post" data-index="${index}" ${editIndex === index ? "disabled" : ""} style="-webkit-tap-highlight-color: transparent;">
                     <svg class="icon" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
                     </svg>
-                    <span>${texts.editButton || "Edit"}</span>
+                    <span>${textFor("editButton", "Edit")}</span>
                 </button>
                 <button class="delete-post" data-index="${index}" ${editIndex === index ? "disabled" : ""} style="-webkit-tap-highlight-color: transparent;">
                     <svg class="icon" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M5 6h14l-1 14H6L5 6z"/>
                     </svg>
-                    <span>${texts.deleteButton || "Bin"}</span>
+                    <span>${textFor("deleteButton", "Bin")}</span>
                 </button>
-                <button class="pin-post ${isPinned ? "pinned" : ""}" data-index="${index}" ${editIndex === index ? "disabled" : ""} aria-label="${isPinned ? "Unpin Post" : "Pin Post"}" style="-webkit-tap-highlight-color: transparent;">
+                <button class="pin-post ${isPinned ? "pinned" : ""}" data-index="${index}" ${editIndex === index ? "disabled" : ""} aria-label="${isPinned ? textFor("unpinPostLabel", "Unpin Post") : textFor("pinPostLabel", "Pin Post")}" style="-webkit-tap-highlight-color: transparent;">
                     <svg class="icon" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         ${isPinned ? `<path d="M6 4l14 14"/><path d="M14 4l4 4-5 5"/><path d="M8 16l-4 4"/><path d="M9 9l6 6"/>` : `<path d="M14 4l6 6"/><path d="M12 6 6 12l6 6 6-6-6-6Z"/><path d="M8 16l-4 4"/>`}
                     </svg>
-                    <span>${isPinned ? "Unpin" : "Pin"}</span>
+                    <span>${isPinned ? textFor("unpinButton", "Unpin") : textFor("pinButton", "Pin")}</span>
                 </button>
-                <button class="share-post-action" data-index="${index}" ${editIndex === index ? "disabled" : ""} aria-label="Share Post" style="-webkit-tap-highlight-color: transparent;">
+                <button class="share-post-action" data-index="${index}" ${editIndex === index ? "disabled" : ""} aria-label="${textFor("sharePostLabel", "Share Post")}" style="-webkit-tap-highlight-color: transparent;">
                     <svg class="icon" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7"/>
                         <path d="M16 6l-4-4-4 4"/>
                         <path d="M12 2v13"/>
                     </svg>
-                    <span>Share</span>
+                    <span>${textFor("shareButton", "Share")}</span>
                 </button>
             </div>
         `;
@@ -2840,9 +3071,9 @@ ${zoomSettingsRow}
         if (!text) {
             throttledPlaySound('/sounds/error.ogg');
             showCustomPopup(
-                texts.emptyNoteTitle || "Nothing to add",
-                texts.emptyNoteMessage || "Write a thought first, then tap Add.",
-                texts.okButton || "OK",
+                textFor("emptyNoteTitle", textFor("emptyPostTitle", "Nothing to add")),
+                textFor("emptyNoteMessage", textFor("emptyPostMessage", "Write a thought first, then tap Add.")),
+                textFor("okButton", "OK"),
                 () => {},
                 false
             );
@@ -2916,10 +3147,22 @@ ${zoomSettingsRow}
                 texts.deleteAllConfirmText,
                 texts.confirmDeleteButton,
                 () => {
+                    const previousPosts = [...posts];
+                    const previousRecycleBin = getRecycleBin();
                     posts.forEach(movePostToRecycleBin);
                     persistPosts([]);
                     updateBackupHealthUI();
                     debouncedRenderPosts();
+                    showUndoToast(
+                        textFor("deleteAllUndoMessage", "All notes moved to Recently Deleted."),
+                        () => {
+                            persistPosts(previousPosts);
+                            saveRecycleBin(previousRecycleBin);
+                            renderPosts(elements.searchInput.value.trim());
+                            updateBackupHealthUI();
+                        },
+                        9000
+                    );
                 },
                 true
             );
@@ -3215,7 +3458,7 @@ ${zoomSettingsRow}
 
     function triggerNextEffect() {
         if (localStorage.getItem(ENABLE_CELEBRATIONS_KEY) !== "true") {
-            createNotification("Celebrations are off. Enable them in Settings.", { duration: 1400 });
+            createNotification(textFor("celebrationsOffMessage", "Celebrations are off. Enable them in Settings."), { duration: 1400 });
             return;
         }
         if (isEffectActive) return;
@@ -3250,16 +3493,13 @@ ${zoomSettingsRow}
     window.addEventListener("beforeinstallprompt", event => {
         event.preventDefault();
         deferredInstallPrompt = event;
-        createNotification("Thoughts can be installed for offline use", { duration: 2500 });
+        createNotification(textFor("installPromptMessage", "Thoughts can be installed for offline use"), { duration: 2500 });
     });
 
     elements.inputWrapper.addEventListener("input", function () {
         const text = this.value.trim();
         if (text.length > currentCharLimit) {
-            throttledPlaySound('/sounds/error.ogg');
             this.value = text.slice(0, currentCharLimit);
-            const limitMessage = (texts.charLimitMessage || "Whoa there! Only {count} characters are allowed. Extra characters? Pooftheyre gone!").replace("{count}", currentCharLimit);
-            showCustomPopup(texts.charLimitTitle || "Character Limit Reached", limitMessage, texts.okButton || "OK", () => {}, false);
         }
         throttledSaveDraft(this.value);
         adjustHeight();
@@ -3331,7 +3571,7 @@ window.addEventListener("thoughts-legacy-beforeinstallprompt-disabled", e => {
 
             // Install Button
             const installButton = document.createElement("button");
-            installButton.textContent = "Install App";
+            installButton.textContent = textFor("installAppButton", "Install App");
             Object.assign(installButton.style, {
                 backgroundColor: "#ffffff", // White background
                 color: "#000000", // Black text
