@@ -1,13 +1,13 @@
 // Version info
-const APP_VERSION = "2.3.3";
-const APP_BUILD_NUMBER = "103102062026";
+const APP_VERSION = "2.3.5";
+const APP_BUILD_NUMBER = "140202062026";
 const APP_BUILD_DATE = "2026-06-02";
 const INITIAL_RENDER_LIMIT = 30;
 const RENDER_STEP = 30;
 const SEARCH_DEBOUNCE_MS = 200;
 const UPDATE_DISMISS_KEY = "dismissedUpdateVersion";
 const PENDING_UPDATE_VERSION_KEY = "pendingUpdateVersion";
-const BACKUP_SCHEMA_VERSION = "2.3.3";
+const BACKUP_SCHEMA_VERSION = "2.3.5";
 const BACKUP_REMINDER_INTERVAL = 20;
 const RECYCLE_RETENTION_DAYS = 30;
 const FIRST_RUN_ONBOARDING_KEY = "hasSeenFirstRunOnboarding";
@@ -16,38 +16,66 @@ const LAST_BACKUP_COUNT_KEY = "lastBackupPostCount";
 const LAST_BACKUP_REMINDER_COUNT_KEY = "lastBackupReminderPostCount";
 const ENABLE_CELEBRATIONS_KEY = "enableCelebrations";
 const SHARE_IMAGE_LIMITS = {
-    titleChars: 60,
-    contentChars: 320,
+    titleChars: 90,
     maxHashtags: 3
+};
+const LANGUAGE_STORE_WEB_URL = "https://thoughtswebstore.netlify.app";
+const LANGUAGE_STORE_RAW_BASE_URL = "https://raw.githubusercontent.com/dheeraz101/webstore-thoughts/main";
+const LANGUAGE_STORE_MANIFEST_URL = `${LANGUAGE_STORE_RAW_BASE_URL}/languages.json`;
+const LANGUAGE_NATIVE_NAMES = {
+    english: "English",
+    spanish: "Español",
+    french: "Français",
+    hindi: "हिन्दी",
+    emojis: "Emojis",
+    nnbabu: "NNBabu",
+    hinglish: "Hinglish",
+    tamil: "தமிழ்",
+    telugu: "తెలుగు",
+    bengali: "বাংলা",
+    marathi: "मराठी",
+    gujarati: "ગુજરાતી",
+    kannada: "ಕನ್ನಡ",
+    malayalam: "മലയാളം",
+    punjabi: "ਪੰਜਾਬੀ",
+    urdu: "اردو",
+    arabic: "العربية",
+    japanese: "日本語",
+    chinese: "中文",
+    korean: "한국어",
+    german: "Deutsch",
+    italian: "Italiano",
+    portuguese: "Português",
+    russian: "Русский"
 };
 
 const whatsNew = `
-    <strong>Thoughts v2.3.3</strong><br>
-    Language support now covers post meta, share actions, notifications, settings, About, and update flow text<br>
-    Hinglish now uses localized messages for empty-note save, pin limits, onboarding, and post actions<br>
-    Post meta labels are calmer, consistent, and language-aware<br>
-    Version, build, backup schema, and cache metadata are synced from one version file<br><br>
+    <strong>Thoughts v2.3.5</strong><br>
+    Share-as-image now keeps hashtags visible and wraps long notes cleanly onto new lines<br>
+    Settings import and update icons have been refined for a clearer Apple-style look<br>
+    Check for update now gives calmer visual feedback with a spinning update icon<br>
+    English and Hinglish release-facing text has been refreshed for this public patch<br><br>
     <small>Stored locally in your browser. Export backups before clearing browser data.</small>
 `;
 
 const FINAL_RELEASE_CHANGELOG = `
-    <strong>Thoughts v2.3.3</strong><br>
-    Final public release patch: localization, stability, polish, and validation update<br>
+    <strong>Thoughts v2.3.5</strong><br>
+    Final public release patch: sharing reliability, settings polish, localization, and release metadata<br>
     Faster notes feed with smarter rendering and Load More<br>
     Safe markdown support in notes<br>
-    Share-as-image improved with content limits for clean cards<br>
+    Share-as-image now preserves hashtags, wraps long text, and expands the card height when needed<br>
     God Mode moved to hidden build-tap unlock (mobile friendly)<br>
-    Update system upgraded with better version and cache handling<br><br>
-    <small>Always back up your notes via Export at the bottom.</small>
+    Update system upgraded with version checks, install flow, and spinning check feedback<br><br>
+    <small>Always back up your notes from Settings before clearing browser data.</small>
 `;
 
 const CURRENT_RELEASE_CHANGELOG = `
-    <strong>Thoughts v2.3.3</strong><br>
-    Patch release for a cleaner multilingual public build<br>
-    All major visible UI text now uses the language system with English fallback and Hinglish coverage<br>
-    Post meta, pin/unpin, share menu, notifications, settings, About, and update flow copy are now localized<br>
-    Empty-note, pin-limit, install, backup, and God Mode messages now respect the selected language<br>
-    Build metadata is synced from version.json for easier releases<br><br>
+    <strong>Thoughts v2.3.5</strong><br>
+    Patch release for share-image reliability and settings detail<br>
+    Image sharing now shows hashtag-only notes and long notes without cutting the text<br>
+    Import and update rows in Settings now use cleaner icons<br>
+    Check for update now spins the icon while checking and waits before showing the result<br>
+    English and Hinglish text has been refreshed for the latest visible release copy<br><br>
     <small>Stored locally in your browser. Export backups before clearing browser data.</small>
 `;
 
@@ -201,7 +229,7 @@ function checkForUpdates(options = {}) {
                 localStorage.setItem(PENDING_UPDATE_VERSION_KEY, manifest.version);
                 if (!options.forceNotify && isLocalDevelopmentHost) return { status: "local-dev", version: manifest.version };
                 if (!options.forceNotify && dismissedVersion === manifest.version) return { status: "dismissed", version: manifest.version };
-                showUpdateNotification(manifest.version, getCurrentDraftForUpdate, saveDraftForUpdate);
+                if (!options.suppressNotify) showUpdateNotification(manifest.version, getCurrentDraftForUpdate, saveDraftForUpdate);
                 return { status: "available", version: manifest.version };
             }
             localStorage.setItem('appVersion', APP_VERSION);
@@ -938,17 +966,34 @@ document.addEventListener("DOMContentLoaded", async () => {
     function generatePostImage(post, index) {
         const { title, content } = extractTitleAndContent(post.text);
         const cleanTitle = title ? title.replace(/^@/, '').slice(0, SHARE_IMAGE_LIMITS.titleChars) : null;
-        const cleanContent = (content || "").replace(/#\w+/g, '').trim().slice(0, SHARE_IMAGE_LIMITS.contentChars);
+        const cleanContent = (content || post.text || "").trim();
         const words = getWordCount(post.text);
         const readTime = getReadingTime(post.text);
         const relativeDate = timeAgo(post.timestamp);
-        const shortNote = cleanContent.length < 90 && words < 18;
+        const compactNote = cleanContent.length <= 110 && words <= 16;
+        const shortNote = cleanContent.length <= 190 && words <= 28;
 
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         const scale = 2; // retina
         const w = 600;
-        const h = cleanTitle ? 380 : 320;
+        const maxTextWidth = w - 60;
+        const titleFontSize = compactNote ? 36 : shortNote ? 30 : 22;
+        const titleLineHeight = compactNote ? 42 : shortNote ? 36 : 28;
+        const contentFontSize = compactNote ? 30 : shortNote ? 25 : 16;
+        const contentLineHeight = compactNote ? 40 : shortNote ? 34 : 24;
+        ctx.font = `bold ${titleFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+        const titleLines = cleanTitle ? wrapText(ctx, cleanTitle, maxTextWidth) : [];
+        ctx.font = `${contentFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+        const contentLines = wrapText(ctx, cleanContent, maxTextWidth);
+        const hashtags = (post.text.match(/#\w+/g) || []).slice(0, SHARE_IMAGE_LIMITS.maxHashtags);
+        ctx.font = '12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+        const hashtagLines = hashtags.length ? wrapText(ctx, hashtags.join('  '), maxTextWidth) : [];
+        const topPadding = 40;
+        const titleBlockHeight = titleLines.length ? titleLines.length * titleLineHeight + (compactNote ? 16 : shortNote ? 12 : 8) : 0;
+        const contentBlockHeight = Math.max(contentLineHeight, contentLines.length * contentLineHeight);
+        const metaBlockHeight = 86 + (hashtagLines.length ? hashtagLines.length * 18 + 6 : 0);
+        const h = Math.max(cleanTitle ? 380 : 320, topPadding + titleBlockHeight + contentBlockHeight + metaBlockHeight);
         canvas.width = w * scale;
         canvas.height = h * scale;
         ctx.scale(scale, scale);
@@ -985,22 +1030,20 @@ document.addEventListener("DOMContentLoaded", async () => {
         // Title (if exists)
         if (cleanTitle) {
             ctx.fillStyle = '#ffffff';
-            ctx.font = `bold ${shortNote ? 30 : 22}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
-            const titleLines = wrapText(ctx, cleanTitle, w - 60);
+            ctx.font = `bold ${titleFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
             titleLines.forEach(line => {
                 ctx.fillText(line, 30, y);
-                y += shortNote ? 36 : 28;
+                y += titleLineHeight;
             });
-            y += shortNote ? 12 : 8;
+            y += compactNote ? 16 : shortNote ? 12 : 8;
         }
 
         // Content
         ctx.fillStyle = '#b0b3b8';
-        ctx.font = `${shortNote ? 24 : 16}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
-        const contentLines = wrapText(ctx, cleanContent, w - 60, 6); // max 6 lines
+        ctx.font = `${contentFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
         contentLines.forEach(line => {
             ctx.fillText(line, 30, y);
-            y += shortNote ? 34 : 24;
+            y += contentLineHeight;
         });
 
         // Divider
@@ -1026,12 +1069,14 @@ document.addEventListener("DOMContentLoaded", async () => {
         drawThoughtsSpark(ctx, w - 38, y - 5, '#1d9bf0');
 
         // Hashtags at bottom
-        const hashtags = (post.text.match(/#\w+/g) || []).slice(0, SHARE_IMAGE_LIMITS.maxHashtags);
         if (hashtags.length > 0) {
             y += 24;
             ctx.fillStyle = '#1d9bf0';
             ctx.font = '12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-            ctx.fillText(hashtags.join('  '), 30, y);
+            hashtagLines.forEach(line => {
+                ctx.fillText(line, 30, y);
+                y += 18;
+            });
         }
 
         return canvas;
@@ -1056,24 +1101,62 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     function wrapText(ctx, text, maxWidth, maxLines) {
-        const words = text.split(' ');
         const lines = [];
-        let currentLine = '';
+        const paragraphs = String(text || "").split(/\r?\n/);
 
-        for (const word of words) {
-            const testLine = currentLine ? currentLine + ' ' + word : word;
-            if (ctx.measureText(testLine).width > maxWidth && currentLine) {
-                lines.push(currentLine);
-                currentLine = word;
-                if (maxLines && lines.length >= maxLines) {
-                    lines[lines.length - 1] += '...';
-                    return lines;
+        const trimToMaxLines = () => {
+            if (!maxLines || lines.length < maxLines) return false;
+            lines[maxLines - 1] = `${lines[maxLines - 1].replace(/\.*$/, '')}...`;
+            lines.length = maxLines;
+            return true;
+        };
+
+        const pushLine = (line) => {
+            lines.push(line);
+            return trimToMaxLines();
+        };
+
+        const breakLongWord = (word) => {
+            const chunks = [];
+            let chunk = "";
+            Array.from(word).forEach(char => {
+                const testChunk = chunk + char;
+                if (ctx.measureText(testChunk).width > maxWidth && chunk) {
+                    chunks.push(chunk);
+                    chunk = char;
+                } else {
+                    chunk = testChunk;
                 }
-            } else {
-                currentLine = testLine;
+            });
+            if (chunk) chunks.push(chunk);
+            return chunks;
+        };
+
+        for (const paragraph of paragraphs) {
+            if (!paragraph.trim()) {
+                if (pushLine("")) return lines;
+                continue;
             }
+
+            let currentLine = "";
+            const words = paragraph.trim().split(/\s+/);
+
+            for (const word of words) {
+                const chunks = ctx.measureText(word).width > maxWidth ? breakLongWord(word) : [word];
+                for (const chunk of chunks) {
+                    const testLine = currentLine ? `${currentLine} ${chunk}` : chunk;
+                    if (ctx.measureText(testLine).width > maxWidth && currentLine) {
+                        if (pushLine(currentLine)) return lines;
+                        currentLine = chunk;
+                    } else {
+                        currentLine = testLine;
+                    }
+                }
+            }
+
+            if (currentLine && pushLine(currentLine)) return lines;
         }
-        if (currentLine) lines.push(currentLine);
+
         return lines;
     }
 
@@ -1504,10 +1587,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         langKeys.forEach(lang => {
             const langContainer = document.createElement("div");
-            langContainer.className = "flex justify-between items-center mb-2";
+            langContainer.className = "language-choice-row";
+            if (!originalLanguageData[lang]) langContainer.classList.add("is-custom-language");
 
             const button = document.createElement("button");
-            button.className = "language-button text-left flex-1";
+            button.className = "language-button";
             button.textContent = languages[lang].name || lang;
             Object.assign(button.style, { "-webkit-tap-highlight-color": "transparent" });
             button.addEventListener("click", () => {
@@ -1524,27 +1608,18 @@ document.addEventListener("DOMContentLoaded", async () => {
             });
 
             const deleteButton = document.createElement("button");
+            deleteButton.type = "button";
             deleteButton.innerHTML = `
-                <svg class="w-5 h-5" viewBox="0 0 24 24" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M5 6h14l-1 14H6L5 6z"/>
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M4 7h16"/>
+                    <path d="M10 11v6"/>
+                    <path d="M14 11v6"/>
+                    <path d="M9 7V5.75A1.75 1.75 0 0 1 10.75 4h2.5A1.75 1.75 0 0 1 15 5.75V7"/>
+                    <path d="M6.5 7 7.4 19a2 2 0 0 0 2 1.85h5.2a2 2 0 0 0 2-1.85L17.5 7"/>
                 </svg>
             `;
-            Object.assign(deleteButton.style, {
-                marginLeft: "8px",
-                width: "28px",
-                height: "36px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                background: "transparent",
-                borderRadius: "50%",
-                padding: "0",
-                border: "none",
-                cursor: "pointer",
-                transition: "background-color 0.3s ease",
-                "-webkit-tap-highlight-color": "transparent"
-            });
-            deleteButton.className = "hover:bg-[rgba(255,0,0,0.2)]";
+            Object.assign(deleteButton.style, { "-webkit-tap-highlight-color": "transparent" });
+            deleteButton.className = "language-delete-button";
             deleteButton.title = texts.deleteButton || "Delete";
             deleteButton.addEventListener("click", () => {
                 throttledPlaySound('/sounds/tone.ogg');
@@ -1805,7 +1880,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (storedPendingUpdateVersion && !pendingUpdateVersion) localStorage.removeItem(PENDING_UPDATE_VERSION_KEY);
         const showZoomSettings = !isPC();
         const zoomSettingsRow = showZoomSettings ? `
-                        <div class="settings-row settings-row-control">
+                        <div class="settings-row settings-row-control settings-menu-row" data-settings-icon="zoom">
                             <div>
                                 <strong>${textFor("pageZoomTitle", "Page Zoom")}</strong>
                                 <span>${isZoomEnabled ? textFor("pageZoomOn", "Browser zoom is available when you need larger text.") : textFor("pageZoomOff", "Kept locked for an app-like layout on this device.")}</span>
@@ -1840,14 +1915,14 @@ document.addEventListener("DOMContentLoaded", async () => {
                             <p>${textFor("settingsBackupRecovery", "Backup and recovery")}</p>
                             <span>${textFor("settingsBackupRecoveryTagline", "Keep notes portable and recover from mistakes.")}</span>
                         </div>
-                        <div class="settings-row settings-row-control">
+                        <div class="settings-row settings-row-control settings-menu-row" data-settings-icon="export">
                             <div>
                                 <strong>${textFor("settingsExportBackup", "Export backup")}</strong>
                                 <span data-backup-health></span>
                             </div>
                             <button type="button" data-export-settings-secondary>${textFor("exportButton", "Export")}</button>
                         </div>
-                        <div class="settings-row settings-row-control">
+                        <div class="settings-row settings-row-control settings-menu-row" data-settings-icon="trash">
                             <div>
                                 <strong>${textFor("settingsRecentlyDeleted", "Recently Deleted")}</strong>
                                 <span>${deletedText}</span>
@@ -1857,9 +1932,12 @@ document.addEventListener("DOMContentLoaded", async () => {
                                 <button type="button" data-clear-deleted ${recycleCount ? "" : "disabled"}>${textFor("settingsClear", "Clear")}</button>
                             </div>
                         </div>
-                        <div class="settings-actions-grid">
+                        <div class="settings-row settings-row-control settings-menu-row" data-settings-icon="import">
+                            <div>
+                                <strong>${textFor("importButton", "Import")}</strong>
+                                <span>${textFor("settingsImportTagline", "Bring notes back from a Thoughts backup file.")}</span>
+                            </div>
                             <button type="button" data-import-settings>${textFor("importButton", "Import")}</button>
-                            <button type="button" data-export-settings>${textFor("exportCopyButton", "Export copy")}</button>
                         </div>
                     </section>
                     <section class="settings-group">
@@ -1869,6 +1947,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                         </div>
                         <div class="settings-actions-grid">
                             <button type="button" data-language-settings>${textFor("settingsChooseLanguage", "Choose language")}</button>
+                            <button type="button" data-language-store>${textFor("settingsLanguageStore", "Language store")}</button>
                             <button type="button" data-upload-language-settings>${textFor("settingsUploadLanguage", "Upload language")}</button>
                         </div>
                     </section>
@@ -1878,14 +1957,14 @@ document.addEventListener("DOMContentLoaded", async () => {
                             <span>${textFor("settingsExperienceTagline", "Quiet optional details that stay out of your writing.")}</span>
                         </div>
 ${zoomSettingsRow}
-                        <label class="settings-row settings-toggle">
+                        <label class="settings-row settings-toggle settings-menu-row" data-settings-icon="spark">
                             <div>
                                 <strong>${textFor("settingsCelebrations", "Celebrations")}</strong>
                                 <span>${textFor("settingsCelebrationsTagline", "Small visual rewards after milestones. Off by default.")}</span>
                             </div>
                             <input class="ios-switch" type="checkbox" data-celebrations-toggle ${celebrationsEnabled ? "checked" : ""}>
                         </label>
-                        <label class="settings-row settings-toggle">
+                        <label class="settings-row settings-toggle settings-menu-row" data-settings-icon="sound">
                             <div>
                                 <strong>${textFor("settingsSoundEffects", "Sound Effects")}</strong>
                                 <span>${textFor("settingsSoundEffectsTagline", "Soft interface sounds for feedback. Off by default.")}</span>
@@ -1894,7 +1973,7 @@ ${zoomSettingsRow}
                         </label>
                     </section>
                     <section class="settings-group">
-                        <div class="settings-row settings-row-control">
+                        <div class="settings-row settings-row-control settings-menu-row" data-settings-icon="install">
                             <div>
                                 <strong>${textFor("settingsInstallThoughts", "Install Thoughts")}</strong>
                                 <span>${textFor("settingsInstallThoughtsTagline", "Launch faster from your home screen and keep offline access close.")}</span>
@@ -1904,7 +1983,7 @@ ${zoomSettingsRow}
                     </section>
                     ${pendingUpdateVersion ? `
                     <section class="settings-group settings-update-card">
-                        <div class="settings-row settings-row-control">
+                        <div class="settings-row settings-row-control settings-menu-row" data-settings-icon="update">
                             <div>
                                 <strong>${textFor("settingsUpdateAvailable", "Update available")}</strong>
                                 <span>${textFor("settingsUpdateAvailableTagline", "Version {version} is ready. Install now and reload when you choose.", { version: pendingUpdateVersion })}</span>
@@ -1914,7 +1993,7 @@ ${zoomSettingsRow}
                     </section>
                     ` : `
                     <section class="settings-group settings-check-update-card">
-                        <div class="settings-row settings-row-control">
+                        <div class="settings-row settings-row-control settings-menu-row" data-settings-icon="update">
                             <div>
                                 <strong data-update-check-title>${textFor("settingsCheckUpdates", "Check for updates")}</strong>
                                 <span data-update-check-status>${textFor("settingsCurrentVersion", "Current version {version}", { version: APP_VERSION })}</span>
@@ -1924,12 +2003,19 @@ ${zoomSettingsRow}
                     </section>
                     `}
                     <section class="settings-group settings-about-card">
-                        <div class="settings-row settings-row-control">
+                        <div class="settings-row settings-row-control settings-menu-row settings-link-row" data-open-guides data-settings-icon="guide">
+                            <div>
+                                <strong>${textFor("settingsGuidesTitle", "Guides")}</strong>
+                                <span>${textFor("settingsGuidesTagline", "Markdown, shortcuts, backup, sharing, and daily use tips.")}</span>
+                            </div>
+                        </div>
+                    </section>
+                    <section class="settings-group settings-about-card">
+                        <div class="settings-row settings-row-control settings-menu-row settings-link-row" data-open-about data-settings-icon="info">
                             <div>
                                 <strong>${textFor("settingsAboutThoughts", "About Thoughts")}</strong>
                                 <span>${textFor("settingsAboutTagline", "Privacy, offline details, release build, and creator links.")}</span>
                             </div>
-                            <button type="button" data-open-about>${textFor("settingsOpen", "Open")}</button>
                         </div>
                     </section>
                 </div>
@@ -1943,7 +2029,6 @@ ${zoomSettingsRow}
         panel.addEventListener("click", event => {
             if (event.target === panel) closeModalOverlay(panel);
         });
-        panel.querySelector("[data-export-settings]").addEventListener("click", exportNotes);
         panel.querySelector("[data-export-settings-secondary]").addEventListener("click", exportNotes);
         panel.querySelector("[data-import-settings]").addEventListener("click", () => document.getElementById("import-notes")?.click());
         panel.querySelector("[data-upload-language-settings]").addEventListener("click", () => document.getElementById("upload-language")?.click());
@@ -1951,6 +2036,7 @@ ${zoomSettingsRow}
             closeModalOverlay(panel);
             showLanguageSelection(false);
         });
+        panel.querySelector("[data-language-store]").addEventListener("click", openLanguageStorePanel);
         panel.querySelector("[data-zoom-settings]")?.addEventListener("click", () => {
             toggleZoom();
             closeModalOverlay(panel);
@@ -1999,24 +2085,29 @@ ${zoomSettingsRow}
         });
         panel.querySelector("[data-check-update]")?.addEventListener("click", async event => {
             const button = event.currentTarget;
+            const updateRow = button.closest("[data-settings-icon='update']");
             const title = panel.querySelector("[data-update-check-title]");
             const status = panel.querySelector("[data-update-check-status]");
             const originalTitle = title.textContent;
             const originalStatus = status.textContent;
             button.disabled = true;
             button.classList.add("is-checking");
+            updateRow?.classList.add("is-checking-icon");
             button.textContent = textFor("settingsChecking", "Checking...");
             const startedAt = Date.now();
-            const result = await checkForUpdates({ forceNotify: true });
+            const result = await checkForUpdates({ forceNotify: true, suppressNotify: true });
             const elapsed = Date.now() - startedAt;
             if (elapsed < 5000) await new Promise(resolve => setTimeout(resolve, 5000 - elapsed));
             if (result.status === "available") {
+                updateRow?.classList.remove("is-checking-icon");
                 closeModalOverlay(panel);
+                showUpdateNotification(result.version, getCurrentDraftForUpdate, saveDraftForUpdate);
                 return;
             }
             title.textContent = textFor("settingsUpToDate", "You're up to date!");
             status.textContent = result.status === "offline" ? textFor("settingsOfflineUpdate", "Connect to the internet and try again.") : textFor("settingsNoUpdate", "No update is available.");
             button.classList.remove("is-checking");
+            updateRow?.classList.remove("is-checking-icon");
             button.classList.add("is-update-current");
             button.textContent = textFor("settingsDone", "Done");
             setTimeout(() => {
@@ -2028,7 +2119,238 @@ ${zoomSettingsRow}
                 button.textContent = textFor("settingsCheck", "Check");
             }, 45000);
         });
+        panel.querySelector("[data-open-guides]")?.addEventListener("click", openGuidesPanel);
         panel.querySelector("[data-open-about]")?.addEventListener("click", openAboutPanel);
+    }
+
+    function normalizeLanguageStoreItems(payload) {
+        const normalizeLanguageKey = value => String(value || "")
+            .toLowerCase()
+            .replace(/\.json$/i, "")
+            .replace(/^languages[/-]/, "")
+            .replace(/[_\s]+/g, "-")
+            .replace(/[^a-z0-9-]/g, "");
+        const nativeNameFor = item => {
+            const candidates = [
+                item.nativeName,
+                item.native,
+                item.localName,
+                item.displayNativeName,
+                item.native_language,
+                item.nativeLanguage
+            ].filter(Boolean);
+            if (candidates.length) return candidates[0];
+            const keyCandidates = [item.id, item.key, item.slug, item.code, item.name, item.title, item.language, item.file, item.fileName, item.filename, item.path]
+                .map(normalizeLanguageKey);
+            for (const key of keyCandidates) {
+                if (LANGUAGE_NATIVE_NAMES[key]) return LANGUAGE_NATIVE_NAMES[key];
+                const compactKey = key.replace(/-/g, "");
+                if (LANGUAGE_NATIVE_NAMES[compactKey]) return LANGUAGE_NATIVE_NAMES[compactKey];
+            }
+            return item.name || item.title || item.language || item.id || "";
+        };
+        const formatStoreSize = size => {
+            if (size === undefined || size === null || size === "") return "";
+            if (typeof size === "number") {
+                if (size < 1024) return `${size} B`;
+                if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`;
+                return `${(size / 1024 / 1024).toFixed(1)} MB`;
+            }
+            return String(size);
+        };
+        const rawItems = Array.isArray(payload)
+            ? payload
+            : Array.isArray(payload?.languages)
+                ? payload.languages
+                : Array.isArray(payload?.items)
+                    ? payload.items
+                    : payload && typeof payload === "object"
+                        ? Object.entries(payload)
+                            .filter(([key]) => !["appId", "version", "updated"].includes(key))
+                            .map(([id, value]) => {
+                                if (typeof value === "string") return { id, name: id, file: value };
+                                return { id, ...(typeof value === "object" ? value : { name: String(value) }) };
+                            })
+                        : [];
+
+        return rawItems
+            .map((item, index) => {
+                const id = item.id || item.key || item.slug || item.code || `language-${index + 1}`;
+                const name = item.name || item.title || item.language || id;
+                const nativeName = nativeNameFor(item) || name;
+                const file = item.file || item.fileName || item.filename || item.path || item.json;
+                const url = item.url || item.downloadUrl || item.rawUrl || item.href || file;
+                const absoluteUrl = url
+                    ? (/^https?:\/\//i.test(url) ? url : new URL(String(url).replace(/^\/+/, ""), `${LANGUAGE_STORE_RAW_BASE_URL}/`).toString())
+                    : "";
+                const size = formatStoreSize(item.size || item.fileSize || item.filesize || item.bytes || item.length || "");
+                const price = item.price || item.cost || (item.free === false ? textFor("languageStorePaidPill", "Paid") : textFor("languageStoreFreePill", "Free"));
+                return {
+                    id,
+                    name,
+                    nativeName,
+                    description: item.description || item.tagline || item.locale || textFor("languageStoreDefaultDescription", "Download and use this language in Thoughts."),
+                    size,
+                    price,
+                    url: absoluteUrl,
+                    pack: item.data || item.pack || item.languagePack || null
+                };
+            })
+            .filter(item => item.url || item.pack);
+    }
+
+    async function fetchLanguageStoreItems() {
+        try {
+            const response = await fetch(`${LANGUAGE_STORE_MANIFEST_URL}?t=${Date.now()}`, { cache: "no-store" });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            return normalizeLanguageStoreItems(await response.json());
+        } catch (err) {
+            console.warn("Language store source failed:", LANGUAGE_STORE_MANIFEST_URL, err);
+        }
+        return [];
+    }
+
+    function normalizeLanguagePack(customLangData, fallbackName = "language") {
+        if (!isThoughtsLanguagePack(customLangData)) return null;
+        if (customLangData.name && customLangData.appId) {
+            const { appId, ...languagePack } = customLangData;
+            return { [customLangData.name || fallbackName]: languagePack };
+        }
+        return Object.keys(customLangData)
+            .filter(key => key !== "appId")
+            .reduce((obj, key) => {
+                obj[key] = customLangData[key];
+                return obj;
+            }, {});
+    }
+
+    async function installLanguagePackFromData(customLangData, fallbackName = "language") {
+        const languagesToAdd = normalizeLanguagePack(customLangData, fallbackName);
+        if (!languagesToAdd || Object.keys(languagesToAdd).length === 0) {
+            throw new Error("Invalid Thoughts language pack");
+        }
+        Object.assign(languageData, languagesToAdd);
+        await saveLanguagesToCache();
+        const firstLang = Object.keys(languagesToAdd)[0];
+        selectedLanguage = firstLang;
+        applyLanguage(firstLang);
+        return firstLang;
+    }
+
+    async function installLanguageFromStore(item, button) {
+        const originalText = button.textContent;
+        button.disabled = true;
+        button.textContent = textFor("languageStoreInstalling", "Installing...");
+        try {
+            let pack = item.pack;
+            if (!pack) {
+                const response = await fetch(`${item.url}${item.url.includes("?") ? "&" : "?"}t=${Date.now()}`, { cache: "no-store" });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                pack = await response.json();
+            }
+            const installedName = await installLanguagePackFromData(pack, item.id);
+            createNotification(textFor("languageStoreInstalled", "{name} installed.", { name: installedName }), { duration: 1800 });
+            button.textContent = textFor("languageStoreInstalledButton", "Installed");
+        } catch (err) {
+            console.error("Language store install failed:", err);
+            throttledPlaySound('/sounds/error.ogg');
+            button.disabled = false;
+            button.textContent = originalText;
+            createNotification(textFor("languageStoreInstallFailed", "Could not install this language."), { background: "#ef4444", duration: 2200 });
+        }
+    }
+
+    function formatBytes(bytes) {
+        const value = Number(bytes);
+        if (!Number.isFinite(value) || value <= 0) return "";
+        if (value < 1024) return `${value} B`;
+        if (value < 1024 * 1024) return `${Math.round(value / 1024)} KB`;
+        return `${(value / 1024 / 1024).toFixed(1)} MB`;
+    }
+
+    async function hydrateLanguageStoreSizes(items, panel) {
+        const sizePills = panel.querySelectorAll("[data-language-size-index]");
+        await Promise.all(Array.from(sizePills).map(async pill => {
+            const item = items[Number(pill.dataset.languageSizeIndex)];
+            if (!item?.url || item.size) return;
+            try {
+                const response = await fetch(item.url, { method: "HEAD", cache: "no-store" });
+                const size = formatBytes(response.headers.get("content-length"));
+                if (size && document.body.contains(panel)) pill.textContent = size;
+            } catch (err) {
+                console.warn("Language size lookup failed:", item.url, err);
+            }
+        }));
+    }
+
+    async function openLanguageStorePanel() {
+        const existing = document.getElementById("language-store-overlay");
+        if (existing) closeModalOverlay(existing);
+        const panel = document.createElement("div");
+        panel.id = "language-store-overlay";
+        panel.className = "settings-overlay";
+        panel.innerHTML = `
+            <div class="settings-panel language-store-panel" role="dialog" aria-modal="true" aria-labelledby="language-store-title">
+                <div class="settings-panel-header">
+                    <div>
+                        <p class="panel-kicker">${texts.appName || "Thoughts"}</p>
+                        <h2 id="language-store-title">${textFor("languageStoreTitle", "Language store")}</h2>
+                        <p class="panel-subtitle">${textFor("languageStoreSubtitle", "Browse webstore language packs and install them directly.")}</p>
+                    </div>
+                    <button type="button" data-close-language-store aria-label="${textFor("closeLanguageStoreLabel", "Close language store")}">&times;</button>
+                </div>
+                <div class="settings-content">
+                    <section class="settings-group language-store-hero">
+                        <strong>${textFor("languageStoreWebTitle", "Thoughts Web Store")}</strong>
+                        <span>${textFor("languageStoreWebSubtitle", "Browse curated language packs and install them directly into Thoughts.")}</span>
+                        <a href="${LANGUAGE_STORE_WEB_URL}" target="_blank" rel="noopener noreferrer">${textFor("languageStoreOpenWeb", "Open webstore")}</a>
+                    </section>
+                    <section class="settings-group language-store-list" data-language-store-list>
+                        <p class="settings-eyebrow">${textFor("languageStoreLoading", "Loading languages...")}</p>
+                    </section>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(panel);
+        const storePanel = panel.querySelector(".settings-panel");
+        lockPageScrollForModal(panel, storePanel);
+        panel.querySelector("[data-close-language-store]").addEventListener("click", () => closeModalOverlay(panel));
+        panel.addEventListener("click", event => {
+            if (event.target === panel) closeModalOverlay(panel);
+        });
+
+        const list = panel.querySelector("[data-language-store-list]");
+        const items = await fetchLanguageStoreItems();
+        if (!document.body.contains(panel)) return;
+        if (!items.length) {
+            list.innerHTML = `
+                <p class="settings-eyebrow">${textFor("languageStoreUnavailableTitle", "Store list unavailable")}</p>
+                <span>${textFor("languageStoreUnavailableMessage", "Open the webstore to download a language pack, then use Upload language from Settings.")}</span>
+            `;
+            return;
+        }
+        list.innerHTML = items.map((item, index) => `
+            <div class="language-store-item">
+                <div class="language-store-main">
+                    <div class="language-store-title-row">
+                        <strong>${escapeHTML(item.name)}</strong>
+                        <span>${escapeHTML(item.nativeName)}</span>
+                    </div>
+                    <p>${escapeHTML(item.description)}</p>
+                    <div class="language-store-pills">
+                        <span ${item.size ? "" : `data-language-size-index="${index}"`}>${escapeHTML(item.size || textFor("languageStoreUnknownSize", "Size unknown"))}</span>
+                        <span>${escapeHTML(item.price || textFor("languageStoreFreePill", "Free"))}</span>
+                    </div>
+                </div>
+                <div class="language-store-actions">
+                    <button type="button" data-language-store-install="${index}">${textFor("languageStoreInstall", "Install")}</button>
+                </div>
+            </div>
+        `).join("");
+        list.querySelectorAll("[data-language-store-install]").forEach(button => {
+            button.addEventListener("click", () => installLanguageFromStore(items[Number(button.dataset.languageStoreInstall)], button));
+        });
+        hydrateLanguageStoreSizes(items, panel);
     }
 
     function renderPostSkeletons(count = 4) {
@@ -2145,6 +2467,90 @@ ${zoomSettingsRow}
         });
     }
 
+    function openGuidesPanel() {
+        const existing = document.getElementById("guides-panel-overlay");
+        if (existing) closeModalOverlay(existing);
+        const desktopShortcuts = [
+            ["Ctrl/Cmd + N", textFor("guideShortcutNew", "Focus the note input")],
+            ["Ctrl/Cmd + Enter", textFor("guideShortcutSave", "Save the current note")],
+            ["Esc", textFor("guideShortcutEscape", "Cancel edit or clear search")],
+            ["#tag", textFor("guideShortcutTagSearch", "Search or filter by hashtag")],
+            ["@title", textFor("guideShortcutTitleSearch", "Find notes by title")]
+        ];
+        const mobileShortcuts = [
+            [textFor("guideMobileNewTitle", "Bottom + button"), textFor("guideMobileNew", "Jump to the note input")],
+            [textFor("guideMobileShareTitle", "Share action"), textFor("guideMobileShare", "Share notes as text, image, or clipboard copy")],
+            [textFor("guideMobilePinTitle", "Pin action"), textFor("guideMobilePin", "Keep one important note at the top")],
+            [textFor("guideMobileSettingsTitle", "Settings button"), textFor("guideMobileSettings", "Open backups, language, updates, guides, and About")],
+            [textFor("guideMobileBuildTitle", "Build tap"), textFor("guideMobileBuild", "Tap the build label 7 times to unlock God Mode")]
+        ];
+        const shortcutRows = (isPC() ? desktopShortcuts : mobileShortcuts)
+            .map(([label, detail]) => `<li><kbd>${escapeHTML(label)}</kbd><span>${escapeHTML(detail)}</span></li>`)
+            .join("");
+
+        const panel = document.createElement("div");
+        panel.id = "guides-panel-overlay";
+        panel.className = "settings-overlay";
+        panel.innerHTML = `
+            <div class="settings-panel about-panel guides-panel" role="dialog" aria-modal="true" aria-labelledby="guides-title">
+                <div class="settings-panel-header">
+                    <div>
+                        <p class="panel-kicker">${textFor("guidesKicker", "Guide")}</p>
+                        <h2 id="guides-title">${textFor("guidesTitle", "Use Thoughts well")}</h2>
+                        <p class="panel-subtitle">${textFor("guidesSubtitle", "Fast capture, local backups, markdown, search, sharing, and shortcuts.")}</p>
+                    </div>
+                    <button type="button" data-close-guides aria-label="${textFor("closeGuidesLabel", "Close guides")}">&times;</button>
+                </div>
+                <div class="about-copy guides-copy">
+                    <section class="about-hero">
+                        <p class="settings-eyebrow">${textFor("guideSectionCaptureEyebrow", "Capture")}</p>
+                        <h3>${textFor("guideCaptureTitle", "Write first. Organize lightly.")}</h3>
+                        <p>${textFor("guideCaptureText", "Use @title for a quick title and #hashtags for projects, memories, tasks, or themes. Drafts save quietly while you type.")}</p>
+                    </section>
+                    <section>
+                        <h3>${textFor("guideMarkdownTitle", "Markdown formats")}</h3>
+                        <ul class="guide-list">
+                            <li><kbd>**bold**</kbd><span>${textFor("guideMarkdownBold", "Bold text")}</span></li>
+                            <li><kbd>*italic*</kbd><span>${textFor("guideMarkdownItalic", "Italic text")}</span></li>
+                            <li><kbd>__underline__</kbd><span>${textFor("guideMarkdownUnderline", "Underline text")}</span></li>
+                            <li><kbd>~~strike~~</kbd><span>${textFor("guideMarkdownStrike", "Strikethrough text")}</span></li>
+                            <li><kbd>==mark==</kbd><span>${textFor("guideMarkdownMark", "Highlighted text")}</span></li>
+                            <li><kbd>\`code\`</kbd><span>${textFor("guideMarkdownCode", "Inline code")}</span></li>
+                            <li><kbd>[text](https://...)</kbd><span>${textFor("guideMarkdownLink", "Clickable links")}</span></li>
+                        </ul>
+                    </section>
+                    <section>
+                        <h3>${isPC() ? textFor("guidePcShortcutsTitle", "PC shortcuts") : textFor("guideMobileShortcutsTitle", "Mobile actions")}</h3>
+                        <ul class="guide-list">${shortcutRows}</ul>
+                    </section>
+                    <section>
+                        <h3>${textFor("guideSearchTitle", "Search")}</h3>
+                        <p>${textFor("guideSearchText", "Use #tag, @title, quoted exact phrases, or recent to quickly narrow notes.")}</p>
+                    </section>
+                    <section>
+                        <h3>${textFor("guideBackupTitle", "Backups and recovery")}</h3>
+                        <p>${textFor("guideBackupText", "Notes are stored locally in your browser. Export backups regularly, especially before clearing browser data or changing devices. Deleted notes can be restored from Recently Deleted.")}</p>
+                    </section>
+                    <section>
+                        <h3>${textFor("guideShareTitle", "Sharing")}</h3>
+                        <p>${textFor("guideShareText", "Use each note's Share action to share plain text, copy to clipboard, or generate a clean image card.")}</p>
+                    </section>
+                    <section>
+                        <h3>${textFor("guideLanguageTitle", "Languages")}</h3>
+                        <p>${textFor("guideLanguageText", "Choose a built-in language, upload a language pack, or install packs directly from the Language Store.")}</p>
+                    </section>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(panel);
+        const guidesPanel = panel.querySelector(".settings-panel");
+        lockPageScrollForModal(panel, guidesPanel);
+        panel.querySelector("[data-close-guides]").addEventListener("click", () => closeModalOverlay(panel));
+        panel.addEventListener("click", event => {
+            if (event.target === panel) closeModalOverlay(panel);
+        });
+    }
+
     function setupBottomNavigation() {
         if (document.getElementById("bottom-nav")) return;
         const nav = document.createElement("nav");
@@ -2152,14 +2558,9 @@ ${zoomSettingsRow}
         nav.className = "bottom-nav";
         nav.setAttribute("aria-label", textFor("primaryNavigationLabel", "Primary"));
         nav.innerHTML = `
-            <button type="button" data-nav-search aria-label="${textFor("searchLabel", "Search")}"></button>
-            <button type="button" data-nav-new aria-label="${textFor("newNoteLabel", "New note")}"></button>
-            <button type="button" data-nav-settings aria-label="${textFor("settingsTitle", "Settings")}"></button>
-        `;
-        nav.innerHTML = `
             <button type="button" data-nav-search aria-label="${textFor("searchLabel", "Search")}"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 4 4"/></svg></button>
             <button type="button" data-nav-new aria-label="${textFor("newNoteLabel", "New note")}"><svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg></button>
-            <button type="button" data-nav-settings aria-label="${textFor("settingsTitle", "Settings")}"><svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6V20a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-.6 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1H4a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 .6-1 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6V4a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 .6 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c.16.36.36.7.6 1h.1a2 2 0 1 1 0 4h-.1c-.24.3-.44.64-.6 1Z"/></svg></button>
+            <button type="button" data-nav-settings aria-label="${textFor("settingsTitle", "Settings")}"><svg viewBox="0 0 24 24" class="settings-sliders-icon"><path d="M5 8h5"/><path d="M14 8h5"/><circle cx="12" cy="8" r="2.25"/><path d="M5 16h9"/><path d="M18 16h1"/><circle cx="16" cy="16" r="2.25"/></svg></button>
         `;
         document.body.appendChild(nav);
         nav.querySelector("[data-nav-search]").addEventListener("click", () => elements.searchInput.focus());
@@ -2279,6 +2680,10 @@ ${zoomSettingsRow}
             localStorage.setItem("isGodMode", isGodMode.toString());
             saveLanguagesToCache(); // Asynchronous cache backup
             updateDynamicText();
+            if (elements?.postContainer) {
+                hasRenderedPostSkeleton = true;
+                renderPosts(elements.searchInput?.value?.trim() || "");
+            }
         }, 50);
         // Removed: showLanguageChangeNotification(lang); // No automatic notification here
     }
@@ -2706,7 +3111,7 @@ ${zoomSettingsRow}
         }
 
         const reader = new FileReader();
-        reader.onload = e => {
+        reader.onload = async e => {
             try {
                 const customLangData = JSON.parse(e.target.result);
                 if (!isThoughtsLanguagePack(customLangData)) {
@@ -2721,22 +3126,7 @@ ${zoomSettingsRow}
                     return;
                 }
 
-                let languagesToAdd = {};
-                if (customLangData.name) {
-                    languagesToAdd[customLangData.name || file.name.replace(".json", "")] = { ...customLangData, appId: undefined };
-                } else {
-                    languagesToAdd = Object.keys(customLangData)
-                        .filter(key => key !== "appId")
-                        .reduce((obj, key) => {
-                            obj[key] = customLangData[key];
-                            return obj;
-                        }, {});
-                }
-
-                Object.assign(languageData, languagesToAdd);
-                const firstLang = Object.keys(languagesToAdd)[0];
-                selectedLanguage = firstLang;
-                applyLanguage(firstLang); // Apply without notification
+                const firstLang = await installLanguagePackFromData(customLangData, file.name.replace(".json", ""));
 
                 // Fixed string construction
                 const baseMessage = texts.addingLanguageMessage || "Language uploaded: \"{name}\".";

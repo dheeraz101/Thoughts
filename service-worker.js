@@ -1,5 +1,5 @@
 // service-worker.js
-const CACHE_VERSION = '2.3.3';
+const CACHE_VERSION = '2.3.5';
 const CACHE_NAME = `thoughts-v${CACHE_VERSION}`;
 
 // Core assets to cache on install
@@ -67,6 +67,18 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
+  // Let external language-store/GitHub requests pass through. Do not cache opaque
+  // or failed cross-origin responses; they can break fetch with invalid Response values.
+  if (url.origin !== self.location.origin) {
+    event.respondWith(
+      fetch(event.request).catch(() => new Response('', {
+        status: 502,
+        statusText: 'External request unavailable'
+      }))
+    );
+    return;
+  }
+
   // Always go to network for manifest (needed for update detection)
   if (url.pathname === '/manifest.json') {
     event.respondWith(
@@ -112,6 +124,10 @@ self.addEventListener('fetch', (event) => {
         if (event.request.mode === 'navigate') {
           return caches.match('/offline.html');
         }
+        return new Response('', {
+          status: 504,
+          statusText: 'Offline'
+        });
       });
     })
   );

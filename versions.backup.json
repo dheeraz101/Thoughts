@@ -1,7 +1,7 @@
 {
   "note": "Backup copy of version metadata. Edit version.json first, then run npm run sync-version or npm run minify.",
-  "version": "2.3.3",
-  "buildNumber": "103102062026",
+  "version": "2.3.5",
+  "buildNumber": "140202062026",
   "buildDate": "2026-06-02",
-  "updated": "2026-06-02T00:00:00Z"
+  "updated": "2026-06-02T08:32:10Z"
 }
