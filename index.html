@@ -178,7 +178,32 @@
         </div>
     </div>
 
+    <!-- Android APK Downloads Popup -->
+    <div id="android-apk-popup" class="fixed inset-0 bg-[rgba(0,0,0,0.4)] backdrop-blur-[8px] hidden flex justify-center items-center p-4 z-[2000]" role="dialog" aria-modal="true" aria-labelledby="android-apk-title">
+        <div class="twitter-popup android-apk-sheet bg-[rgba(20,23,26,0.7)] rounded-[16px] p-6 w-full shadow-lg border border-[rgba(255,255,255,0.1)] backdrop-blur-[6px]">
+            <div class="android-apk-header">
+                <div>
+                    <p id="android-apk-title" class="mb-2 text-[1.375rem] font-bold text-white text-left md:text-[20px]">Install Android APK</p>
+                    <p id="android-apk-message" class="mb-4 text-[1rem] text-[#71767b] text-left md:text-[16px]">
+                        <strong>Android APK.</strong>
+                        Install the latest APK for Android.
+                    </p>
+                </div>
+                <button id="android-apk-close" class="android-apk-close" type="button" aria-label="Close Android APK downloads">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            <div id="android-apk-list" class="android-apk-list">
+                <div class="android-apk-state">Loading latest release APKs...</div>
+            </div>
+        </div>
+    </div>
+
     <script src="/confetti.js"></script>
     <script src="/script.min.js" defer></script>
+    <script src="/apk-releases.js" defer></script>
 </body>
 </html>

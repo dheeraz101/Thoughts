@@ -1,5 +1,5 @@
 // service-worker.js
-const CACHE_VERSION = '2.3.5';
+const CACHE_VERSION = '2.3.6';
 const CACHE_NAME = `thoughts-v${CACHE_VERSION}`;
 
 // Core assets to cache on install
@@ -9,6 +9,7 @@ const ASSETS_TO_CACHE = [
   '/styles.css',
   '/custom.min.css',
   '/script.min.js',
+  '/apk-releases.js',
   '/confetti.js',
   '/manifest.json',
   '/languages.json',
