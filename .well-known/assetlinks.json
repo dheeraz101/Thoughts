@@ -3,7 +3,7 @@
     "relation": ["delegate_permission/common.handle_all_urls"],
     "target": {
       "namespace": "android_app",
-      "package_name": "com.dheeraj.thoughts",
+      "package_name": "com.dheeraz.thoughts",
       "sha256_cert_fingerprints": [
         "45:CD:F8:8B:AA:58:F0:B3:48:C0:FB:8F:3C:2A:C0:1E:40:D0:50:07:42:64:07:9C:01:95:67:3A:AF:EA:83:3B"
       ]
