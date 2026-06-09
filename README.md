@@ -13,11 +13,11 @@ Badges: [Visit the live site](https://writethoughts.netlify.app)
 
 ## ☕ Support
 
-If NoteKar helps you, you can support the project here:
+If Thoughts helps you, you can support the project here:
 
 [![Buy Me a Coffee](https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png)](https://www.buymeacoffee.com/dheeraz)
 
-Your support helps keep NoteKar free, offline-first, and actively maintained.
+Your support helps keep Thoughts free, offline-first, and actively maintained.
 
 ---
 
