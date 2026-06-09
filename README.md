@@ -9,6 +9,18 @@ Badges: [Visit the live site](https://writethoughts.netlify.app)
 - Fast static assets (minified JS/CSS)
 - Small footprint: no backend required for core functionality
 
+---
+
+## ☕ Support
+
+If NoteKar helps you, you can support the project here:
+
+[![Buy Me a Coffee](https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png)](https://www.buymeacoffee.com/dheeraz)
+
+Your support helps keep NoteKar free, offline-first, and actively maintained.
+
+---
+
 ## Table of Contents
 - Overview
 - Features
